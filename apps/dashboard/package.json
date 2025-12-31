@@ -1,0 +1,11 @@
+{
+  "name": "@guardrail-sim/dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Next.js dashboard for policy editing and simulation results",
+  "scripts": {
+    "dev": "echo \"Dashboard not yet implemented\"",
+    "build": "echo \"Dashboard not yet implemented\"",
+    "test": "echo \"No tests yet\""
+  }
+}
