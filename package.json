@@ -2,11 +2,17 @@
   "name": "guardrail-sim",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9.15.1",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "pnpm -r dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

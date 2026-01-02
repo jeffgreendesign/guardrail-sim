@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@guardrail-sim/policy-engine": "workspace:*"

@@ -11,6 +11,7 @@
 **Guardrail-Sim MVP uses synthetic data generation only — no Shopify integration required.**
 
 This document provides B2B commerce domain knowledge for:
+
 - Building realistic buyer personas
 - Designing authentic discount negotiation scenarios
 - Credible interview narratives

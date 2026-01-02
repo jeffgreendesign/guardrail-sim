@@ -6,12 +6,12 @@ Policy simulation engine for AI agent pricing governance in B2B commerce.
 
 ## Project Status
 
-| Component | Status | Description |
-|-----------|--------|-------------|
+| Component     | Status       | Description                                          |
+| ------------- | ------------ | ---------------------------------------------------- |
 | Policy Engine | **Complete** | Deterministic rule evaluation with json-rules-engine |
-| MCP Server | Planned | MCP tool interface for AI agents |
-| Simulation | Planned | LLM buyer personas and negotiation loops |
-| Dashboard | Planned | Policy editor and results viewer |
+| MCP Server    | Planned      | MCP tool interface for AI agents                     |
+| Simulation    | Planned      | LLM buyer personas and negotiation loops             |
+| Dashboard     | Planned      | Policy editor and results viewer                     |
 
 ## Quick Start
 
@@ -36,12 +36,13 @@ const result = await engine.evaluate(
   0.12
 );
 
-console.log(result.approved);    // true or false
-console.log(result.violations);  // array of policy violations
+console.log(result.approved); // true or false
+console.log(result.violations); // array of policy violations
 console.log(result.triggeredRules); // which rules fired
 ```
 
 **Default policy rules:**
+
 - Margin floor: 15% minimum margin
 - Max discount: 25% cap
 - Volume tiers: 10% base, 15% for qty >= 100
@@ -72,12 +73,12 @@ console.log(result.triggeredRules); // which rules fired
 
 ## Packages
 
-| Package | Description | Status |
-|---------|-------------|--------|
+| Package                        | Description                                             | Status       |
+| ------------------------------ | ------------------------------------------------------- | ------------ |
 | `@guardrail-sim/policy-engine` | Deterministic policy evaluation using json-rules-engine | **Complete** |
-| `@guardrail-sim/mcp-server` | MCP server exposing `evaluate_policy` tool | Planned |
-| `@guardrail-sim/simulation` | LLM buyer personas and negotiation loop runner | Planned |
-| `apps/dashboard` | Next.js policy editor and results viewer | Planned |
+| `@guardrail-sim/mcp-server`    | MCP server exposing `evaluate_policy` tool              | Planned      |
+| `@guardrail-sim/simulation`    | LLM buyer personas and negotiation loop runner          | Planned      |
+| `apps/dashboard`               | Next.js policy editor and results viewer                | Planned      |
 
 ## Commands
 
