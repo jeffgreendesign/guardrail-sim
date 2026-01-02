@@ -1,8 +1,28 @@
 # Guardrail-Sim
 
-Policy simulation engine for AI agent pricing governance in B2B commerce.
+[![CI](https://github.com/jeffgreendesign/guardrail-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/jeffgreendesign/guardrail-sim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
 
-> "Everyone builds the gas pedal (AI agents that sell). This is the brakes and steering — before letting an LLM negotiate discounts, simulate what happens when it gives away margin at scale."
+**Test your AI pricing policies before they cost you millions.**
+
+Everyone's building the gas pedal—AI agents that negotiate, discount, and close deals. But what happens when your LLM gives away margin at scale? Guardrail-Sim is the brakes and steering.
+
+## The Problem
+
+You're deploying an AI sales agent. It can negotiate discounts. But:
+
+- **Will it honor your margin floors?** Or give 40% off to anyone who asks nicely?
+- **How does it behave at scale?** One bad discount is a rounding error. 10,000 is a crisis.
+- **Can you prove compliance?** When finance asks, "what are the rules?", show them—don't guess.
+
+## The Solution
+
+Guardrail-Sim lets you **simulate thousands of adversarial buyer interactions** against your pricing policies before going live. Define rules. Spawn LLM buyer personas that try to game them. See what breaks.
+
+```
+Define Policy → Simulate Attacks → Fix Gaps → Deploy with Confidence
+```
 
 ## Project Status
 
@@ -103,6 +123,14 @@ pnpm --filter @guardrail-sim/policy-engine test    # Test single package
 - [Architecture Decisions](docs/ARCHITECTURE.md) — Technical decisions with rationale
 - [MCP Patterns](docs/MCP-PATTERNS.md) — MCP implementation reference (for future work)
 - [Shopify Context](docs/SHOPIFY-CONTEXT.md) — B2B commerce domain knowledge
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- Development setup instructions
+- How to run tests locally
+- Pull request guidelines
 
 ## License
 

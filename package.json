@@ -1,5 +1,6 @@
 {
   "name": "guardrail-sim",
+  "description": "Policy simulation engine for AI agent pricing governance. Test your AI pricing policies before they cost you millions.",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.1",
