@@ -6,6 +6,7 @@
  * Provides deterministic policy evaluation through the evaluate_policy tool.
  */
 
+import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -394,8 +395,12 @@ async function main(): Promise<void> {
   });
 }
 
-// Run if executed directly
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+// Run only when executed directly (not when imported as a library)
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
+  main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}
