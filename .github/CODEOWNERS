@@ -1,0 +1,11 @@
+# Default owners for everything in the repo
+* @jeffgreendesign
+
+# Package-specific ownership
+/packages/policy-engine/ @jeffgreendesign
+/packages/mcp-server/ @jeffgreendesign
+/packages/simulation/ @jeffgreendesign
+/apps/dashboard/ @jeffgreendesign
+
+# CI/CD and tooling
+/.github/ @jeffgreendesign

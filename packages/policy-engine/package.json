@@ -5,9 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "test": "tsc && node --test --experimental-strip-types test/*.test.ts"
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "test": "tsc && node --test --experimental-strip-types test/*.test.ts",
+    "test:coverage": "tsc && c8 --reporter=text --reporter=lcov node --test --experimental-strip-types test/*.test.ts"
   },
   "dependencies": {
     "json-rules-engine": "^6.5.0"
