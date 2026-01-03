@@ -21,9 +21,7 @@ You're deploying an AI sales agent. It can negotiate discounts. But:
 
 Guardrail-Sim lets you **simulate thousands of adversarial buyer interactions** against your pricing policies before going live. Define rules. Spawn LLM buyer personas that try to game them. See what breaks.
 
-```
-Define Policy → Simulate Attacks → Fix Gaps → Deploy with Confidence
-```
+**Define Policy → Simulate Attacks → Fix Gaps → Deploy with Confidence**
 
 ## Project Status
 

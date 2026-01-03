@@ -8,7 +8,7 @@ Guardrail-Sim is a policy simulation engine for AI agent pricing governance in B
 
 ## Repository Structure
 
-```
+```text
 apps/
   dashboard/           # Next.js 14 App Router + shadcn/ui + Tailwind
 

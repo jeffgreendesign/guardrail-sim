@@ -156,18 +156,18 @@ interface DraftOrder {
 
 ### Relevant API Endpoints
 
-```typescript
+```text
 // Create Draft Order
-POST / admin / api / 2024 - 01 / draft_orders.json;
+POST /admin/api/2024-01/draft_orders.json
 
 // Update Draft Order (add discount)
-PUT / admin / api / 2024 - 01 / draft_orders / { id }.json;
+PUT /admin/api/2024-01/draft_orders/{id}.json
 
 // Complete Draft Order (convert to real order)
-PUT / admin / api / 2024 - 01 / draft_orders / { id } / complete.json;
+PUT /admin/api/2024-01/draft_orders/{id}/complete.json
 
 // Send Invoice
-POST / admin / api / 2024 - 01 / draft_orders / { id } / send_invoice.json;
+POST /admin/api/2024-01/draft_orders/{id}/send_invoice.json
 ```
 
 ### Example: AI Agent Creating Negotiated Draft Order
@@ -271,11 +271,11 @@ Guardrail-Sim prevents this by evaluating total discount against margin floor.
 
 ---
 
-## Shopify Commerce for Agents (2025)
+## Shopify Commerce for Agents (Winter 2026)
 
 ### What Shopify Announced
 
-In late 2025, Shopify launched "Commerce for Agents" — infrastructure for AI agents to interact with Shopify stores:
+In Winter 2026, Shopify launched "Commerce for Agents" — infrastructure for AI agents to interact with Shopify stores:
 
 **Components:**
 

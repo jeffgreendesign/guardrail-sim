@@ -13,7 +13,7 @@ Thanks for your interest in contributing! This document outlines how to get star
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/guardrail-sim.git
+git clone https://github.com/jeffgreendesign/guardrail-sim.git
 cd guardrail-sim
 
 # Install dependencies
@@ -41,7 +41,7 @@ Required variables:
 
 ## Project Structure
 
-```
+```text
 apps/
   dashboard/           # Next.js frontend
 

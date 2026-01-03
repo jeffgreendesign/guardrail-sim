@@ -21,8 +21,8 @@ import type { Order, Policy, EvaluationResult } from '@guardrail-sim/policy-engi
 export const VERSION = '0.0.1';
 
 // Initialize policy engine with default policy
-let currentPolicy: Policy = defaultPolicy;
-let policyEngine = new PolicyEngine(currentPolicy);
+const currentPolicy: Policy = defaultPolicy;
+const policyEngine = new PolicyEngine(currentPolicy);
 
 /**
  * Tool definitions for the MCP server
