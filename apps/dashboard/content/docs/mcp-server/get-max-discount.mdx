@@ -1,0 +1,160 @@
+---
+title: get_max_discount
+description: Calculate the maximum allowed discount for a given order.
+---
+
+# get_max_discount
+
+Calculate the maximum allowed discount for a given order. Use this when a buyer asks "what's the best you can do?"
+
+## When to Use
+
+- You want to know the ceiling for negotiation
+- A buyer asks "what's the best you can do?"
+- Planning discount strategy for a specific order
+
+## Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "order": {
+      "type": "object",
+      "description": "The order details",
+      "properties": {
+        "order_value": {
+          "type": "number",
+          "description": "Total order value in dollars"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Total units in the order"
+        },
+        "customer_segment": {
+          "type": "string",
+          "description": "Customer tier/segment"
+        },
+        "product_margin": {
+          "type": "number",
+          "description": "Base margin as decimal (0.40 = 40%)"
+        }
+      },
+      "required": ["order_value", "quantity", "product_margin"]
+    }
+  },
+  "required": ["order"]
+}
+```
+
+## Examples
+
+### High Margin Product (Volume Tier)
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 5000,
+    "quantity": 100,
+    "product_margin": 0.4
+  }
+}
+
+// Response
+{
+  "max_discount": 0.15,
+  "max_discount_pct": "15.0%",
+  "limiting_factor": "volume_tier",
+  "details": "Volume tier (100+ units) allows up to 15% discount"
+}
+```
+
+### Low Margin Product
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 5000,
+    "quantity": 100,
+    "product_margin": 0.2
+  }
+}
+
+// Response
+{
+  "max_discount": 0.05,
+  "max_discount_pct": "5.0%",
+  "limiting_factor": "margin_floor",
+  "details": "Limited by margin floor: 20% margin - 15% floor = 5% max discount"
+}
+```
+
+### Small Order (Base Tier)
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 500,
+    "quantity": 10,
+    "product_margin": 0.5
+  }
+}
+
+// Response
+{
+  "max_discount": 0.1,
+  "max_discount_pct": "10.0%",
+  "limiting_factor": "volume_tier",
+  "details": "Base tier (< 100 units) limited to 10% discount"
+}
+```
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max_discount` | number | Maximum discount as decimal |
+| `max_discount_pct` | string | Maximum discount formatted as percentage |
+| `limiting_factor` | string | Which rule limits the discount |
+| `details` | string | Human-readable explanation |
+
+## Limiting Factors
+
+| Factor | Description |
+|--------|-------------|
+| `margin_floor` | Margin would drop below 15% |
+| `max_discount_cap` | Would exceed 25% absolute cap |
+| `volume_tier` | Order quantity restricts discount tier |
+
+## Usage in AI Agents
+
+Use this to provide the best possible offer:
+
+```
+User: "What's the best price you can give me on 50 units?"
+
+Agent thinking:
+1. Call get_max_discount with quantity: 50
+2. Present the maximum available
+
+Agent: "For 50 units, I can offer up to 10% off. However, if you
+increase your order to 100 units, I can offer 15% off—that's
+actually a better per-unit price. Would you like me to show
+you both options?"
+```
+
+## Optimization Tips
+
+Based on the response, you can suggest optimizations:
+
+- **If limited by volume_tier**: Suggest increasing quantity
+- **If limited by margin_floor**: Suggest higher-margin products
+- **If limited by max_discount_cap**: Customer is already getting max possible
+
+## Related Tools
+
+- [`evaluate_policy`](/docs/mcp-server/evaluate-policy) - Validate a specific discount
+- [`get_policy_summary`](/docs/mcp-server/get-policy-summary) - Overview of all rules

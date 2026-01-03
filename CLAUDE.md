@@ -41,7 +41,7 @@ node --test --experimental-strip-types packages/policy-engine/test/*.test.ts
 
 ```
 apps/
-  dashboard/           # Next.js 14 App Router + shadcn/ui + Tailwind
+  dashboard/           # Next.js 15 App Router + shadcn/ui + Tailwind
 
 packages/
   mcp-server/          # MCP server exposing evaluate_policy tool
@@ -73,7 +73,7 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 - @modelcontextprotocol/sdk for MCP server
 - OpenAI GPT-4o-mini Batch API for simulation
 - Supabase (PostgreSQL) for persistence
-- Next.js 14 + shadcn/ui for dashboard
+- Next.js 15 + shadcn/ui for dashboard
 
 ## Constraints
 

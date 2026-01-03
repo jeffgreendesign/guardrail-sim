@@ -303,7 +303,7 @@ Guardrail-Sim is a three-layer system:
 | **Simulation Runner** | Node.js + OpenAI API                           | LLM for buyer persona simulation; Batch API for cost efficiency    |
 | **Database**          | PostgreSQL (Supabase)                          | Relational for structured simulation results; free tier sufficient |
 | **MCP Server**        | TypeScript + @modelcontextprotocol/sdk         | Extends logpare-MCP patterns; production-ready protocol            |
-| **Dashboard**         | Next.js 14 (App Router) + shadcn/ui + Tailwind | Modern React; consistent with target employer stacks               |
+| **Dashboard**         | Next.js 15 (App Router) + shadcn/ui + Tailwind | Modern React; consistent with target employer stacks               |
 | **Deployment**        | Vercel (dashboard) + Railway (MCP server)      | Free/cheap tiers; demonstrates cloud deployment                    |
 
 ### Data Models

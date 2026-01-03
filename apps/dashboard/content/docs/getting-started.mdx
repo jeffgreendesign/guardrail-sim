@@ -1,0 +1,100 @@
+---
+title: Getting Started
+description: Install Guardrail-Sim and evaluate your first pricing policy.
+---
+
+# Getting Started
+
+Get up and running with Guardrail-Sim in under 5 minutes.
+
+## Prerequisites
+
+- Node.js 20+
+- pnpm 9+ (`corepack enable && corepack prepare pnpm@latest --activate`)
+
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/jeffgreendesign/guardrail-sim.git
+cd guardrail-sim
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Run tests to verify installation
+pnpm test
+```
+
+## Your First Policy Evaluation
+
+The policy engine is the core of Guardrail-Sim. Here's how to evaluate a discount request:
+
+```typescript
+import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+
+// Create an engine with the default policy
+const engine = new PolicyEngine(defaultPolicy);
+
+// Define an order
+const order = {
+  order_value: 5000,     // $5,000 order
+  quantity: 100,         // 100 units
+  product_margin: 0.4,   // 40% base margin
+  customer_segment: 'gold'
+};
+
+// Evaluate a 12% discount request
+const result = await engine.evaluate(order, 0.12);
+
+console.log(result);
+// {
+//   approved: true,
+//   violations: [],
+//   applied_rules: ['margin_floor', 'max_discount', 'volume_tier'],
+//   calculated_margin: 0.28
+// }
+```
+
+## Default Policy Rules
+
+The default policy includes three rules:
+
+| Rule | Constraint | Description |
+|------|-----------|-------------|
+| `margin_floor` | 15% minimum | Discounts cannot reduce margin below 15% |
+| `max_discount` | 25% cap | No discount can exceed 25% |
+| `volume_tier` | Quantity threshold | Less than 100 units: max 10%, 100+ units: max 15% |
+
+## Using with MCP
+
+The MCP server exposes the policy engine to AI agents:
+
+```bash
+# Start the MCP server (for development)
+pnpm --filter @guardrail-sim/mcp-server dev
+```
+
+Or add to your Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "guardrail-sim": {
+      "command": "node",
+      "args": ["./packages/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+Now your AI agent can call `evaluate_policy`, `get_policy_summary`, and `get_max_discount`.
+
+## Next Steps
+
+- [Policy Engine](/docs/policy-engine) - Deep dive into rule configuration
+- [MCP Server Tools](/docs/mcp-server) - All available MCP tools
+- [Agent Integration](/docs/agent-integration) - Connect with Claude, Cursor, etc.

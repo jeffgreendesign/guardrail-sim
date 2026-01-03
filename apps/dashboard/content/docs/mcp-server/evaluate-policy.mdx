@@ -1,0 +1,204 @@
+---
+title: evaluate_policy
+description: Evaluate a proposed discount against the active pricing policy.
+---
+
+# evaluate_policy
+
+Evaluate a proposed discount against the active pricing policy. This is the primary tool for policy enforcement.
+
+## When to Use
+
+- A B2B buyer requests a discount
+- You need to check if a discount is allowed before committing
+- You want to understand the policy constraints for negotiation
+
+## Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "order": {
+      "type": "object",
+      "description": "The order details for evaluation",
+      "properties": {
+        "order_value": {
+          "type": "number",
+          "description": "Total order value in dollars"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Total units in the order"
+        },
+        "customer_segment": {
+          "type": "string",
+          "description": "Customer tier/segment (e.g., new, bronze, silver, gold, platinum)"
+        },
+        "product_margin": {
+          "type": "number",
+          "description": "Base margin as decimal (0.40 = 40%)"
+        }
+      },
+      "required": ["order_value", "quantity", "product_margin"]
+    },
+    "proposed_discount": {
+      "type": "number",
+      "description": "Requested discount as decimal (0.15 = 15% off)"
+    }
+  },
+  "required": ["order", "proposed_discount"]
+}
+```
+
+## Examples
+
+### Approved Discount
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 5000,
+    "quantity": 100,
+    "product_margin": 0.4
+  },
+  "proposed_discount": 0.1
+}
+
+// Response
+{
+  "approved": true,
+  "violations": [],
+  "applied_rules": ["margin_floor", "max_discount", "volume_tier"],
+  "calculated_margin": 0.3,
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy"
+}
+```
+
+### Rejected - Exceeds Max Discount
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 5000,
+    "quantity": 100,
+    "product_margin": 0.5
+  },
+  "proposed_discount": 0.3
+}
+
+// Response
+{
+  "approved": false,
+  "violations": [
+    {
+      "rule": "max_discount",
+      "message": "Discount exceeds maximum allowed 25%",
+      "limit": 0.25
+    }
+  ],
+  "applied_rules": ["margin_floor", "max_discount", "volume_tier"],
+  "calculated_margin": 0.2,
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy"
+}
+```
+
+### Rejected - Margin Floor Violation
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 5000,
+    "quantity": 100,
+    "product_margin": 0.25
+  },
+  "proposed_discount": 0.15
+}
+
+// Response
+{
+  "approved": false,
+  "violations": [
+    {
+      "rule": "margin_floor",
+      "message": "Discount would reduce margin below 15% floor",
+      "limit": 0.15
+    }
+  ],
+  "applied_rules": ["margin_floor", "max_discount", "volume_tier"],
+  "calculated_margin": 0.1,
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy"
+}
+```
+
+### Rejected - Volume Tier Violation
+
+```json
+// Request
+{
+  "order": {
+    "order_value": 1000,
+    "quantity": 50,
+    "product_margin": 0.4
+  },
+  "proposed_discount": 0.12
+}
+
+// Response
+{
+  "approved": false,
+  "violations": [
+    {
+      "rule": "volume_tier",
+      "message": "Orders under 100 units limited to 10% discount",
+      "limit": 0.1
+    }
+  ],
+  "applied_rules": ["margin_floor", "max_discount", "volume_tier"],
+  "calculated_margin": 0.28,
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy"
+}
+```
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `approved` | boolean | Whether the discount is allowed |
+| `violations` | array | List of policy violations |
+| `applied_rules` | array | Names of rules that were evaluated |
+| `calculated_margin` | number | Margin after proposed discount |
+| `policy_id` | string | ID of the policy used |
+| `policy_name` | string | Human-readable policy name |
+
+## Violation Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `rule` | string | Name of the violated rule |
+| `message` | string | Human-readable explanation |
+| `limit` | number | The limit that was exceeded (optional) |
+
+## Usage in AI Agents
+
+When building an AI sales agent, use this tool to validate discounts before committing:
+
+```
+User: "Can I get 20% off this order?"
+
+Agent thinking:
+1. Call evaluate_policy with proposed_discount: 0.20
+2. If approved → confirm discount
+3. If rejected → explain why and offer alternative
+
+Agent: "I checked with our pricing system. Unfortunately, 20% exceeds
+the limit for orders under 100 units. I can offer you 10%, or if you
+increase your order to 100 units, I can approve up to 15%."
+```
