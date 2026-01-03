@@ -250,7 +250,7 @@ Use **@modelcontextprotocol/sdk** (official TypeScript SDK) for MCP server imple
 
 ### Decision
 
-Use **Next.js 14 (App Router)** with **shadcn/ui** components.
+Use **Next.js 15 (App Router)** with **shadcn/ui** components.
 
 ### Alternatives Considered
 

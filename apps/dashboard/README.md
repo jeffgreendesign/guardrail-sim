@@ -1,6 +1,6 @@
 # Dashboard
 
-Next.js 14 dashboard for Guardrail-Sim.
+Next.js 15 dashboard for Guardrail-Sim with documentation and interactive playground.
 
 ## Status
 

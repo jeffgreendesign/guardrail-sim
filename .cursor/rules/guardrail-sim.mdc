@@ -10,7 +10,7 @@ Guardrail-Sim is a policy simulation engine for AI agent pricing governance in B
 
 ```text
 apps/
-  dashboard/           # Next.js 14 App Router + shadcn/ui + Tailwind
+  dashboard/           # Next.js 15 App Router + shadcn/ui + Tailwind
 
 packages/
   mcp-server/          # MCP server exposing evaluate_policy tool
@@ -30,7 +30,7 @@ Three-layer separation:
 - @modelcontextprotocol/sdk for MCP server
 - OpenAI GPT-4o-mini Batch API for simulation
 - Supabase (PostgreSQL) for persistence
-- Next.js 14 + shadcn/ui for dashboard
+- Next.js 15 + shadcn/ui for dashboard
 
 ## Commands
 
