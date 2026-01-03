@@ -2,19 +2,26 @@
 
 ## Project Context
 
-Guardrail-Sim is a policy simulation engine for AI agent pricing governance in B2B commerce. It lets you test AI pricing policies before deployment by simulating adversarial buyer interactions.
+Guardrail-Sim is a policy simulation engine for AI agent pricing governance in B2B commerce. It tests AI pricing policies before deployment by simulating adversarial buyer interactions.
 
 **Key principle:** LLMs simulate adversarial buyers only. Pricing math is always deterministic via the rules engine.
 
 ## Architecture
 
-Three-layer separation of concerns:
+```
+apps/
+  dashboard/           # Next.js 14 App Router + shadcn/ui + Tailwind
 
-1. **Dashboard** (`apps/dashboard/`) — Next.js 14 App Router + shadcn/ui + Tailwind
-2. **Simulation Engine** (`packages/simulation/`) — LLM buyer personas, negotiation loop runner
-3. **Policy Engine** (`packages/policy-engine/`) — json-rules-engine, deterministic evaluation
+packages/
+  mcp-server/          # MCP server exposing evaluate_policy tool
+  policy-engine/       # json-rules-engine integration (deterministic)
+  simulation/          # LLM buyer personas + negotiation loop runner
+```
 
-The MCP server (`packages/mcp-server/`) exposes the policy engine via the `evaluate_policy` tool.
+Three-layer separation:
+1. **Dashboard** — UI only, no business logic
+2. **Simulation Engine** — LLM orchestration, adversarial testing
+3. **Policy Engine** — Deterministic rules, exposed via MCP
 
 ## Tech Stack
 
@@ -42,19 +49,286 @@ pnpm --filter @guardrail-sim/policy-engine test
 pnpm --filter @guardrail-sim/mcp-server build
 ```
 
-## Code Style
+---
 
-- Use TypeScript with explicit types (avoid `any`)
-- Use named exports over default exports
-- ESLint + Prettier enforced (run `pnpm format` before committing)
-- Node.js built-in test runner for tests
-- Follow existing patterns in the codebase
+## TypeScript Conventions
 
-## Constraints
+### Imports
 
-- No Shopify integration — MVP uses synthetic data only
-- No auth — single user for MVP
-- Demo-able beats perfect — this is a portfolio project
+```typescript
+// ✅ Correct: Use .js extension for local imports (NodeNext resolution)
+import { PolicyEngine } from './engine.js';
+import type { Order, Policy } from './types.js';
+
+// ✅ Correct: Separate type imports
+import type { Order, Policy, EvaluationResult } from './types.js';
+
+// ✅ Correct: node: prefix for Node.js built-ins
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import { fileURLToPath } from 'node:url';
+
+// ❌ Wrong: No .js extension
+import { PolicyEngine } from './engine';
+
+// ❌ Wrong: No node: prefix
+import { describe, it } from 'test';
+```
+
+### Type Definitions
+
+```typescript
+// ✅ Correct: Explicit types, interfaces for objects
+export interface Order {
+  order_value: number;
+  quantity: number;
+  product_margin: number;
+  customer_segment?: string;
+}
+
+// ✅ Correct: Type annotations on function parameters
+async evaluate(order: Order, proposedDiscount: number): Promise<EvaluationResult>
+
+// ❌ Wrong: Using `any`
+function process(data: any): any
+
+// ❌ Wrong: Implicit any
+function process(data) { return data; }
+```
+
+### Exports
+
+```typescript
+// ✅ Correct: Named exports
+export { PolicyEngine };
+export type { Order, Policy, EvaluationResult };
+
+// ❌ Wrong: Default exports
+export default PolicyEngine;
+```
+
+---
+
+## Testing Patterns
+
+### Test File Structure
+
+```typescript
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import { PolicyEngine, defaultPolicy } from '../dist/index.js';
+import type { Order } from '../dist/types.js';
+
+describe('ComponentName', () => {
+  describe('methodName', () => {
+    it('describes expected behavior', async () => {
+      // Arrange
+      const engine = new PolicyEngine(defaultPolicy);
+      const order: Order = {
+        order_value: 1000,
+        quantity: 50,
+        product_margin: 0.4,
+      };
+
+      // Act
+      const result = await engine.evaluate(order, 0.08);
+
+      // Assert
+      assert.strictEqual(result.approved, true);
+      assert.strictEqual(result.violations.length, 0);
+    });
+  });
+});
+```
+
+### Testing Best Practices
+
+```typescript
+// ✅ Correct: Specific assertions
+assert.strictEqual(result.approved, true);
+assert.strictEqual(result.violations.length, 0);
+assert.ok(result.violations.some((v) => v.rule === 'margin_floor'));
+
+// ✅ Correct: Test edge cases
+it('approves 15% discount at volume tier limit', async () => { ... });
+it('rejects 16% discount even with volume tier', async () => { ... });
+
+// ❌ Wrong: Vague assertions
+assert.ok(result);
+assert.notEqual(result, null);
+```
+
+---
+
+## Policy Engine Patterns
+
+### Creating a PolicyEngine
+
+```typescript
+import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+
+// Use the default policy
+const engine = new PolicyEngine(defaultPolicy);
+
+// Or with a custom policy
+const customPolicy: Policy = {
+  id: 'custom',
+  name: 'Custom Policy',
+  rules: [/* ... */],
+};
+const customEngine = new PolicyEngine(customPolicy);
+```
+
+### Evaluating Discounts
+
+```typescript
+const order: Order = {
+  order_value: 5000,
+  quantity: 100,
+  product_margin: 0.4, // 40% margin
+  customer_segment: 'gold',
+};
+
+// proposedDiscount is a decimal (0.12 = 12%)
+const result = await engine.evaluate(order, 0.12);
+
+// Result structure:
+// {
+//   approved: boolean,
+//   violations: Violation[],
+//   applied_rules: string[],
+//   calculated_margin: number
+// }
+```
+
+---
+
+## MCP Server Patterns
+
+### Tool Definitions
+
+```typescript
+const TOOLS = [
+  {
+    name: 'tool_name',
+    description: `Clear description of what the tool does.
+
+Use this tool when:
+- Condition 1
+- Condition 2
+
+Returns: description of return value.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        param: {
+          type: 'number' as const,
+          description: 'What this parameter is',
+        },
+      },
+      required: ['param'],
+    },
+  },
+];
+```
+
+### Request Handlers
+
+```typescript
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+
+  switch (name) {
+    case 'tool_name': {
+      // Validate and process
+      const result = await processRequest(args);
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      };
+    }
+    default:
+      throw new Error(`Unknown tool: ${name}`);
+  }
+});
+```
+
+---
+
+## Anti-Patterns to Avoid
+
+### Don't Mix LLM Logic with Policy Logic
+
+```typescript
+// ❌ Wrong: LLM making pricing decisions
+const discount = await llm.ask("What discount should I give?");
+
+// ✅ Correct: LLM proposes, policy engine decides
+const proposedDiscount = await llm.negotiate(context);
+const result = await policyEngine.evaluate(order, proposedDiscount);
+if (!result.approved) {
+  // LLM must try again with lower discount
+}
+```
+
+### Don't Use Floating Point for Money Display
+
+```typescript
+// ❌ Wrong: Floating point display issues
+console.log(`Discount: ${discount * 100}%`); // Might show 12.000000001%
+
+// ✅ Correct: Round for display
+console.log(`Discount: ${(discount * 100).toFixed(1)}%`);
+```
+
+### Don't Hardcode Policy Values
+
+```typescript
+// ❌ Wrong: Magic numbers
+if (discount > 0.25) { reject(); }
+
+// ✅ Correct: Use policy engine
+const result = await engine.evaluate(order, discount);
+if (!result.approved) { /* handle violations */ }
+```
+
+---
+
+## File Naming Conventions
+
+```
+packages/[package-name]/
+  src/
+    index.ts           # Public exports
+    engine.ts          # Main class/logic
+    types.ts           # Type definitions
+    policies/
+      default.ts       # Named policy files
+  test/
+    engine.test.ts     # Test files match source files
+```
+
+---
+
+## Commit Message Format
+
+```
+<type>: <description>
+
+Types:
+- feat: New feature
+- fix: Bug fix
+- refactor: Code restructuring
+- test: Adding tests
+- docs: Documentation
+- chore: Maintenance
+
+Examples:
+- feat: Add volume tier discount rules
+- fix: Handle edge case in margin calculation
+- test: Add coverage for policy violations
+```
+
+---
 
 ## Key Documentation
 
@@ -62,3 +336,9 @@ pnpm --filter @guardrail-sim/mcp-server build
 - `docs/ARCHITECTURE.md` — Technical decisions (ADRs)
 - `docs/MCP-PATTERNS.md` — MCP implementation patterns
 - `docs/SHOPIFY-CONTEXT.md` — B2B commerce domain knowledge
+
+## Constraints
+
+- No Shopify integration — MVP uses synthetic data only
+- No auth — single user for MVP
+- Demo-able beats perfect — this is a portfolio project
