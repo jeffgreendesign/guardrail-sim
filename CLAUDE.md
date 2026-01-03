@@ -78,5 +78,5 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 ## Constraints
 
 - No Shopify integration — MVP uses synthetic data only (NDA-safe, reproducible)
-- No auth — single user for MVP
+- No auth — single-user for MVP
 - Demo-able beats perfect — this is a portfolio project

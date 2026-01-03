@@ -60,7 +60,7 @@ console.log(result.violations); // array of policy violations
 console.log(result.triggeredRules); // which rules fired
 ```
 
-**Default policy rules:**
+### Default Policy Rules
 
 - Margin floor: 15% minimum margin
 - Max discount: 25% cap

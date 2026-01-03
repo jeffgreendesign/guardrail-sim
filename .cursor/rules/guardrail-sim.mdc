@@ -340,5 +340,5 @@ Examples:
 ## Constraints
 
 - No Shopify integration — MVP uses synthetic data only
-- No auth — single user for MVP
+- No auth — single-user for MVP
 - Demo-able beats perfect — this is a portfolio project

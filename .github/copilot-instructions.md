@@ -156,5 +156,5 @@ pnpm format           # Format with Prettier
 ## Constraints
 
 - No Shopify integration (MVP uses synthetic data)
-- No authentication (single user MVP)
+- No authentication (single-user MVP)
 - Prioritize demo-ability over perfection
