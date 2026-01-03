@@ -2,11 +2,34 @@
   "name": "@guardrail-sim/dashboard",
   "version": "0.0.1",
   "private": true,
-  "description": "Next.js dashboard for policy editing and simulation results",
+  "description": "Next.js dashboard for policy editing, simulation results, and documentation",
   "scripts": {
-    "dev": "echo \"Dashboard not yet implemented\"",
-    "build": "echo \"Dashboard not yet implemented\"",
-    "test": "echo \"No tests yet\"",
-    "typecheck": "echo \"Dashboard not yet implemented\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@guardrail-sim/mcp-server": "workspace:*",
+    "@guardrail-sim/policy-engine": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "fumadocs-core": "^14.5.0",
+    "fumadocs-mdx": "^11.4.0",
+    "fumadocs-ui": "^14.5.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@xyflow/react": "^12.4.0",
+    "recharts": "^2.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.3.3"
   }
 }

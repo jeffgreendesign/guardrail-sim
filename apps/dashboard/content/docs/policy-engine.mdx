@@ -1,0 +1,241 @@
+---
+title: Policy Engine
+description: Deterministic policy evaluation using json-rules-engine.
+---
+
+# Policy Engine
+
+The policy engine is the heart of Guardrail-Sim. It provides **deterministic, auditable** evaluation of discount requests against configurable business rules.
+
+## Core Principle
+
+> **LLMs propose, the policy engine decides.**
+
+AI agents can negotiate and suggest discounts, but the final approval always comes from the deterministic rules engine. This ensures:
+
+- **Reproducibility**: Same input → same output, every time
+- **Auditability**: Every decision can be traced to specific rules
+- **No hallucinations**: Discounts are never "made up" by an LLM
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│              PolicyEngine                    │
+│  ┌────────────────────────────────────────┐ │
+│  │         json-rules-engine              │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌────────┐ │ │
+│  │  │ margin   │ │   max    │ │ volume │ │ │
+│  │  │  floor   │ │ discount │ │  tier  │ │ │
+│  │  └──────────┘ └──────────┘ └────────┘ │ │
+│  └────────────────────────────────────────┘ │
+└─────────────────────────────────────────────┘
+          │                    ▲
+          ▼                    │
+   EvaluationResult      Order + Discount
+```
+
+## Usage
+
+### Creating an Engine
+
+```typescript
+import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+import type { Order, Policy } from '@guardrail-sim/policy-engine';
+
+// Use the default policy
+const engine = new PolicyEngine(defaultPolicy);
+
+// Or with a custom policy
+const customPolicy: Policy = {
+  id: 'enterprise',
+  name: 'Enterprise Policy',
+  rules: [/* your rules */],
+};
+const customEngine = new PolicyEngine(customPolicy);
+```
+
+### Evaluating Discounts
+
+```typescript
+const order: Order = {
+  order_value: 5000,       // Total order value in dollars
+  quantity: 100,           // Total units
+  product_margin: 0.4,     // Base margin as decimal (40%)
+  customer_segment: 'gold' // Optional: customer tier
+};
+
+// proposedDiscount is a decimal (0.12 = 12%)
+const result = await engine.evaluate(order, 0.12);
+```
+
+### Understanding Results
+
+The `evaluate()` method returns an `EvaluationResult`:
+
+```typescript
+interface EvaluationResult {
+  approved: boolean;           // Whether the discount is allowed
+  violations: Violation[];     // List of rule violations (if any)
+  applied_rules: string[];     // Names of rules that were checked
+  calculated_margin: number;   // Margin after proposed discount
+}
+
+interface Violation {
+  rule: string;      // Name of the violated rule
+  message: string;   // Human-readable explanation
+  limit?: number;    // The limit that was exceeded (if applicable)
+}
+```
+
+## Default Policy Rules
+
+### 1. Margin Floor (`margin_floor`)
+
+Ensures a minimum margin is maintained after discount.
+
+```typescript
+{
+  name: 'margin_floor',
+  conditions: {
+    // calculated_margin < 0.15 → violation
+  },
+  event: {
+    type: 'violation',
+    params: {
+      rule: 'margin_floor',
+      message: 'Discount would reduce margin below 15% floor'
+    }
+  }
+}
+```
+
+**Example:**
+- Product margin: 25%
+- Proposed discount: 15%
+- Calculated margin: 10% → **REJECTED** (below 15% floor)
+
+### 2. Maximum Discount (`max_discount`)
+
+Absolute cap on discount percentage.
+
+```typescript
+{
+  name: 'max_discount',
+  conditions: {
+    // proposed_discount > 0.25 → violation
+  }
+}
+```
+
+**Example:**
+- Proposed discount: 30% → **REJECTED** (exceeds 25% cap)
+
+### 3. Volume Tier (`volume_tier`)
+
+Discount limits based on order quantity.
+
+| Quantity | Max Discount |
+|----------|-------------|
+| Under 100 | 10%         |
+| 100+      | 15%         |
+
+**Example:**
+- Quantity: 50 units
+- Proposed discount: 12% → **REJECTED** (exceeds 10% for base tier)
+
+## Custom Policies
+
+You can define custom policies with your own rules:
+
+```typescript
+const customPolicy: Policy = {
+  id: 'startup-friendly',
+  name: 'Startup-Friendly Policy',
+  rules: [
+    {
+      name: 'margin_floor',
+      // Lower margin floor for growth
+      conditions: { /* margin >= 0.10 */ }
+    },
+    {
+      name: 'max_discount',
+      // Higher cap for enterprise deals
+      conditions: { /* discount <= 0.35 */ }
+    },
+    {
+      name: 'startup_tier',
+      // Special tier for startups
+      conditions: { /* customer_segment === 'startup' → allow 20% */ }
+    }
+  ]
+};
+```
+
+## Best Practices
+
+### Do: Use Decimal Values
+
+```typescript
+// ✅ Correct: decimal values
+const result = await engine.evaluate(order, 0.15);  // 15%
+
+// ❌ Wrong: percentage values
+const result = await engine.evaluate(order, 15);   // Interpreted as 1500%!
+```
+
+### Do: Check Violations
+
+```typescript
+const result = await engine.evaluate(order, discount);
+
+if (!result.approved) {
+  // Handle each violation
+  for (const violation of result.violations) {
+    console.log(`Rule '${violation.rule}': ${violation.message}`);
+  }
+}
+```
+
+### Don't: Hardcode Policy Logic
+
+```typescript
+// ❌ Wrong: hardcoded limits
+if (discount > 0.25) {
+  reject();
+}
+
+// ✅ Correct: use the engine
+const result = await engine.evaluate(order, discount);
+if (!result.approved) {
+  handleViolations(result.violations);
+}
+```
+
+## API Reference
+
+### `PolicyEngine`
+
+```typescript
+class PolicyEngine {
+  constructor(policy: Policy);
+  evaluate(order: Order, proposedDiscount: number): Promise<EvaluationResult>;
+}
+```
+
+### Types
+
+```typescript
+interface Order {
+  order_value: number;
+  quantity: number;
+  product_margin: number;
+  customer_segment?: string;
+}
+
+interface Policy {
+  id: string;
+  name: string;
+  rules: Rule[];
+}
+```

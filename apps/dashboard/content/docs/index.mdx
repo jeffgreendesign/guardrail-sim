@@ -1,0 +1,66 @@
+---
+title: Introduction
+description: Policy simulation engine for AI agent pricing governance in B2B commerce.
+---
+
+# Guardrail-Sim
+
+**Test your AI pricing policies before they cost you millions.**
+
+Everyone's building the gas pedal—AI agents that negotiate, discount, and close deals. But what happens when your LLM gives away margin at scale? Guardrail-Sim is the brakes and steering.
+
+## The Problem
+
+You're deploying an AI sales agent. It can negotiate discounts. But:
+
+- **Will it honor your margin floors?** Or give 40% off to anyone who asks nicely?
+- **How does it behave at scale?** One bad discount is a rounding error. 10,000 is a crisis.
+- **Can you prove compliance?** When finance asks, "what are the rules?", show them—don't guess.
+
+## The Solution
+
+Guardrail-Sim lets you **simulate thousands of adversarial buyer interactions** against your pricing policies before going live.
+
+```
+Define Policy → Simulate Attacks → Fix Gaps → Deploy with Confidence
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Dashboard                            │
+│                    (Next.js + shadcn/ui)                     │
+│              Policy Editor · Simulation Results              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Simulation Engine                        │
+│                 LLM Buyer Personas · Negotiation Loops       │
+│                    (OpenAI GPT-4o-mini Batch API)            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Policy Engine                          │
+│              json-rules-engine · Deterministic Evaluation    │
+│                    Exposed via MCP Server                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Key Principle
+
+**LLMs simulate adversarial buyers only. Pricing math is always deterministic via the rules engine.**
+
+This separation ensures:
+- Reproducible results
+- Auditable decisions
+- No hallucinated discounts
+
+## Quick Links
+
+- [Getting Started](/docs/getting-started) - Install and run your first simulation
+- [Policy Engine](/docs/policy-engine) - Understanding the rule system
+- [MCP Server](/docs/mcp-server) - Integrate with AI agents
+- [Agent Integration](/docs/agent-integration) - Use with Claude, Cursor, etc.
