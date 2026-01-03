@@ -21,8 +21,8 @@ import type { Order, Policy, EvaluationResult } from '@guardrail-sim/policy-engi
 export const VERSION = '0.0.1';
 
 // Initialize policy engine with default policy
-let currentPolicy: Policy = defaultPolicy;
-let policyEngine = new PolicyEngine(currentPolicy);
+const currentPolicy: Policy = defaultPolicy;
+const policyEngine = new PolicyEngine(currentPolicy);
 
 /**
  * Tool definitions for the MCP server
@@ -194,9 +194,7 @@ To maximize discount approval:
 /**
  * Handle get_max_discount tool call
  */
-async function handleGetMaxDiscount(args: {
-  order: Order;
-}): Promise<{
+async function handleGetMaxDiscount(args: { order: Order }): Promise<{
   max_discount: number;
   max_discount_pct: string;
   limiting_factor: string;
@@ -208,14 +206,15 @@ async function handleGetMaxDiscount(args: {
   const marginFloor = 0.15;
   const maxDiscountCap = 0.25;
   const volumeThreshold = 100;
-  const baseDiscountLimit = 0.10;
+  const baseDiscountLimit = 0.1;
   const volumeDiscountLimit = 0.15;
 
   // Maximum discount based on margin floor
   const marginBasedMax = order.product_margin - marginFloor;
 
   // Maximum based on volume tier
-  const volumeBasedMax = order.quantity >= volumeThreshold ? volumeDiscountLimit : baseDiscountLimit;
+  const volumeBasedMax =
+    order.quantity >= volumeThreshold ? volumeDiscountLimit : baseDiscountLimit;
 
   // Take the minimum of all constraints
   const constraints = [
@@ -233,9 +232,10 @@ async function handleGetMaxDiscount(args: {
   } else if (minConstraint.name === 'max_discount_cap') {
     details = 'Limited by absolute discount cap of 25%';
   } else {
-    details = order.quantity >= volumeThreshold
-      ? 'Volume tier (100+ units) allows up to 15% discount'
-      : 'Base tier (< 100 units) limited to 10% discount';
+    details =
+      order.quantity >= volumeThreshold
+        ? 'Volume tier (100+ units) allows up to 15% discount'
+        : 'Base tier (< 100 units) limited to 10% discount';
   }
 
   return {

@@ -9,15 +9,9 @@ describe('MCP Server', () => {
     const server = createServer();
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-    const client = new Client(
-      { name: 'test-client', version: '1.0.0' },
-      { capabilities: {} }
-    );
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
 
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     return { client, server };
   }
@@ -62,9 +56,9 @@ describe('MCP Server', () => {
           order: {
             order_value: 5000,
             quantity: 100,
-            product_margin: 0.40,
+            product_margin: 0.4,
           },
-          proposed_discount: 0.10,
+          proposed_discount: 0.1,
         },
       });
 
@@ -87,9 +81,9 @@ describe('MCP Server', () => {
           order: {
             order_value: 5000,
             quantity: 100,
-            product_margin: 0.50,
+            product_margin: 0.5,
           },
-          proposed_discount: 0.30,
+          proposed_discount: 0.3,
         },
       });
 
@@ -127,7 +121,7 @@ describe('MCP Server', () => {
           order: {
             order_value: 5000,
             quantity: 50, // Below volume threshold
-            product_margin: 0.40,
+            product_margin: 0.4,
           },
           proposed_discount: 0.12, // Above 10% base limit
         },
@@ -165,7 +159,7 @@ describe('MCP Server', () => {
           order: {
             order_value: 5000,
             quantity: 100,
-            product_margin: 0.40,
+            product_margin: 0.4,
           },
         },
       });
@@ -184,7 +178,7 @@ describe('MCP Server', () => {
           order: {
             order_value: 5000,
             quantity: 100,
-            product_margin: 0.20, // 20% margin, so max 5% discount to stay above 15%
+            product_margin: 0.2, // 20% margin, so max 5% discount to stay above 15%
           },
         },
       });
@@ -204,13 +198,13 @@ describe('MCP Server', () => {
           order: {
             order_value: 500,
             quantity: 10, // Below volume threshold
-            product_margin: 0.50,
+            product_margin: 0.5,
           },
         },
       });
 
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
-      assert.strictEqual(parsed.max_discount, 0.10); // Base tier limit
+      assert.strictEqual(parsed.max_discount, 0.1); // Base tier limit
       assert.strictEqual(parsed.limiting_factor, 'volume_tier');
     });
   });

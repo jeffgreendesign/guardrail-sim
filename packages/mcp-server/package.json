@@ -18,7 +18,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "test": "node --test --experimental-strip-types test/*.test.ts"
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@guardrail-sim/policy-engine": "workspace:*",
