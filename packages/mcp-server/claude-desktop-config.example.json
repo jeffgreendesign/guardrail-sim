@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "guardrail-sim": {
+      "command": "node",
+      "args": ["PATH_TO_PROJECT/packages/mcp-server/dist/index.js"],
+      "env": {}
+    }
+  }
+}
