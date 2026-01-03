@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "echo \"Dashboard not yet implemented\"",
     "build": "echo \"Dashboard not yet implemented\"",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "typecheck": "echo \"Dashboard not yet implemented\""
   }
 }

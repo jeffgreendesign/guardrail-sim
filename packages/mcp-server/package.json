@@ -5,6 +5,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "guardrail-mcp": "./dist/index.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,12 +17,16 @@
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",
-    "test": "echo \"No tests yet\""
+    "start": "node dist/index.js",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@guardrail-sim/policy-engine": "workspace:*"
+    "@guardrail-sim/policy-engine": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "typescript": "^5.3.3"
   }
 }

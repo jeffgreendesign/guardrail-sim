@@ -1,13 +1,20 @@
 {
   "name": "guardrail-sim",
+  "description": "Policy simulation engine for AI agent pricing governance. Test your AI pricing policies before they cost you millions.",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9.15.1",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "pnpm -r dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r --filter @guardrail-sim/policy-engine test:coverage",
     "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

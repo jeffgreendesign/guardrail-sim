@@ -454,16 +454,16 @@ const BUYER_PERSONAS = {
 
 ## Decision Log Summary
 
-| #   | Decision       | Choice                      | Status | Key Rationale                           |
-| --- | -------------- | --------------------------- | ------ | --------------------------------------- |
+| #   | Decision       | Choice                      | Status   | Key Rationale                           |
+| --- | -------------- | --------------------------- | -------- | --------------------------------------- |
 | 1   | Policy Engine  | json-rules-engine           | **Done** | Deterministic, JS-native, battle-tested |
-| 2   | LLM Provider   | OpenAI GPT-4o-mini Batch    | Planned | 50% cost savings, sufficient quality    |
-| 3   | Database       | Supabase (Postgres)         | Planned | Free tier, managed, good DX             |
-| 4   | MCP Framework  | @modelcontextprotocol/sdk   | Planned | Official SDK, TypeScript                |
-| 5   | Frontend       | Next.js + shadcn/ui         | Planned | Target employer stack, modern           |
-| 6   | Deployment     | Vercel + Railway + Supabase | Planned | Right tool for each component           |
-| 7   | Test Data      | Synthetic generation        | Planned | NDA-safe, controllable, reproducible    |
-| 8   | Buyer Personas | 5 LLM-driven personas       | Planned | Realistic negotiation patterns          |
+| 2   | LLM Provider   | OpenAI GPT-4o-mini Batch    | Planned  | 50% cost savings, sufficient quality    |
+| 3   | Database       | Supabase (Postgres)         | Planned  | Free tier, managed, good DX             |
+| 4   | MCP Framework  | @modelcontextprotocol/sdk   | Planned  | Official SDK, TypeScript                |
+| 5   | Frontend       | Next.js + shadcn/ui         | Planned  | Target employer stack, modern           |
+| 6   | Deployment     | Vercel + Railway + Supabase | Planned  | Right tool for each component           |
+| 7   | Test Data      | Synthetic generation        | Planned  | NDA-safe, controllable, reproducible    |
+| 8   | Buyer Personas | 5 LLM-driven personas       | Planned  | Realistic negotiation patterns          |
 
 ---
 
