@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/policy-engine" },
+    { "path": "packages/mcp-server" },
+    { "path": "packages/simulation" }
+  ]
+}
