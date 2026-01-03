@@ -12,7 +12,7 @@
     "dev": "pnpm -r dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "test:coverage": "pnpm -r --filter @guardrail-sim/policy-engine test:coverage",
+    "test:coverage": "pnpm -r --filter @guardrail-sim/policy-engine --filter @guardrail-sim/mcp-server test:coverage",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
