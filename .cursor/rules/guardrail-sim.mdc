@@ -1,0 +1,64 @@
+# Guardrail-Sim Project Rules
+
+## Project Context
+
+Guardrail-Sim is a policy simulation engine for AI agent pricing governance in B2B commerce. It lets you test AI pricing policies before deployment by simulating adversarial buyer interactions.
+
+**Key principle:** LLMs simulate adversarial buyers only. Pricing math is always deterministic via the rules engine.
+
+## Architecture
+
+Three-layer separation of concerns:
+
+1. **Dashboard** (`apps/dashboard/`) — Next.js 14 App Router + shadcn/ui + Tailwind
+2. **Simulation Engine** (`packages/simulation/`) — LLM buyer personas, negotiation loop runner
+3. **Policy Engine** (`packages/policy-engine/`) — json-rules-engine, deterministic evaluation
+
+The MCP server (`packages/mcp-server/`) exposes the policy engine via the `evaluate_policy` tool.
+
+## Tech Stack
+
+- pnpm monorepo with TypeScript (ES2022, NodeNext)
+- json-rules-engine for policy evaluation
+- @modelcontextprotocol/sdk for MCP server
+- OpenAI GPT-4o-mini Batch API for simulation
+- Supabase (PostgreSQL) for persistence
+- Next.js 14 + shadcn/ui for dashboard
+
+## Commands
+
+```bash
+pnpm install          # Install dependencies
+pnpm build            # Build all packages
+pnpm test             # Run tests
+pnpm lint             # Run ESLint
+pnpm typecheck        # Type check all packages
+pnpm format           # Format with Prettier
+```
+
+Per-package:
+```bash
+pnpm --filter @guardrail-sim/policy-engine test
+pnpm --filter @guardrail-sim/mcp-server build
+```
+
+## Code Style
+
+- Use TypeScript with explicit types (avoid `any`)
+- Use named exports over default exports
+- ESLint + Prettier enforced (run `pnpm format` before committing)
+- Node.js built-in test runner for tests
+- Follow existing patterns in the codebase
+
+## Constraints
+
+- No Shopify integration — MVP uses synthetic data only
+- No auth — single user for MVP
+- Demo-able beats perfect — this is a portfolio project
+
+## Key Documentation
+
+- `docs/PRD.md` — Product requirements
+- `docs/ARCHITECTURE.md` — Technical decisions (ADRs)
+- `docs/MCP-PATTERNS.md` — MCP implementation patterns
+- `docs/SHOPIFY-CONTEXT.md` — B2B commerce domain knowledge

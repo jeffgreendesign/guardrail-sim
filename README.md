@@ -3,6 +3,7 @@
 [![CI](https://github.com/jeffgreendesign/guardrail-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/jeffgreendesign/guardrail-sim/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffgreendesign/guardrail-sim?devcontainer_path=.devcontainer%2Fdevcontainer.json)
 
 **Test your AI pricing policies before they cost you millions.**
 
