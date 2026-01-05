@@ -1,0 +1,96 @@
+---
+title: Promotional Limits
+description: Time-based and inventory-limited promotions
+---
+
+# Promotional Limits
+
+Control promotions with time windows, inventory limits, and usage caps.
+
+## The Scenario
+
+Black Friday promotion:
+- 40% off, November 28-December 2 only
+- Limited to first 1000 uses
+- Maximum 3 uses per customer
+- Cannot combine with other promotions
+
+## The Policy
+
+```typescript
+import { Policy } from '@guardrail-sim/core';
+
+const blackFridayPolicy: Policy = {
+  name: 'black-friday-2024',
+  description: 'Black Friday promotional rules',
+  constraints: [
+    // Time window
+    {
+      type: 'time_window',
+      start: '2024-11-28T00:00:00Z',
+      end: '2024-12-02T23:59:59Z',
+      message: 'This promotion is only valid during Black Friday weekend',
+    },
+    // Global usage limit
+    {
+      type: 'usage_limit',
+      maxUses: 1000,
+      scope: 'global',
+      message: 'This promotion has reached its usage limit',
+    },
+    // Per-customer limit
+    {
+      type: 'usage_limit',
+      maxUses: 3,
+      scope: 'customer',
+      message: 'You have reached the maximum uses for this promotion',
+    },
+    // Exclusivity
+    {
+      type: 'exclusive',
+      message: 'Black Friday discount cannot combine with other promotions',
+    },
+    // The actual discount cap
+    {
+      type: 'max_percentage',
+      value: 40,
+    },
+  ],
+};
+```
+
+## Tracking Usage
+
+The MCP server can track usage state:
+
+```typescript
+const result = evaluate(blackFridayPolicy, scenario, {
+  context: {
+    currentTime: new Date(),
+    globalUsageCount: 450,
+    customerUsageCount: 2,
+    customerId: 'cust-123',
+  },
+});
+```
+
+## Testing Time Windows
+
+```typescript
+// During Black Friday
+const duringResult = evaluate(blackFridayPolicy, scenario, {
+  context: {
+    currentTime: new Date('2024-11-29T12:00:00Z'),
+  },
+});
+// duringResult.allowed: true
+
+// After Black Friday
+const afterResult = evaluate(blackFridayPolicy, scenario, {
+  context: {
+    currentTime: new Date('2024-12-05T12:00:00Z'),
+  },
+});
+// afterResult.allowed: false
+// afterResult.violations[0].message: 'This promotion is only valid during...'
+```

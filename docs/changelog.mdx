@@ -1,0 +1,40 @@
+---
+title: Changelog
+description: Release history and updates
+---
+
+# Changelog
+
+All notable changes to guardrail-sim.
+
+## Unreleased
+
+### Added
+- Documentation website with Fumadocs
+- Landing page with Jeff Green design system
+- Comprehensive API documentation
+- Example guides for common use cases
+
+### Changed
+- Updated project structure to include `apps/website`
+
+## v0.0.1 (December 2025)
+
+### Added
+- Initial policy engine implementation with json-rules-engine
+- MCP server with `evaluate_policy` tool
+- Basic constraint types:
+  - `max_percentage` - Cap total discount percentage
+  - `max_absolute` - Cap total discount amount
+  - `margin_floor` - Enforce minimum margin
+  - `volume_tier` - Volume-based discount tiers
+  - `customer_segment` - Customer-specific rules
+- Simulation package scaffolding
+- Dashboard scaffolding with Next.js 15
+
+### Technical
+- pnpm monorepo structure
+- TypeScript strict mode throughout
+- ESLint + Prettier configuration
+- Husky pre-commit hooks
+- Conventional commits with commitlint

@@ -1,0 +1,108 @@
+---
+title: Discount Stacking
+description: Control how multiple discounts combine
+---
+
+# Discount Stacking
+
+A common challenge: allowing some discount combinations while preventing abuse.
+
+## The Scenario
+
+Your store has:
+- **Coupons**: Customer-entered codes
+- **Site-wide sales**: Automatic percentage off
+- **Loyalty rewards**: Points-based discounts
+- **Employee discounts**: Staff pricing
+
+Business rules:
+- Coupons + sales can stack (up to 40% total)
+- Employee discount cannot stack with anything
+- Loyalty rewards have no stacking limit
+
+## The Policy
+
+```typescript
+import { Policy, evaluate } from '@guardrail-sim/core';
+
+const stackingPolicy: Policy = {
+  name: 'discount-stacking-rules',
+  description: 'Controls how discounts combine',
+  constraints: [
+    // Overall cap
+    {
+      type: 'max_percentage',
+      value: 50,
+      message: 'Total discount cannot exceed 50%',
+    },
+    // Employee discount is exclusive
+    {
+      type: 'exclusive_discount',
+      discountType: 'employee',
+      message: 'Employee discount cannot combine with other offers',
+    },
+    // Coupon + sale cap
+    {
+      type: 'stacking_cap',
+      types: ['coupon', 'sale'],
+      maxCombined: 40,
+      message: 'Coupon and sale discounts combined cannot exceed 40%',
+    },
+  ],
+};
+```
+
+## Testing Scenarios
+
+```typescript
+// Scenario 1: Coupon + Sale (allowed)
+const result1 = evaluate(stackingPolicy, {
+  discounts: [
+    { type: 'coupon', value: 20 },
+    { type: 'sale', value: 15 },
+  ],
+});
+// result1.allowed: true
+// result1.finalValue: 35
+
+// Scenario 2: Coupon + Sale over limit (clamped)
+const result2 = evaluate(stackingPolicy, {
+  discounts: [
+    { type: 'coupon', value: 25 },
+    { type: 'sale', value: 20 },
+  ],
+});
+// result2.allowed: false
+// result2.suggestion.clampTo: 40
+
+// Scenario 3: Employee + anything (rejected)
+const result3 = evaluate(stackingPolicy, {
+  discounts: [
+    { type: 'employee', value: 30 },
+    { type: 'loyalty', value: 10 },
+  ],
+});
+// result3.allowed: false
+// result3.violations[0].message: 'Employee discount cannot combine...'
+```
+
+## Batch Testing
+
+Test all edge cases at once:
+
+```typescript
+const scenarios = [
+  { discounts: [{ type: 'coupon', value: 10 }] },
+  { discounts: [{ type: 'sale', value: 20 }] },
+  { discounts: [{ type: 'coupon', value: 10 }, { type: 'sale', value: 10 }] },
+  { discounts: [{ type: 'coupon', value: 30 }, { type: 'sale', value: 30 }] },
+  { discounts: [{ type: 'employee', value: 30 }] },
+  { discounts: [{ type: 'employee', value: 30 }, { type: 'coupon', value: 10 }] },
+];
+
+const results = evaluateBatch(stackingPolicy, scenarios);
+
+results.forEach((result, i) => {
+  console.log(`Scenario ${i + 1}: ${result.allowed ? '✅' : '❌'}`);
+});
+```

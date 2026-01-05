@@ -1,0 +1,59 @@
+---
+title: Architecture
+description: Technical decisions and architecture overview
+---
+
+# Architecture
+
+This document captures the key technical decisions for Guardrail-Sim, including alternatives considered and rationale for choices made.
+
+## Overview
+
+Guardrail-Sim is a three-layer system:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      DASHBOARD (Next.js)                     │
+│  Policy Editor │ Simulation Results │ Comparison View        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   SIMULATION ENGINE (Node.js)                │
+│  Synthetic Orders │ Buyer Personas │ Negotiation Loop        │
+│  LLM-as-Adversary │ Result Logging │ Margin Calculation      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    POLICY ENGINE (Deterministic)             │
+│  json-rules-engine │ Margin Floors │ Volume Tiers            │
+│  Escalation Triggers │ Customer Segment Rules                │
+│                                                              │
+│  Exposed via MCP Server: evaluate_policy(order, discount)    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Key Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Policy logic | Deterministic (json-rules-engine) | LLMs should never touch pricing math. Predictable, auditable, testable. |
+| LLM role | Adversarial buyer simulation only | LLM generates realistic negotiation attempts; policy engine decides outcomes. |
+| Integration | MCP server | Production AI agents can call `evaluate_policy()` at runtime. |
+| Data | Synthetic orders | No dependency on real merchant data. Demonstrable without NDA concerns. |
+
+## Decision Records
+
+For detailed architectural decisions, see the [ADR section](/docs/adr/001-policy-structure).
+
+## Stack
+
+| Layer | Technology | Rationale |
+|-------|------------|-----------|
+| **Policy Engine** | Node.js + json-rules-engine | Battle-tested rules engine; JS ecosystem consistency |
+| **Simulation Runner** | Node.js + OpenAI API | LLM for buyer persona simulation; Batch API for cost efficiency |
+| **Database** | PostgreSQL (Supabase) | Relational for structured simulation results; free tier sufficient |
+| **MCP Server** | TypeScript + @modelcontextprotocol/sdk | Extends logpare-MCP patterns; production-ready protocol |
+| **Dashboard** | Next.js 15 (App Router) + shadcn/ui + Tailwind | Modern React; consistent with target employer stacks |
+| **Deployment** | Vercel (dashboard) + Railway (MCP server) | Free/cheap tiers; demonstrates cloud deployment |

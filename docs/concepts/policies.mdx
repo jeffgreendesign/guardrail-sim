@@ -1,0 +1,78 @@
+---
+title: Policies
+description: The building blocks of guardrail-sim
+---
+
+# Policies
+
+A **policy** is a named collection of constraints that define what's allowed in a given context.
+
+## Policy Structure
+
+```typescript
+type Policy = {
+  name: string;
+  description?: string;
+  constraints: Constraint[];
+  priority?: number;
+  enabled?: boolean;
+  metadata?: Record<string, unknown>;
+};
+```
+
+### Required Fields
+
+- **name**: Unique identifier for the policy
+- **constraints**: Array of rules to enforce
+
+### Optional Fields
+
+- **description**: Human-readable explanation
+- **priority**: Order of evaluation (higher = first)
+- **enabled**: Toggle without removing
+- **metadata**: Arbitrary data for your use
+
+## Composing Policies
+
+Policies can be combined for complex scenarios:
+
+```typescript
+import { combinePolicies } from '@guardrail-sim/core';
+
+const holidayPolicy: Policy = {
+  name: 'holiday-limits',
+  constraints: [{ type: 'max_percentage', value: 50 }],
+};
+
+const clearancePolicy: Policy = {
+  name: 'clearance-rules',
+  constraints: [{ type: 'exclude_category', value: 'clearance' }],
+};
+
+const combined = combinePolicies([holidayPolicy, clearancePolicy]);
+```
+
+## Policy Inheritance
+
+Create base policies and extend them:
+
+```typescript
+const basePolicy: Policy = {
+  name: 'base',
+  constraints: [{ type: 'max_percentage', value: 60 }],
+};
+
+const strictPolicy = extendPolicy(basePolicy, {
+  name: 'strict',
+  constraints: [{ type: 'max_percentage', value: 30 }],
+});
+```
+
+The child policy's constraints override the parent's when they conflict.
+
+## Best Practices
+
+1. **Name policies clearly**: Use descriptive names like `holiday-sale-2024` not `policy1`
+2. **Document constraints**: Add descriptions explaining the business reason
+3. **Version policies**: Use metadata to track policy versions
+4. **Test thoroughly**: Use the simulator to verify edge cases

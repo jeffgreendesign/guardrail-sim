@@ -1,0 +1,60 @@
+---
+title: Introduction
+description: Policy simulation engine for e-commerce guardrails
+---
+
+# guardrail-sim
+
+**guardrail-sim** simulates business rules and policies before they hit production. Define discount caps, shipping constraints, and promotional logic—then test every edge case.
+
+## The Problem
+
+E-commerce discount logic is deceptively complex:
+
+- **Stacking rules**: Can a 20% coupon combine with a site-wide sale?
+- **Constraints**: What's the maximum discount on clearance items?
+- **Edge cases**: What happens when three promotions overlap?
+
+Testing these manually is tedious. Discovering bugs in production is expensive.
+
+## The Solution
+
+Define policies declaratively. Simulate outcomes programmatically.
+
+```typescript
+import { Policy, evaluate } from '@guardrail-sim/core';
+
+const policy: Policy = {
+  name: 'max-discount',
+  constraints: [
+    { type: 'max_percentage', value: 50 },
+    { type: 'exclude_category', value: 'clearance' },
+  ],
+};
+
+const result = evaluate(policy, {
+  discounts: [
+    { type: 'coupon', value: 20 },
+    { type: 'sale', value: 15 },
+  ],
+  item: { category: 'apparel', price: 100 },
+});
+
+// result.allowed: true
+// result.finalDiscount: 35
+// result.appliedRules: [...]
+```
+
+## Features
+
+- **Declarative policies**: Define rules as data, not code
+- **Simulation engine**: Test scenarios without side effects
+- **MCP integration**: Use with AI assistants via Model Context Protocol
+- **Type-safe**: Full TypeScript support with inference
+
+## Next Steps
+
+- [Getting Started](/docs/getting-started) - Set up guardrail-sim in your project
+- [Core Concepts](/docs/concepts/policies) - Learn about policies, constraints, and evaluation
+- [MCP Tools](/docs/mcp-tools) - Use guardrail-sim with AI assistants
+- [Examples](/docs/examples/discount-stacking) - See real-world usage patterns

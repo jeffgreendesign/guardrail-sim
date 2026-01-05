@@ -1,0 +1,82 @@
+---
+title: Evaluation
+description: How guardrail-sim processes policies
+---
+
+# Evaluation
+
+The **evaluation** process determines whether a scenario satisfies a policy's constraints.
+
+## Evaluation Flow
+
+```
+Scenario → Policy → Constraints → Actions → Result
+```
+
+1. **Input**: A scenario with discounts, items, customer data
+2. **Policy Selection**: Which policies apply to this scenario
+3. **Constraint Checking**: Each constraint is evaluated
+4. **Action Resolution**: Determine the final outcome
+5. **Result**: Allowed/rejected with details
+
+## Basic Evaluation
+
+```typescript
+import { evaluate } from '@guardrail-sim/core';
+
+const result = evaluate(policy, {
+  discounts: [{ type: 'coupon', value: 25 }],
+  item: { price: 100, category: 'apparel' },
+  customer: { isVip: true },
+});
+```
+
+## Batch Evaluation
+
+Test multiple scenarios at once:
+
+```typescript
+import { evaluateBatch } from '@guardrail-sim/core';
+
+const scenarios = [
+  { discounts: [{ type: 'coupon', value: 10 }] },
+  { discounts: [{ type: 'coupon', value: 30 }] },
+  { discounts: [{ type: 'coupon', value: 50 }] },
+];
+
+const results = evaluateBatch(policy, scenarios);
+// Returns array of results
+```
+
+## Dry Run Mode
+
+Preview what would happen without committing:
+
+```typescript
+const result = evaluate(policy, scenario, { dryRun: true });
+// result.simulated: true
+// No side effects, just the prediction
+```
+
+## Evaluation Context
+
+Pass additional context to constraints:
+
+```typescript
+const result = evaluate(policy, scenario, {
+  context: {
+    currentTime: new Date(),
+    storeId: 'store-123',
+    channel: 'web',
+  },
+});
+```
+
+Custom constraints can access this context:
+
+```typescript
+registerConstraint('store_specific', (constraint, context) => {
+  const storeId = context.storeId;
+  // Use storeId in evaluation
+});
+```

@@ -1,0 +1,77 @@
+---
+title: "ADR 001: Policy Engine Library"
+description: Use json-rules-engine for deterministic policy evaluation
+---
+
+# ADR 001: Policy Engine Library
+
+**Status:** Implemented
+
+**Date:** December 29, 2025
+
+## Context
+
+We need a policy engine that can evaluate discount rules, shipping constraints, and promotional logic. The engine must be:
+
+- Deterministic (same input = same output)
+- Auditable (we can trace why a decision was made)
+- Fast (sub-100ms evaluation)
+- Extensible (custom rules without code changes)
+
+## Decision
+
+Use **json-rules-engine** (Node.js) for deterministic policy evaluation.
+
+## Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **json-rules-engine** | Battle-tested, active maintenance, JS-native, good docs | No built-in UI, JSON-only rules |
+| **Drools (Java)** | Enterprise-grade, powerful rule language | JVM dependency, overkill for MVP |
+| **node-rules** | Simple API | Less active, fewer features |
+| **Custom implementation** | Full control | Time sink, bugs, maintenance burden |
+| **LLM-based evaluation** | Flexible, natural language rules | Non-deterministic, slow, expensive, unauditable |
+
+## Rationale
+
+- json-rules-engine is the most popular JS rules engine (~1.5k GitHub stars)
+- Supports nested conditions, priority ordering, and custom operators
+- Deterministic evaluation is critical — same input must produce same output
+- JSON rules are human-readable and version-controllable
+- Active maintenance (last release within 6 months)
+
+## Consequences
+
+- Rules must be expressed in JSON schema (not natural language)
+- Need to build our own rule builder UI
+- Complex rules may require custom operators
+
+## Example Usage
+
+```typescript
+import { Engine } from 'json-rules-engine';
+
+const engine = new Engine();
+
+engine.addRule({
+  conditions: {
+    all: [
+      { fact: 'requested_discount', operator: 'greaterThan', value: 0.15 },
+      { fact: 'customer_segment', operator: 'notEqual', value: 'platinum' },
+    ],
+  },
+  event: {
+    type: 'escalate',
+    params: {
+      message: 'Discounts over 15% for non-platinum customers require approval',
+    },
+  },
+  priority: 10,
+});
+
+const result = await engine.run({
+  requested_discount: 0.18,
+  customer_segment: 'gold',
+  order_value: 5000,
+});
+```
