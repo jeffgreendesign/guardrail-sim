@@ -8,19 +8,21 @@ export function MCPShowcase(): ReactNode {
       <div className="mcp-tools-grid">
         <div className="mcp-tool">
           <code className="mcp-tool-name">evaluate_policy</code>
-          <p className="mcp-tool-description">Test a scenario against policy constraints</p>
+          <p className="mcp-tool-description">
+            Evaluate a proposed discount against the active pricing policy
+          </p>
+        </div>
+        <div className="mcp-tool">
+          <code className="mcp-tool-name">get_policy_summary</code>
+          <p className="mcp-tool-description">
+            Get a human-readable summary of the active policy rules
+          </p>
         </div>
         <div className="mcp-tool">
           <code className="mcp-tool-name">get_max_discount</code>
-          <p className="mcp-tool-description">Calculate maximum allowed discount</p>
-        </div>
-        <div className="mcp-tool">
-          <code className="mcp-tool-name">validate_policy</code>
-          <p className="mcp-tool-description">Check if a policy definition is valid</p>
-        </div>
-        <div className="mcp-tool">
-          <code className="mcp-tool-name">list_constraints</code>
-          <p className="mcp-tool-description">List all available constraint types</p>
+          <p className="mcp-tool-description">
+            Calculate the maximum allowed discount for a given order
+          </p>
         </div>
       </div>
     </section>

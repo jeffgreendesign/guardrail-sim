@@ -57,6 +57,8 @@ const combined = combinePolicies([holidayPolicy, clearancePolicy]);
 Create base policies and extend them:
 
 ```typescript
+import { extendPolicy } from '@guardrail-sim/core';
+
 const basePolicy: Policy = {
   name: 'base',
   constraints: [{ type: 'max_percentage', value: 60 }],

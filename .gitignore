@@ -34,3 +34,6 @@ coverage/
 
 # Claude Code
 .claude/
+
+# Fumadocs generated files
+.source/

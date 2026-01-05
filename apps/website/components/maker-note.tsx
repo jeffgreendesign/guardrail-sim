@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-type MakerNoteProps = {
+interface MakerNoteProps {
   title?: string;
   children: ReactNode;
-};
+}
 
 export function MakerNote({ title = 'Why I built this', children }: MakerNoteProps): ReactNode {
   return (

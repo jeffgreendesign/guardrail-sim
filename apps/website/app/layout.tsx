@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://guardrail-sim.dev'),
 };
 
-type RootLayoutProps = {
+interface RootLayoutProps {
   children: ReactNode;
-};
+}
 
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   return (

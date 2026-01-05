@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { Metadata } from 'next';
 
-type PageProps = {
+interface PageProps {
   params: Promise<{ slug?: string[] }>;
-};
+}
 
 export default async function Page({ params }: PageProps): Promise<React.ReactNode> {
   const { slug } = await params;
