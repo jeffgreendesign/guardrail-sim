@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   title: {
     template: '%s | guardrail-sim',
-    default: 'guardrail-sim - Policy simulation for e-commerce',
+    default: 'guardrail-sim - Policy Simulation for E-commerce',
   },
   description:
     'Simulate discount rules, shipping constraints, and promotional logic before they hit production.',
