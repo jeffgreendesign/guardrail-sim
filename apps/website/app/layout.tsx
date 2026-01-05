@@ -19,7 +19,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   return (
-    <html lang="en" data-theme="midnight" data-mode="technical" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className="flex min-h-screen flex-col bg-fd-background text-fd-foreground font-sans antialiased">
         <RootProvider
           theme={{
