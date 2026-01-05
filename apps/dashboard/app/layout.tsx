@@ -1,7 +1,6 @@
 import './globals.css';
 import { RootProvider } from 'fumadocs-ui/provider';
 import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: {
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
   keywords: ['AI', 'pricing', 'policy', 'simulation', 'B2B', 'MCP', 'guardrails'],
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }): React.ReactNode {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
