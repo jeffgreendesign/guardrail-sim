@@ -1,12 +1,12 @@
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 interface MakerNoteProps {
   title?: string;
   children: ReactNode;
 }
 
-export function MakerNote({ title = 'Why I built this', children }: MakerNoteProps): ReactNode {
+export function MakerNote({ title = 'Why I built this', children }: MakerNoteProps): ReactElement {
   return (
     <section className="maker-section">
       <div className="maker-note">
@@ -18,7 +18,7 @@ export function MakerNote({ title = 'Why I built this', children }: MakerNotePro
   );
 }
 
-function MakerSignature(): ReactNode {
+function MakerSignature(): ReactElement {
   return (
     <Link
       href="https://hirejeffgreen.com"
