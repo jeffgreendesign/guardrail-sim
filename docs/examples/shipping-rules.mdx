@@ -1,0 +1,95 @@
+---
+title: Shipping Rules
+description: Free shipping thresholds and restrictions
+---
+
+# Shipping Rules
+
+Control when free shipping applies and what restrictions exist.
+
+## The Scenario
+
+Your shipping policy:
+- Free shipping on orders over $75
+- No free shipping on oversized items
+- Express shipping requires minimum $50
+- Alaska/Hawaii have different thresholds
+
+## The Policy
+
+```typescript
+import { Policy, registerConstraint } from '@guardrail-sim/core';
+
+// Custom constraint for shipping zones
+registerConstraint('shipping_zone', (constraint, context) => {
+  const zone = context.shippingZone;
+  const minValue = constraint.zoneMinimums[zone] ?? constraint.defaultMinimum;
+
+  if (context.cartTotal < minValue) {
+    return {
+      satisfied: false,
+      message: `Free shipping to ${zone} requires $${minValue} minimum`,
+    };
+  }
+  return { satisfied: true };
+});
+
+const shippingPolicy: Policy = {
+  name: 'free-shipping-rules',
+  constraints: [
+    // Base threshold
+    {
+      type: 'require_minimum',
+      value: 75,
+      message: 'Free shipping requires $75 minimum purchase',
+    },
+    // Zone-specific thresholds
+    {
+      type: 'shipping_zone',
+      defaultMinimum: 75,
+      zoneMinimums: {
+        'alaska': 150,
+        'hawaii': 150,
+        'puerto-rico': 100,
+      },
+    },
+    // Exclude oversized
+    {
+      type: 'exclude_attribute',
+      attribute: 'oversized',
+      value: true,
+      message: 'Oversized items do not qualify for free shipping',
+    },
+  ],
+};
+```
+
+## Testing
+
+```typescript
+// Standard order (allowed)
+const result1 = evaluate(shippingPolicy, {
+  cartTotal: 80,
+  shippingZone: 'continental',
+  items: [{ oversized: false }],
+});
+// result1.allowed: true
+
+// Hawaii order (needs higher minimum)
+const result2 = evaluate(shippingPolicy, {
+  cartTotal: 80,
+  shippingZone: 'hawaii',
+  items: [{ oversized: false }],
+});
+// result2.allowed: false
+// result2.violations[0].message: 'Free shipping to hawaii requires $150 minimum'
+
+// Oversized item (excluded)
+const result3 = evaluate(shippingPolicy, {
+  cartTotal: 200,
+  shippingZone: 'continental',
+  items: [{ oversized: true }],
+});
+// result3.allowed: false
+// result3.violations[0].message: 'Oversized items do not qualify...'
+```

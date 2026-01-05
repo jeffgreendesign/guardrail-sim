@@ -1,0 +1,82 @@
+---
+title: Type Definitions
+description: TypeScript types for guardrail-sim
+---
+
+# Type Definitions
+
+All TypeScript types exported by `@guardrail-sim/core`.
+
+## Policy
+
+```typescript
+type Policy = {
+  name: string;
+  description?: string;
+  constraints: Constraint[];
+  priority?: number;
+  enabled?: boolean;
+  metadata?: Record<string, unknown>;
+};
+```
+
+## Constraint
+
+```typescript
+type Constraint = {
+  type: string;
+  value: unknown;
+  message?: string;
+  severity?: 'error' | 'warning';
+  action?: 'reject' | 'clamp' | 'warn';
+};
+```
+
+## Scenario
+
+```typescript
+type Scenario = {
+  discounts: Discount[];
+  item?: Item;
+  customer?: Customer;
+  cart?: Cart;
+  metadata?: Record<string, unknown>;
+};
+```
+
+## Discount
+
+```typescript
+type Discount = {
+  type: 'coupon' | 'sale' | 'loyalty' | 'employee' | 'custom';
+  value: number;
+  code?: string;
+  source?: string;
+};
+```
+
+## EvaluationResult
+
+```typescript
+type EvaluationResult = {
+  allowed: boolean;
+  action: 'allow' | 'reject' | 'clamp' | 'warn';
+  originalValue: number;
+  finalValue: number;
+  violations: Violation[];
+  warnings: Warning[];
+  appliedConstraints: Constraint[];
+  suggestion?: Suggestion;
+};
+```
+
+## Violation
+
+```typescript
+type Violation = {
+  constraint: string;
+  message: string;
+  expected: unknown;
+  actual: unknown;
+};
+```

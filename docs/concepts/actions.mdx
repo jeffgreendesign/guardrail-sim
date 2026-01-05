@@ -1,0 +1,83 @@
+---
+title: Actions
+description: What guardrail-sim does when constraints are violated
+---
+
+# Actions
+
+When a constraint is violated, guardrail-sim can take different **actions** based on your configuration.
+
+## Action Types
+
+### Reject
+
+Block the discount entirely.
+
+```typescript
+const result = evaluate(policy, scenario);
+// result.action: 'reject'
+// result.allowed: false
+```
+
+### Clamp
+
+Reduce the discount to the maximum allowed value.
+
+```typescript
+const policy: Policy = {
+  name: 'clamped-discount',
+  constraints: [
+    {
+      type: 'max_percentage',
+      value: 40,
+      action: 'clamp', // Instead of rejecting, reduce to 40%
+    },
+  ],
+};
+```
+
+### Warn
+
+Allow the discount but flag it for review.
+
+```typescript
+const policy: Policy = {
+  name: 'audit-large-discounts',
+  constraints: [
+    {
+      type: 'max_percentage',
+      value: 30,
+      severity: 'warning', // Allow but warn if over 30%
+    },
+  ],
+};
+```
+
+## Configuring Default Actions
+
+Set global defaults:
+
+```typescript
+import { configure } from '@guardrail-sim/core';
+
+configure({
+  defaultAction: 'clamp', // Default to clamping instead of rejecting
+  defaultSeverity: 'error',
+});
+```
+
+## Action Results
+
+The evaluation result includes action details:
+
+```typescript
+type EvaluationResult = {
+  allowed: boolean;
+  action: 'allow' | 'reject' | 'clamp' | 'warn';
+  originalValue: number;
+  finalValue: number;
+  violations: Violation[];
+  warnings: Warning[];
+  appliedConstraints: Constraint[];
+};
+```

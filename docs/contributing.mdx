@@ -1,0 +1,80 @@
+---
+title: Contributing
+description: How to contribute to guardrail-sim
+---
+
+# Contributing
+
+We welcome contributions to guardrail-sim! Here's how to get started.
+
+## Development Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/jeffgreendesign/guardrail-sim
+cd guardrail-sim
+
+# Install dependencies
+pnpm install
+
+# Run tests
+pnpm test
+
+# Start development
+pnpm dev
+```
+
+## Project Structure
+
+```
+guardrail-sim/
+├── packages/
+│   ├── policy-engine/    # Core policy engine
+│   ├── mcp-server/       # MCP server
+│   └── simulation/       # LLM buyer simulation
+├── apps/
+│   ├── dashboard/        # Next.js dashboard
+│   └── website/          # Documentation site
+└── docs/                 # MDX content
+```
+
+## Running Tests
+
+```bash
+# All tests
+pnpm test
+
+# With coverage
+pnpm test:coverage
+
+# Single package
+pnpm --filter @guardrail-sim/policy-engine test
+```
+
+## Code Style
+
+- We use ESLint and Prettier for formatting
+- Run `pnpm lint` to check for issues
+- Run `pnpm format` to auto-format
+- TypeScript strict mode is required
+- Explicit return types on exported functions
+
+## Submitting Changes
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Make your changes
+4. Run `pnpm lint && pnpm typecheck && pnpm test` to ensure quality
+5. Commit with a descriptive message (we use conventional commits)
+6. Push and open a Pull Request
+
+## Commit Messages
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add new constraint type for time windows
+fix: correct margin calculation for volume discounts
+docs: update getting started guide
+chore: update dependencies
+```

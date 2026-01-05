@@ -1,0 +1,19 @@
+{
+  "title": "guardrail-sim",
+  "pages": [
+    "index",
+    "getting-started",
+    "---Concepts---",
+    "concepts/...",
+    "---Reference---",
+    "mcp-tools",
+    "api/...",
+    "---Examples---",
+    "examples/...",
+    "---Project---",
+    "architecture",
+    "adr/...",
+    "contributing",
+    "changelog"
+  ]
+}

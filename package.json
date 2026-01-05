@@ -17,6 +17,9 @@
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "quality": "pnpm lint && pnpm typecheck && pnpm test",
+    "docs:dev": "pnpm --filter guardrail-sim-website dev",
+    "docs:build": "pnpm --filter guardrail-sim-website build",
     "prepare": "husky"
   },
   "lint-staged": {

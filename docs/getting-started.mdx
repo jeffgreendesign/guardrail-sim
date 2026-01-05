@@ -1,0 +1,100 @@
+---
+title: Getting Started
+description: Set up guardrail-sim in your project
+---
+
+# Getting Started
+
+Install guardrail-sim and write your first policy in 5 minutes.
+
+## Installation
+
+```bash
+# Core library
+npm install @guardrail-sim/core
+
+# MCP server (optional)
+npm install @guardrail-sim/mcp
+```
+
+## Your First Policy
+
+A policy defines constraints on what's allowed:
+
+```typescript
+import { Policy, evaluate } from '@guardrail-sim/core';
+
+// Define a policy
+const maxDiscountPolicy: Policy = {
+  name: 'holiday-sale-limits',
+  description: 'Caps discounts during holiday promotions',
+  constraints: [
+    {
+      type: 'max_percentage',
+      value: 40,
+      message: 'Holiday discount cannot exceed 40%',
+    },
+  ],
+};
+
+// Evaluate against a scenario
+const result = evaluate(maxDiscountPolicy, {
+  discounts: [
+    { type: 'coupon', value: 25 },
+    { type: 'loyalty', value: 10 },
+    { type: 'sale', value: 15 },
+  ],
+});
+
+console.log(result);
+// {
+//   allowed: false,
+//   totalRequested: 50,
+//   maxAllowed: 40,
+//   violations: ['Holiday discount cannot exceed 40%'],
+//   suggestion: { clampTo: 40 }
+// }
+```
+
+## Constraint Types
+
+guardrail-sim supports these constraint types out of the box:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `max_percentage` | Cap total discount percentage | `{ type: 'max_percentage', value: 50 }` |
+| `max_absolute` | Cap total discount amount | `{ type: 'max_absolute', value: 100 }` |
+| `exclude_category` | Block discounts on categories | `{ type: 'exclude_category', value: 'clearance' }` |
+| `require_minimum` | Require minimum cart value | `{ type: 'require_minimum', value: 50 }` |
+| `limit_stacking` | Limit concurrent discounts | `{ type: 'limit_stacking', max: 2 }` |
+| `time_window` | Restrict to time periods | `{ type: 'time_window', start: '...', end: '...' }` |
+
+## Using with MCP
+
+If you're using Claude or another MCP-compatible client:
+
+```bash
+# Start the MCP server
+npx @guardrail-sim/mcp serve
+```
+
+Add to your Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "guardrail-sim": {
+      "command": "npx",
+      "args": ["@guardrail-sim/mcp", "serve"]
+    }
+  }
+}
+```
+
+Now you can ask Claude to evaluate policies conversationally.
+
+## Next Steps
+
+- Learn about [Policies](/docs/concepts/policies) in depth
+- Explore [Constraints](/docs/concepts/constraints)
+- See [real-world examples](/docs/examples/discount-stacking)

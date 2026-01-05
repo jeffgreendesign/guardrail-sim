@@ -1,0 +1,151 @@
+---
+title: MCP Tools Reference
+description: Complete reference for guardrail-sim's MCP tools
+---
+
+# MCP Tools Reference
+
+guardrail-sim exposes these tools through the Model Context Protocol.
+
+## evaluate_policy
+
+Evaluate a scenario against a policy.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `policy` | Policy | Yes | The policy to evaluate |
+| `scenario` | Scenario | Yes | The scenario to test |
+| `options` | Options | No | Evaluation options |
+
+**Example:**
+
+```json
+{
+  "name": "evaluate_policy",
+  "arguments": {
+    "policy": {
+      "name": "max-discount",
+      "constraints": [
+        { "type": "max_percentage", "value": 40 }
+      ]
+    },
+    "scenario": {
+      "discounts": [
+        { "type": "coupon", "value": 25 },
+        { "type": "sale", "value": 20 }
+      ]
+    }
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "allowed": false,
+  "action": "reject",
+  "totalRequested": 45,
+  "maxAllowed": 40,
+  "violations": [
+    {
+      "constraint": "max_percentage",
+      "message": "Discount exceeds maximum of 40%"
+    }
+  ],
+  "suggestion": {
+    "clampTo": 40
+  }
+}
+```
+
+## get_max_discount
+
+Calculate the maximum allowed discount for a given context.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `policy` | Policy | Yes | The policy to check |
+| `context` | Context | No | Additional context (category, customer, etc.) |
+
+**Example:**
+
+```json
+{
+  "name": "get_max_discount",
+  "arguments": {
+    "policy": {
+      "name": "holiday-limits",
+      "constraints": [
+        { "type": "max_percentage", "value": 50 },
+        { "type": "exclude_category", "value": "clearance" }
+      ]
+    },
+    "context": {
+      "category": "apparel"
+    }
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "maxPercentage": 50,
+  "maxAbsolute": null,
+  "eligibleForDiscount": true,
+  "restrictions": []
+}
+```
+
+## list_constraints
+
+List all available constraint types.
+
+**Parameters:** None
+
+**Response:**
+
+```json
+{
+  "constraints": [
+    {
+      "type": "max_percentage",
+      "description": "Cap total discount as a percentage",
+      "parameters": ["value"]
+    },
+    {
+      "type": "max_absolute",
+      "description": "Cap total discount as an amount",
+      "parameters": ["value"]
+    }
+  ]
+}
+```
+
+## validate_policy
+
+Check if a policy definition is valid.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `policy` | Policy | Yes | The policy to validate |
+
+**Response:**
+
+```json
+{
+  "valid": true,
+  "errors": [],
+  "warnings": [
+    "Policy has no description"
+  ]
+}
+```
