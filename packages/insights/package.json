@@ -1,0 +1,34 @@
+{
+  "name": "@guardrail-sim/insights",
+  "version": "0.1.0",
+  "description": "Policy insights, health checks, and best practice recommendations for guardrail-sim",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@guardrail-sim/policy-engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "guardrail-sim",
+    "policy",
+    "insights",
+    "best-practices",
+    "b2b-commerce"
+  ],
+  "license": "MIT"
+}

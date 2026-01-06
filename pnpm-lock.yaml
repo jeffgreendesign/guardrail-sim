@@ -149,6 +149,19 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
 
+  packages/insights:
+    dependencies:
+      '@guardrail-sim/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.1
+        version: 22.10.5
+      typescript:
+        specifier: ^5.7.2
+        version: 5.7.2
+
   packages/mcp-server:
     dependencies:
       '@guardrail-sim/policy-engine':
