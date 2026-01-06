@@ -1,8 +1,10 @@
-@import '../styles/shared.css';
+@import 'fumadocs-ui/style.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import '../styles/shared.css';
 
 /* ============================================
    LANDING PAGE STYLES

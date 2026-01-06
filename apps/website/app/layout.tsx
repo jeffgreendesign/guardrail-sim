@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   title: {
     template: '%s | guardrail-sim',
-    default: 'guardrail-sim - Policy simulation for e-commerce',
+    default: 'guardrail-sim - Policy Simulation for E-commerce',
   },
   description:
     'Simulate discount rules, shipping constraints, and promotional logic before they hit production.',
@@ -19,8 +19,8 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   return (
-    <html lang="en" data-theme="midnight" data-mode="technical" suppressHydrationWarning>
-      <body className="bg-fd-background text-fd-foreground font-sans antialiased">
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className="flex min-h-screen flex-col bg-fd-background text-fd-foreground font-sans antialiased">
         <RootProvider
           theme={{
             enabled: true,

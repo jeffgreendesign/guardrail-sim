@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   keywords: ['AI', 'pricing', 'policy', 'simulation', 'B2B', 'MCP', 'guardrails'],
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }): ReactNode {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
