@@ -282,7 +282,10 @@ export class RecommendationEngine {
       totalItems: checklist.items.length,
       requiredItems: requiredItems.length,
       completedRequired,
-      percentComplete: Math.round((completedItems.length / checklist.items.length) * 100),
+      percentComplete:
+        checklist.items.length > 0
+          ? Math.round((completedItems.length / checklist.items.length) * 100)
+          : 100,
     };
   }
 

@@ -121,15 +121,16 @@ describe('RecommendationEngine', () => {
 
       const report = await engine.analyze(context);
 
-      if (report.insights.length >= 2) {
-        const severities = report.insights.map((r) => r.insight.severity);
-        const criticalIndex = severities.indexOf('critical');
-        const warningIndex = severities.indexOf('warning');
+      // Ensure we have enough insights to test sorting
+      assert.ok(report.insights.length >= 2, 'Should have at least 2 insights for sorting test');
 
-        if (criticalIndex !== -1 && warningIndex !== -1) {
-          assert.ok(criticalIndex < warningIndex, 'Critical should come before warning');
-        }
-      }
+      const severities = report.insights.map((r) => r.insight.severity);
+      const criticalIndex = severities.indexOf('critical');
+      const warningIndex = severities.indexOf('warning');
+
+      assert.notStrictEqual(criticalIndex, -1, 'Should have a critical insight');
+      assert.notStrictEqual(warningIndex, -1, 'Should have a warning insight');
+      assert.ok(criticalIndex < warningIndex, 'Critical should come before warning');
     });
   });
 

@@ -20,7 +20,6 @@ export {
   averageMarginDecliningInsight,
   singleRuleDominatesInsight,
   discountGapInsight,
-  nearMissApprovalInsight,
 } from './margin-protection.js';
 
 export {

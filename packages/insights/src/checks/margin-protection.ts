@@ -308,6 +308,8 @@ export const checkMarginFloorFrequency: InsightCheck = (
   if (!context.simulationResults) return null;
 
   const { violationsByRule, totalOrders } = context.simulationResults;
+  if (totalOrders === 0) return null;
+
   const marginFloorViolations = violationsByRule['margin_floor'] ?? 0;
   const frequency = marginFloorViolations / totalOrders;
 
@@ -418,7 +420,8 @@ export const marginProtectionInsights: Insight[] = [
   averageMarginDecliningInsight,
   singleRuleDominatesInsight,
   discountGapInsight,
-  nearMissApprovalInsight,
+  // Note: nearMissApprovalInsight requires per-evaluation data not available in SimulationSummary
+  // TODO: Implement when detailed evaluation results are tracked
 ];
 
 export const marginProtectionChecks: Map<string, InsightCheck> = new Map([

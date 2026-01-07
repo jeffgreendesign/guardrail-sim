@@ -79,7 +79,6 @@ export {
   averageMarginDecliningInsight,
   singleRuleDominatesInsight,
   discountGapInsight,
-  nearMissApprovalInsight,
   // Simulation analysis
   simulationAnalysisInsights,
   simulationAnalysisChecks,

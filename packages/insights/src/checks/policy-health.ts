@@ -417,8 +417,10 @@ export const policyHealthChecks: Map<string, InsightCheck> = new Map([
   ['policy-health-001', checkNoMarginFloor],
   ['policy-health-002', checkNoMaxDiscountCap],
   ['policy-health-003', checkTooFewRules],
+  // Note: policy-health-004 (conflictingRulesInsight) requires rule conflict detection
+  // TODO: Implement when rule condition analysis is available
   ['policy-health-005', checkNoPrioritySet],
+  // checkMarginFloorThreshold returns results for both 006 (high) and 007 (low)
   ['policy-health-006', checkMarginFloorThreshold],
-  ['policy-health-007', checkMarginFloorThreshold],
   ['policy-health-008', checkNoVolumeConsideration],
 ]);
