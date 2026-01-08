@@ -42,6 +42,7 @@ node --test --experimental-strip-types packages/policy-engine/test/*.test.ts
 ```
 apps/
   dashboard/           # Next.js 15 App Router + shadcn/ui + Tailwind
+  website/             # Fumadocs documentation site
 
 packages/
   mcp-server/          # MCP server exposing evaluate_policy tool
@@ -61,10 +62,11 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 
 ## Key Documentation
 
-- `docs/PRD.md` — Product requirements, features, success criteria
-- `docs/ARCHITECTURE.md` — Technical decisions with rationale (8 ADRs)
-- `docs/MCP-PATTERNS.md` — MCP implementation patterns and examples
-- `docs/SHOPIFY-CONTEXT.md` — B2B commerce domain knowledge
+- `docs/getting-started.mdx` — Quick start guide and setup
+- `docs/architecture.mdx` — Technical decisions with rationale
+- `docs/mcp-tools.mdx` — MCP implementation patterns and examples
+- `docs/concepts/policies.mdx` — Policy structure and evaluation
+- `docs/adr/` — Architecture Decision Records
 
 ## Stack
 

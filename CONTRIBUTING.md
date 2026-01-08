@@ -131,7 +131,7 @@ node --test --experimental-strip-types packages/policy-engine/test/engine.test.t
 
 ## Architecture Decisions
 
-Major technical decisions are documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Please read through the ADRs before proposing significant changes.
+Major technical decisions are documented in [`docs/architecture.mdx`](docs/architecture.mdx). Please read through the [ADRs](docs/adr/) before proposing significant changes.
 
 ## Getting Help
 
