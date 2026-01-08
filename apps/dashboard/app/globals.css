@@ -70,7 +70,9 @@
 
 /* Neon glow effect */
 .neon-glow {
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
+  text-shadow:
+    0 0 10px rgba(0, 240, 255, 0.5),
+    0 0 20px rgba(0, 240, 255, 0.3);
 }
 
 /* Code blocks with better styling */

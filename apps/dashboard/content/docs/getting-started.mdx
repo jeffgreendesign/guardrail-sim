@@ -41,10 +41,10 @@ const engine = new PolicyEngine(defaultPolicy);
 
 // Define an order
 const order = {
-  order_value: 5000,     // $5,000 order
-  quantity: 100,         // 100 units
-  product_margin: 0.4,   // 40% base margin
-  customer_segment: 'gold'
+  order_value: 5000, // $5,000 order
+  quantity: 100, // 100 units
+  product_margin: 0.4, // 40% base margin
+  customer_segment: 'gold',
 };
 
 // Evaluate a 12% discount request
@@ -63,11 +63,11 @@ console.log(result);
 
 The default policy includes three rules:
 
-| Rule | Constraint | Description |
-|------|-----------|-------------|
-| `margin_floor` | 15% minimum | Discounts cannot reduce margin below 15% |
-| `max_discount` | 25% cap | No discount can exceed 25% |
-| `volume_tier` | Quantity threshold | Less than 100 units: max 10%, 100+ units: max 15% |
+| Rule           | Constraint         | Description                                       |
+| -------------- | ------------------ | ------------------------------------------------- |
+| `margin_floor` | 15% minimum        | Discounts cannot reduce margin below 15%          |
+| `max_discount` | 25% cap            | No discount can exceed 25%                        |
+| `volume_tier`  | Quantity threshold | Less than 100 units: max 10%, 100+ units: max 15% |
 
 ## Using with MCP
 

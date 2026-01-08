@@ -169,22 +169,22 @@ Evaluate a proposed discount against the active pricing policy. This is the prim
 
 ## Response Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `approved` | boolean | Whether the discount is allowed |
-| `violations` | array | List of policy violations |
-| `applied_rules` | array | Names of rules that were evaluated |
-| `calculated_margin` | number | Margin after proposed discount |
-| `policy_id` | string | ID of the policy used |
-| `policy_name` | string | Human-readable policy name |
+| Field               | Type    | Description                        |
+| ------------------- | ------- | ---------------------------------- |
+| `approved`          | boolean | Whether the discount is allowed    |
+| `violations`        | array   | List of policy violations          |
+| `applied_rules`     | array   | Names of rules that were evaluated |
+| `calculated_margin` | number  | Margin after proposed discount     |
+| `policy_id`         | string  | ID of the policy used              |
+| `policy_name`       | string  | Human-readable policy name         |
 
 ## Violation Object
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `rule` | string | Name of the violated rule |
-| `message` | string | Human-readable explanation |
-| `limit` | number | The limit that was exceeded (optional) |
+| Field     | Type   | Description                            |
+| --------- | ------ | -------------------------------------- |
+| `rule`    | string | Name of the violated rule              |
+| `message` | string | Human-readable explanation             |
+| `limit`   | number | The limit that was exceeded (optional) |
 
 ## Usage in AI Agents
 

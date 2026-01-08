@@ -60,14 +60,14 @@ console.log(result);
 
 guardrail-sim supports these constraint types out of the box:
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `max_percentage` | Cap total discount percentage | `{ type: 'max_percentage', value: 50 }` |
-| `max_absolute` | Cap total discount amount | `{ type: 'max_absolute', value: 100 }` |
-| `exclude_category` | Block discounts on categories | `{ type: 'exclude_category', value: 'clearance' }` |
-| `require_minimum` | Require minimum cart value | `{ type: 'require_minimum', value: 50 }` |
-| `limit_stacking` | Limit concurrent discounts | `{ type: 'limit_stacking', max: 2 }` |
-| `time_window` | Restrict to time periods | `{ type: 'time_window', start: '...', end: '...' }` |
+| Type               | Description                   | Example                                             |
+| ------------------ | ----------------------------- | --------------------------------------------------- |
+| `max_percentage`   | Cap total discount percentage | `{ type: 'max_percentage', value: 50 }`             |
+| `max_absolute`     | Cap total discount amount     | `{ type: 'max_absolute', value: 100 }`              |
+| `exclude_category` | Block discounts on categories | `{ type: 'exclude_category', value: 'clearance' }`  |
+| `require_minimum`  | Require minimum cart value    | `{ type: 'require_minimum', value: 50 }`            |
+| `limit_stacking`   | Limit concurrent discounts    | `{ type: 'limit_stacking', max: 2 }`                |
+| `time_window`      | Restrict to time periods      | `{ type: 'time_window', start: '...', end: '...' }` |
 
 ## Using with MCP
 

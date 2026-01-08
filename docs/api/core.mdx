@@ -12,11 +12,7 @@ Complete API reference for the `@guardrail-sim/core` package.
 Evaluate a scenario against a policy.
 
 ```typescript
-function evaluate(
-  policy: Policy,
-  scenario: Scenario,
-  options?: EvaluateOptions
-): EvaluationResult;
+function evaluate(policy: Policy, scenario: Scenario, options?: EvaluateOptions): EvaluationResult;
 ```
 
 ### Parameters
@@ -50,10 +46,7 @@ const result = evaluate(
 Evaluate multiple scenarios at once.
 
 ```typescript
-function evaluateBatch(
-  policy: Policy,
-  scenarios: Scenario[]
-): EvaluationResult[];
+function evaluateBatch(policy: Policy, scenarios: Scenario[]): EvaluationResult[];
 ```
 
 ## combinePolicies
@@ -69,10 +62,7 @@ function combinePolicies(policies: Policy[]): Policy;
 Create a child policy from a parent.
 
 ```typescript
-function extendPolicy(
-  parent: Policy,
-  overrides: Partial<Policy>
-): Policy;
+function extendPolicy(parent: Policy, overrides: Partial<Policy>): Policy;
 ```
 
 ## registerConstraint
@@ -80,15 +70,9 @@ function extendPolicy(
 Add a custom constraint type.
 
 ```typescript
-function registerConstraint(
-  type: string,
-  handler: ConstraintHandler
-): void;
+function registerConstraint(type: string, handler: ConstraintHandler): void;
 
-type ConstraintHandler = (
-  constraint: Constraint,
-  context: EvaluationContext
-) => ConstraintResult;
+type ConstraintHandler = (constraint: Constraint, context: EvaluationContext) => ConstraintResult;
 ```
 
 ## configure

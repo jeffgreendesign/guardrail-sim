@@ -13,11 +13,11 @@ Evaluate a scenario against a policy.
 
 **Parameters:**
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `policy` | Policy | Yes | The policy to evaluate |
-| `scenario` | Scenario | Yes | The scenario to test |
-| `options` | Options | No | Evaluation options |
+| Name       | Type     | Required | Description            |
+| ---------- | -------- | -------- | ---------------------- |
+| `policy`   | Policy   | Yes      | The policy to evaluate |
+| `scenario` | Scenario | Yes      | The scenario to test   |
+| `options`  | Options  | No       | Evaluation options     |
 
 **Example:**
 
@@ -27,9 +27,7 @@ Evaluate a scenario against a policy.
   "arguments": {
     "policy": {
       "name": "max-discount",
-      "constraints": [
-        { "type": "max_percentage", "value": 40 }
-      ]
+      "constraints": [{ "type": "max_percentage", "value": 40 }]
     },
     "scenario": {
       "discounts": [
@@ -67,10 +65,10 @@ Calculate the maximum allowed discount for a given context.
 
 **Parameters:**
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `policy` | Policy | Yes | The policy to check |
-| `context` | Context | No | Additional context (category, customer, etc.) |
+| Name      | Type    | Required | Description                                   |
+| --------- | ------- | -------- | --------------------------------------------- |
+| `policy`  | Policy  | Yes      | The policy to check                           |
+| `context` | Context | No       | Additional context (category, customer, etc.) |
 
 **Example:**
 
@@ -134,9 +132,9 @@ Check if a policy definition is valid.
 
 **Parameters:**
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `policy` | Policy | Yes | The policy to validate |
+| Name     | Type   | Required | Description            |
+| -------- | ------ | -------- | ---------------------- |
+| `policy` | Policy | Yes      | The policy to validate |
 
 **Response:**
 
@@ -144,8 +142,6 @@ Check if a policy definition is valid.
 {
   "valid": true,
   "errors": [],
-  "warnings": [
-    "Policy has no description"
-  ]
+  "warnings": ["Policy has no description"]
 }
 ```

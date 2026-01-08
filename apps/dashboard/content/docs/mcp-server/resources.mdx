@@ -20,7 +20,7 @@ The currently active pricing policy configuration.
 
 ```typescript
 const result = await client.readResource({
-  uri: 'guardrail://policies/active'
+  uri: 'guardrail://policies/active',
 });
 
 const policy = JSON.parse(result.contents[0].text);
@@ -110,20 +110,20 @@ console.log(policy);
 
 ### Policy Object
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique identifier for the policy |
-| `name` | string | Human-readable policy name |
-| `rules` | array | List of json-rules-engine rules |
+| Field   | Type   | Description                      |
+| ------- | ------ | -------------------------------- |
+| `id`    | string | Unique identifier for the policy |
+| `name`  | string | Human-readable policy name       |
+| `rules` | array  | List of json-rules-engine rules  |
 
 ### Rule Object
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Rule identifier |
-| `conditions` | object | json-rules-engine conditions |
-| `event` | object | Event fired when conditions match |
-| `priority` | number | Evaluation order (lower = first) |
+| Field        | Type   | Description                       |
+| ------------ | ------ | --------------------------------- |
+| `name`       | string | Rule identifier                   |
+| `conditions` | object | json-rules-engine conditions      |
+| `event`      | object | Event fired when conditions match |
+| `priority`   | number | Evaluation order (lower = first)  |
 
 ## Use Cases
 
@@ -134,13 +134,13 @@ If your client needs to understand the full policy:
 ```typescript
 // Fetch once at startup
 const policyResource = await client.readResource({
-  uri: 'guardrail://policies/active'
+  uri: 'guardrail://policies/active',
 });
 const policy = JSON.parse(policyResource.contents[0].text);
 
 // Use for client-side validation hints
 function getDiscountHint(quantity: number): string {
-  const volumeRule = policy.rules.find(r => r.name === 'volume_tier');
+  const volumeRule = policy.rules.find((r) => r.name === 'volume_tier');
   if (quantity >= 100) {
     return 'Volume tier: up to 15% available';
   }

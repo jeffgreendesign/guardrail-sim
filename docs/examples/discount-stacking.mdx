@@ -10,12 +10,14 @@ A common challenge: allowing some discount combinations while preventing abuse.
 ## The Scenario
 
 Your store has:
+
 - **Coupons**: Customer-entered codes
 - **Site-wide sales**: Automatic percentage off
 - **Loyalty rewards**: Points-based discounts
 - **Employee discounts**: Staff pricing
 
 Business rules:
+
 - Coupons + sales can stack (up to 40% total)
 - Employee discount cannot stack with anything
 - Loyalty rewards have no stacking limit
@@ -94,10 +96,25 @@ Test all edge cases at once:
 const scenarios = [
   { discounts: [{ type: 'coupon', value: 10 }] },
   { discounts: [{ type: 'sale', value: 20 }] },
-  { discounts: [{ type: 'coupon', value: 10 }, { type: 'sale', value: 10 }] },
-  { discounts: [{ type: 'coupon', value: 30 }, { type: 'sale', value: 30 }] },
+  {
+    discounts: [
+      { type: 'coupon', value: 10 },
+      { type: 'sale', value: 10 },
+    ],
+  },
+  {
+    discounts: [
+      { type: 'coupon', value: 30 },
+      { type: 'sale', value: 30 },
+    ],
+  },
   { discounts: [{ type: 'employee', value: 30 }] },
-  { discounts: [{ type: 'employee', value: 30 }, { type: 'coupon', value: 10 }] },
+  {
+    discounts: [
+      { type: 'employee', value: 30 },
+      { type: 'coupon', value: 10 },
+    ],
+  },
 ];
 
 const results = evaluateBatch(stackingPolicy, scenarios);

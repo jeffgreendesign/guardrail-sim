@@ -10,6 +10,7 @@ Control when free shipping applies and what restrictions exist.
 ## The Scenario
 
 Your shipping policy:
+
 - Free shipping on orders over $75
 - No free shipping on oversized items
 - Express shipping requires minimum $50
@@ -48,8 +49,8 @@ const shippingPolicy: Policy = {
       type: 'shipping_zone',
       defaultMinimum: 75,
       zoneMinimums: {
-        'alaska': 150,
-        'hawaii': 150,
+        alaska: 150,
+        hawaii: 150,
         'puerto-rico': 100,
       },
     },
