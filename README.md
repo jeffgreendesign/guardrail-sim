@@ -118,10 +118,10 @@ pnpm --filter @guardrail-sim/policy-engine test    # Test single package
 
 ## Documentation
 
-- [Product Requirements](docs/PRD.md) — Features, success criteria, development plan
-- [Architecture Decisions](docs/ARCHITECTURE.md) — Technical decisions with rationale
-- [MCP Patterns](docs/MCP-PATTERNS.md) — MCP implementation reference (for future work)
-- [Shopify Context](docs/SHOPIFY-CONTEXT.md) — B2B commerce domain knowledge
+- [Getting Started](docs/getting-started.mdx) — Quick start guide and setup
+- [Architecture](docs/architecture.mdx) — Technical decisions with rationale
+- [MCP Tools](docs/mcp-tools.mdx) — MCP implementation reference
+- [Policy Concepts](docs/concepts/policies.mdx) — Policy structure and evaluation
 
 ## Contributing
 
