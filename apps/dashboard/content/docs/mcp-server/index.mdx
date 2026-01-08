@@ -9,16 +9,16 @@ The Guardrail-Sim MCP server exposes policy evaluation tools that AI agents can 
 
 ## Available Tools
 
-| Tool | Description |
-|------|-------------|
-| [`evaluate_policy`](/docs/mcp-server/evaluate-policy) | Evaluate a discount against the active policy |
-| [`get_policy_summary`](/docs/mcp-server/get-policy-summary) | Get human-readable policy explanation |
-| [`get_max_discount`](/docs/mcp-server/get-max-discount) | Calculate maximum allowed discount |
+| Tool                                                        | Description                                   |
+| ----------------------------------------------------------- | --------------------------------------------- |
+| [`evaluate_policy`](/docs/mcp-server/evaluate-policy)       | Evaluate a discount against the active policy |
+| [`get_policy_summary`](/docs/mcp-server/get-policy-summary) | Get human-readable policy explanation         |
+| [`get_max_discount`](/docs/mcp-server/get-max-discount)     | Calculate maximum allowed discount            |
 
 ## Available Resources
 
-| URI | Description |
-|-----|-------------|
+| URI                           | Description                               |
+| ----------------------------- | ----------------------------------------- |
 | `guardrail://policies/active` | The currently active policy configuration |
 
 ## Quick Start
@@ -63,7 +63,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const transport = new StdioClientTransport({
   command: 'node',
-  args: ['./packages/mcp-server/dist/index.js']
+  args: ['./packages/mcp-server/dist/index.js'],
 });
 
 const client = new Client({ name: 'my-app', version: '1.0.0' }, { capabilities: {} });
@@ -74,8 +74,8 @@ const result = await client.callTool({
   name: 'evaluate_policy',
   arguments: {
     order: { order_value: 5000, quantity: 100, product_margin: 0.4 },
-    proposed_discount: 0.12
-  }
+    proposed_discount: 0.12,
+  },
 });
 ```
 
@@ -135,11 +135,11 @@ Tool calls that encounter errors return structured error responses:
 
 Common error codes:
 
-| Code | Description |
-|------|-------------|
-| `UNKNOWN_TOOL` | Tool name not recognized |
-| `TOOL_ERROR` | Error during tool execution |
-| `VALIDATION_ERROR` | Invalid input parameters |
+| Code               | Description                 |
+| ------------------ | --------------------------- |
+| `UNKNOWN_TOOL`     | Tool name not recognized    |
+| `TOOL_ERROR`       | Error during tool execution |
+| `VALIDATION_ERROR` | Invalid input parameters    |
 
 ## Next Steps
 

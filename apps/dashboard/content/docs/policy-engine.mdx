@@ -50,7 +50,9 @@ const engine = new PolicyEngine(defaultPolicy);
 const customPolicy: Policy = {
   id: 'enterprise',
   name: 'Enterprise Policy',
-  rules: [/* your rules */],
+  rules: [
+    /* your rules */
+  ],
 };
 const customEngine = new PolicyEngine(customPolicy);
 ```
@@ -59,10 +61,10 @@ const customEngine = new PolicyEngine(customPolicy);
 
 ```typescript
 const order: Order = {
-  order_value: 5000,       // Total order value in dollars
-  quantity: 100,           // Total units
-  product_margin: 0.4,     // Base margin as decimal (40%)
-  customer_segment: 'gold' // Optional: customer tier
+  order_value: 5000, // Total order value in dollars
+  quantity: 100, // Total units
+  product_margin: 0.4, // Base margin as decimal (40%)
+  customer_segment: 'gold', // Optional: customer tier
 };
 
 // proposedDiscount is a decimal (0.12 = 12%)
@@ -75,16 +77,16 @@ The `evaluate()` method returns an `EvaluationResult`:
 
 ```typescript
 interface EvaluationResult {
-  approved: boolean;           // Whether the discount is allowed
-  violations: Violation[];     // List of rule violations (if any)
-  applied_rules: string[];     // Names of rules that were checked
-  calculated_margin: number;   // Margin after proposed discount
+  approved: boolean; // Whether the discount is allowed
+  violations: Violation[]; // List of rule violations (if any)
+  applied_rules: string[]; // Names of rules that were checked
+  calculated_margin: number; // Margin after proposed discount
 }
 
 interface Violation {
-  rule: string;      // Name of the violated rule
-  message: string;   // Human-readable explanation
-  limit?: number;    // The limit that was exceeded (if applicable)
+  rule: string; // Name of the violated rule
+  message: string; // Human-readable explanation
+  limit?: number; // The limit that was exceeded (if applicable)
 }
 ```
 
@@ -111,6 +113,7 @@ Ensures a minimum margin is maintained after discount.
 ```
 
 **Example:**
+
 - Product margin: 25%
 - Proposed discount: 15%
 - Calculated margin: 10% → **REJECTED** (below 15% floor)
@@ -129,18 +132,20 @@ Absolute cap on discount percentage.
 ```
 
 **Example:**
+
 - Proposed discount: 30% → **REJECTED** (exceeds 25% cap)
 
 ### 3. Volume Tier (`volume_tier`)
 
 Discount limits based on order quantity.
 
-| Quantity | Max Discount |
-|----------|-------------|
-| Under 100 | 10%         |
-| 100+      | 15%         |
+| Quantity  | Max Discount |
+| --------- | ------------ |
+| Under 100 | 10%          |
+| 100+      | 15%          |
 
 **Example:**
+
 - Quantity: 50 units
 - Proposed discount: 12% → **REJECTED** (exceeds 10% for base tier)
 
@@ -156,19 +161,25 @@ const customPolicy: Policy = {
     {
       name: 'margin_floor',
       // Lower margin floor for growth
-      conditions: { /* margin >= 0.10 */ }
+      conditions: {
+        /* margin >= 0.10 */
+      },
     },
     {
       name: 'max_discount',
       // Higher cap for enterprise deals
-      conditions: { /* discount <= 0.35 */ }
+      conditions: {
+        /* discount <= 0.35 */
+      },
     },
     {
       name: 'startup_tier',
       // Special tier for startups
-      conditions: { /* customer_segment === 'startup' → allow 20% */ }
-    }
-  ]
+      conditions: {
+        /* customer_segment === 'startup' → allow 20% */
+      },
+    },
+  ],
 };
 ```
 
@@ -178,10 +189,10 @@ const customPolicy: Policy = {
 
 ```typescript
 // ✅ Correct: decimal values
-const result = await engine.evaluate(order, 0.15);  // 15%
+const result = await engine.evaluate(order, 0.15); // 15%
 
 // ❌ Wrong: percentage values
-const result = await engine.evaluate(order, 15);   // Interpreted as 1500%!
+const result = await engine.evaluate(order, 15); // Interpreted as 1500%!
 ```
 
 ### Do: Check Violations

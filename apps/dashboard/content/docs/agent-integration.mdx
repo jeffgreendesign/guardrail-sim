@@ -126,16 +126,16 @@ When building agents that use Guardrail-Sim:
 
 ```typescript
 // ❌ Don't commit discounts without checking
-await commitDiscount(order, 0.20);
+await commitDiscount(order, 0.2);
 
 // ✅ Validate first
 const result = await mcp.callTool({
   name: 'evaluate_policy',
-  arguments: { order, proposed_discount: 0.20 }
+  arguments: { order, proposed_discount: 0.2 },
 });
 
 if (result.approved) {
-  await commitDiscount(order, 0.20);
+  await commitDiscount(order, 0.2);
 } else {
   // Handle rejection
 }
@@ -147,7 +147,7 @@ if (result.approved) {
 // Know your limits before negotiating
 const maxResult = await mcp.callTool({
   name: 'get_max_discount',
-  arguments: { order }
+  arguments: { order },
 });
 
 // Now you know the ceiling
@@ -178,14 +178,11 @@ const server = createServer();
 const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 const client = new Client({ name: 'test', version: '1.0.0' }, { capabilities: {} });
 
-await Promise.all([
-  client.connect(clientTransport),
-  server.connect(serverTransport)
-]);
+await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
 // Now test tool calls
 const result = await client.callTool({
   name: 'evaluate_policy',
-  arguments: { order, proposed_discount: 0.12 }
+  arguments: { order, proposed_discount: 0.12 },
 });
 ```

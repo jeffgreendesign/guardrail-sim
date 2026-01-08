@@ -114,20 +114,20 @@ Calculate the maximum allowed discount for a given order. Use this when a buyer 
 
 ## Response Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `max_discount` | number | Maximum discount as decimal |
+| Field              | Type   | Description                              |
+| ------------------ | ------ | ---------------------------------------- |
+| `max_discount`     | number | Maximum discount as decimal              |
 | `max_discount_pct` | string | Maximum discount formatted as percentage |
-| `limiting_factor` | string | Which rule limits the discount |
-| `details` | string | Human-readable explanation |
+| `limiting_factor`  | string | Which rule limits the discount           |
+| `details`          | string | Human-readable explanation               |
 
 ## Limiting Factors
 
-| Factor | Description |
-|--------|-------------|
-| `margin_floor` | Margin would drop below 15% |
-| `max_discount_cap` | Would exceed 25% absolute cap |
-| `volume_tier` | Order quantity restricts discount tier |
+| Factor             | Description                            |
+| ------------------ | -------------------------------------- |
+| `margin_floor`     | Margin would drop below 15%            |
+| `max_discount_cap` | Would exceed 25% absolute cap          |
+| `volume_tier`      | Order quantity restricts discount tier |
 
 ## Usage in AI Agents
 

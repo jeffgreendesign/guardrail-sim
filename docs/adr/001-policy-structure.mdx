@@ -1,5 +1,5 @@
 ---
-title: "ADR 001: Policy Engine Library"
+title: 'ADR 001: Policy Engine Library'
 description: Use json-rules-engine for deterministic policy evaluation
 ---
 
@@ -24,13 +24,13 @@ Use **json-rules-engine** (Node.js) for deterministic policy evaluation.
 
 ## Alternatives Considered
 
-| Option | Pros | Cons |
-|--------|------|------|
-| **json-rules-engine** | Battle-tested, active maintenance, JS-native, good docs | No built-in UI, JSON-only rules |
-| **Drools (Java)** | Enterprise-grade, powerful rule language | JVM dependency, overkill for MVP |
-| **node-rules** | Simple API | Less active, fewer features |
-| **Custom implementation** | Full control | Time sink, bugs, maintenance burden |
-| **LLM-based evaluation** | Flexible, natural language rules | Non-deterministic, slow, expensive, unauditable |
+| Option                    | Pros                                                    | Cons                                            |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------------- |
+| **json-rules-engine**     | Battle-tested, active maintenance, JS-native, good docs | No built-in UI, JSON-only rules                 |
+| **Drools (Java)**         | Enterprise-grade, powerful rule language                | JVM dependency, overkill for MVP                |
+| **node-rules**            | Simple API                                              | Less active, fewer features                     |
+| **Custom implementation** | Full control                                            | Time sink, bugs, maintenance burden             |
+| **LLM-based evaluation**  | Flexible, natural language rules                        | Non-deterministic, slow, expensive, unauditable |
 
 ## Rationale
 
