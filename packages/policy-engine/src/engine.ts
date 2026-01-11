@@ -1,6 +1,24 @@
 import pkg from 'json-rules-engine';
 const { Engine } = pkg;
 import type { Policy, Order, EvaluationResult, Violation } from './types.js';
+import { getUCPErrorCode } from './types.js';
+
+/**
+ * Represents a line item for allocation calculations
+ */
+export interface LineItem {
+  id: string;
+  subtotal: number;
+  quantity?: number;
+}
+
+/**
+ * Discount allocation to a specific target
+ */
+export interface Allocation {
+  target: string;
+  amount: number;
+}
 
 /**
  * PolicyEngine wraps json-rules-engine to evaluate orders against pricing policies.
@@ -49,12 +67,16 @@ export class PolicyEngine {
     // Run the engine
     const result = await this.engine.run(facts);
 
-    // Collect violations from events
+    // Collect violations from events with UCP error codes
     const violations: Violation[] = result.events.map(
-      (event: { type: string; params?: Record<string, unknown> }) => ({
-        rule: (event.params?.rule as string) ?? 'unknown',
-        message: (event.params?.message as string) ?? 'Policy violation',
-      })
+      (event: { type: string; params?: Record<string, unknown> }) => {
+        const rule = (event.params?.rule as string) ?? 'unknown';
+        return {
+          rule,
+          message: (event.params?.message as string) ?? 'Policy violation',
+          ucp_error_code: getUCPErrorCode(rule),
+        };
+      }
     );
 
     // Collect names of rules that fired
@@ -77,4 +99,121 @@ export class PolicyEngine {
   getPolicy(): Policy {
     return this.policy;
   }
+}
+
+/**
+ * Calculate discount allocations across line items.
+ * Supports UCP allocation methods: 'each' (even split) and 'across' (proportional).
+ *
+ * @param discountAmount - Total discount amount to allocate
+ * @param lineItems - Line items to allocate across
+ * @param method - Allocation method: 'each' for even split, 'across' for proportional
+ * @returns Array of allocations with targets and amounts
+ */
+export function calculateAllocations(
+  discountAmount: number,
+  lineItems: LineItem[],
+  method: 'each' | 'across' = 'across'
+): Allocation[] {
+  if (lineItems.length === 0) {
+    return [{ target: '$.totals', amount: discountAmount }];
+  }
+
+  if (method === 'each') {
+    // Even split across all line items
+    const baseAmount = Math.floor(discountAmount / lineItems.length);
+    const remainder = discountAmount - baseAmount * lineItems.length;
+
+    return lineItems.map((item, index) => ({
+      target: `$.line_items[${index}]`,
+      amount: index === 0 ? baseAmount + remainder : baseAmount,
+    }));
+  }
+
+  // Proportional allocation (across)
+  const totalValue = lineItems.reduce((sum, item) => sum + item.subtotal, 0);
+
+  if (totalValue === 0) {
+    // Fallback to even split if no values
+    return calculateAllocations(discountAmount, lineItems, 'each');
+  }
+
+  // Calculate proportional allocations with remainder handling
+  const allocations: Allocation[] = [];
+  let remaining = discountAmount;
+
+  for (let i = 0; i < lineItems.length; i++) {
+    const item = lineItems[i];
+    const isLast = i === lineItems.length - 1;
+
+    if (isLast) {
+      // Last item gets the remainder to ensure exact total
+      allocations.push({
+        target: `$.line_items[${i}]`,
+        amount: remaining,
+      });
+    } else {
+      const proportion = item.subtotal / totalValue;
+      const amount = Math.floor(discountAmount * proportion);
+      remaining -= amount;
+
+      allocations.push({
+        target: `$.line_items[${i}]`,
+        amount,
+      });
+    }
+  }
+
+  return allocations;
+}
+
+/**
+ * Calculate the maximum allowable discount for an order.
+ * Returns the most restrictive limit and identifies the limiting factor.
+ *
+ * @param order - The order to evaluate
+ * @param policy - The policy to check against (default constraints if not provided)
+ * @returns Object with max_discount and limiting_factor
+ */
+export function calculateMaxDiscount(
+  order: Order,
+  options: {
+    marginFloor?: number;
+    maxDiscount?: number;
+    volumeTiers?: { minQuantity: number; maxDiscount: number }[];
+  } = {}
+): { max_discount: number; limiting_factor: string } {
+  const {
+    marginFloor = 0.15,
+    maxDiscount = 0.25,
+    volumeTiers = [
+      { minQuantity: 0, maxDiscount: 0.1 },
+      { minQuantity: 100, maxDiscount: 0.15 },
+    ],
+  } = options;
+
+  // Calculate margin-based limit
+  const marginLimit = order.product_margin - marginFloor;
+
+  // Find applicable volume tier
+  const applicableTier = volumeTiers
+    .filter((tier) => order.quantity >= tier.minQuantity)
+    .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+  const volumeLimit = applicableTier?.maxDiscount ?? volumeTiers[0]?.maxDiscount ?? 0.1;
+
+  // Find the most restrictive limit
+  const limits = [
+    { value: maxDiscount, factor: 'max_discount' },
+    { value: marginLimit, factor: 'margin_floor' },
+    { value: volumeLimit, factor: 'volume_tier' },
+  ];
+
+  const mostRestrictive = limits.reduce((min, current) =>
+    current.value < min.value ? current : min
+  );
+
+  return {
+    max_discount: Math.max(0, mostRestrictive.value),
+    limiting_factor: mostRestrictive.factor,
+  };
 }
