@@ -9,7 +9,7 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "pnpm -r dev",
+    "dev": "pnpm -r --parallel --stream dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r --filter @guardrail-sim/policy-engine --filter @guardrail-sim/mcp-server test:coverage",

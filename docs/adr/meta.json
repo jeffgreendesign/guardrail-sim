@@ -1,4 +1,4 @@
 {
   "title": "Architecture Decision Records",
-  "pages": ["001-policy-structure"]
+  "pages": ["001-policy-structure", "002-ucp-alignment"]
 }

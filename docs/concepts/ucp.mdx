@@ -1,0 +1,140 @@
+---
+title: Universal Commerce Protocol (UCP)
+description: How guardrail-sim integrates with the UCP standard for agentic commerce
+---
+
+# Universal Commerce Protocol (UCP)
+
+The **Universal Commerce Protocol** is an open standard for agentic commerce, launched by Shopify and Google. It defines how AI agents interact with e-commerce platforms in a standardized, secure way.
+
+Guardrail-sim is **UCP-ready**, meaning it produces responses that conform to UCP specifications and can integrate directly into UCP-compliant checkout flows.
+
+## Why UCP Matters
+
+As AI agents increasingly handle commerce tasks—from comparison shopping to discount negotiation—there needs to be a common language for:
+
+- **Validating discount codes** with standard error codes
+- **Allocating discounts** across line items consistently
+- **Managing checkout sessions** with predictable state flows
+
+Guardrail-sim provides the policy enforcement layer that sits between AI agents and your commerce backend.
+
+## UCP Discount Extension
+
+The UCP Discount Extension defines how discounts are applied and communicated. Guardrail-sim supports:
+
+### Error Codes
+
+When a discount is rejected, we return UCP-standard error codes:
+
+| Error Code | Meaning | Example Violation |
+|------------|---------|-------------------|
+| `discount_code_invalid` | Code doesn't exist or is malformed | `max_discount`, `margin_floor` |
+| `discount_code_expired` | Code is past its validity window | `discount_expired` |
+| `discount_code_user_ineligible` | User doesn't qualify | `volume_tier`, `customer_segment_mismatch` |
+| `discount_code_combination_disallowed` | Can't stack with other codes | `stacking_not_allowed` |
+| `discount_code_user_not_logged_in` | Requires authentication | `login_required` |
+
+### Allocations
+
+Discounts can be distributed across line items using two methods:
+
+- **`across`**: Proportional allocation based on item subtotals
+- **`each`**: Even split across all items
+
+```typescript
+import { calculateAllocations } from '@guardrail-sim/policy-engine';
+
+const allocations = calculateAllocations(1000, lineItems, 'across');
+// [
+//   { target: '$.line_items[0]', amount: 750 },
+//   { target: '$.line_items[1]', amount: 250 },
+// ]
+```
+
+## MCP Tools for UCP
+
+The guardrail-sim MCP server exposes UCP-aligned tools:
+
+### validate_discount_code
+
+Pre-validate a discount code before applying it to a checkout:
+
+```typescript
+// Input
+{
+  code: 'SUMMER20',
+  order: { order_value: 5000, quantity: 50, product_margin: 0.4 },
+  proposed_discount: 0.2
+}
+
+// Output
+{
+  valid: false,
+  error_code: 'discount_code_user_ineligible',
+  message: 'Discount exceeds tier limit (10% base, 15% for qty >= 100)'
+}
+```
+
+### simulate_checkout_discount
+
+Simulate a full checkout with discounts:
+
+```typescript
+// Input
+{
+  codes: ['SUMMER20'],
+  line_items: [
+    { item_id: 'SKU-001', quantity: 2, subtotal: 5000, product_margin: 0.4 }
+  ],
+  proposed_discount: 0.1
+}
+
+// Output
+{
+  applied: [{
+    code: 'SUMMER20',
+    amount: 500,
+    method: 'across',
+    allocations: [{ target: '$.line_items[0]', amount: 500 }]
+  }],
+  rejected: [],
+  messages: []
+}
+```
+
+## UCP Types Package
+
+For TypeScript users, import UCP types directly:
+
+```typescript
+import type {
+  DiscountErrorCode,
+  AppliedDiscount,
+  DiscountAllocation,
+  CheckoutStatus,
+} from '@guardrail-sim/ucp-types';
+
+import {
+  toUCPErrorCode,
+  buildDiscountExtensionResponse,
+  calculateAllocations,
+} from '@guardrail-sim/ucp-types/converters';
+```
+
+## Platform Compatibility
+
+Guardrail-sim's UCP implementation is compatible with:
+
+| Platform | Integration | Notes |
+|----------|------------|-------|
+| Shopify | Types + Error Codes | Uses official UCP schemas |
+| Google (Gemini) | MCP Transport | MCP server follows UCP MCP binding |
+| Microsoft Copilot | Types | Same UCP schema compliance |
+| Generic UCP | Full | Passes conformance tests |
+
+## Resources
+
+- [UCP Specification](https://ucp.dev)
+- [UCP GitHub Repository](https://github.com/Universal-Commerce-Protocol/ucp)
+- [UCP Conformance Tests](https://github.com/Universal-Commerce-Protocol/conformance)

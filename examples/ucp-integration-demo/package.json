@@ -1,0 +1,17 @@
+{
+  "name": "ucp-integration-demo",
+  "version": "1.0.0",
+  "description": "Demo showing UCP integration with guardrail-sim",
+  "type": "module",
+  "scripts": {
+    "demo": "npx tsx index.ts"
+  },
+  "dependencies": {
+    "@guardrail-sim/policy-engine": "workspace:*",
+    "@guardrail-sim/ucp-types": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

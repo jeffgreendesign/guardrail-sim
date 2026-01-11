@@ -145,3 +145,149 @@ Check if a policy definition is valid.
   "warnings": ["Policy has no description"]
 }
 ```
+
+---
+
+## UCP-Aligned Tools
+
+These tools return responses conforming to the Universal Commerce Protocol specification.
+
+## validate_discount_code
+
+Pre-validate a discount code before applying it to a checkout. Returns UCP-standard error codes.
+
+**Parameters:**
+
+| Name                | Type   | Required | Description                             |
+| ------------------- | ------ | -------- | --------------------------------------- |
+| `code`              | string | Yes      | The discount code to validate           |
+| `order`             | Order  | Yes      | Order details for validation            |
+| `proposed_discount` | number | Yes      | Proposed discount percentage (0.10 = 10%) |
+
+**Example:**
+
+```json
+{
+  "name": "validate_discount_code",
+  "arguments": {
+    "code": "SUMMER20",
+    "order": {
+      "order_value": 5000,
+      "quantity": 50,
+      "product_margin": 0.4
+    },
+    "proposed_discount": 0.2
+  }
+}
+```
+
+**Response (rejected):**
+
+```json
+{
+  "valid": false,
+  "error_code": "discount_code_user_ineligible",
+  "message": "Discount exceeds tier limit (10% base, 15% for qty >= 100)",
+  "limiting_factor": "volume_tier"
+}
+```
+
+**Response (approved):**
+
+```json
+{
+  "valid": true
+}
+```
+
+### UCP Error Codes
+
+| Error Code | Description |
+|------------|-------------|
+| `discount_code_invalid` | Code doesn't exist or exceeds limits |
+| `discount_code_expired` | Code is past validity window |
+| `discount_code_user_ineligible` | User doesn't qualify for this discount |
+| `discount_code_combination_disallowed` | Can't combine with other codes |
+| `discount_code_user_not_logged_in` | Requires authentication |
+
+## simulate_checkout_discount
+
+Simulate a full checkout with discounts, returning UCP-formatted allocations.
+
+**Parameters:**
+
+| Name                | Type       | Required | Description                             |
+| ------------------- | ---------- | -------- | --------------------------------------- |
+| `codes`             | string[]   | Yes      | Discount codes to apply                 |
+| `line_items`        | LineItem[] | Yes      | Cart line items                         |
+| `proposed_discount` | number     | Yes      | Proposed discount percentage            |
+
+**Example:**
+
+```json
+{
+  "name": "simulate_checkout_discount",
+  "arguments": {
+    "codes": ["SUMMER20"],
+    "line_items": [
+      {
+        "item_id": "SKU-001",
+        "quantity": 2,
+        "subtotal": 5000,
+        "product_margin": 0.4
+      },
+      {
+        "item_id": "SKU-002",
+        "quantity": 1,
+        "subtotal": 2500,
+        "product_margin": 0.35
+      }
+    ],
+    "proposed_discount": 0.1
+  }
+}
+```
+
+**Response (approved):**
+
+```json
+{
+  "applied": [
+    {
+      "code": "SUMMER20",
+      "title": "Discount SUMMER20",
+      "amount": 750,
+      "method": "across",
+      "priority": 1,
+      "allocations": [
+        { "target": "$.line_items[0]", "amount": 500 },
+        { "target": "$.line_items[1]", "amount": 250 }
+      ]
+    }
+  ],
+  "rejected": [],
+  "messages": []
+}
+```
+
+**Response (rejected):**
+
+```json
+{
+  "applied": [],
+  "rejected": [
+    {
+      "code": "SUMMER20",
+      "error_code": "discount_code_invalid",
+      "message": "Calculated margin falls below 15% floor"
+    }
+  ],
+  "messages": [
+    {
+      "type": "warning",
+      "code": "discount_code_invalid",
+      "message": "Calculated margin falls below 15% floor"
+    }
+  ]
+}
+```

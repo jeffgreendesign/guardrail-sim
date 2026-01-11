@@ -1,0 +1,100 @@
+---
+title: 'ADR 002: UCP Protocol Alignment'
+description: Align guardrail-sim with the Universal Commerce Protocol standard
+---
+
+# ADR 002: UCP Protocol Alignment
+
+**Status:** Implemented
+
+**Date:** January 2026
+
+## Context
+
+The Universal Commerce Protocol (UCP) was launched by Shopify and Google as an open standard for agentic commerce. It defines:
+
+- Standard discount error codes
+- Checkout session flows
+- Discount allocation methods
+- Transport bindings (REST, MCP, A2A)
+
+Guardrail-sim's core use case—policy enforcement for AI agent pricing—aligns directly with UCP's discount validation patterns.
+
+## Decision
+
+Align guardrail-sim with UCP by:
+
+1. **Adopting UCP error codes** for discount rejection messages
+2. **Supporting UCP allocation methods** (`across`, `each`)
+3. **Adding UCP-formatted MCP tools** (`validate_discount_code`, `simulate_checkout_discount`)
+4. **Creating a `@guardrail-sim/ucp-types` package** with official schema types
+
+## Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Full UCP alignment** | Standard compatibility, easier platform integration | Additional complexity, learning curve |
+| **Partial alignment** | Error codes only | Misses allocation benefits |
+| **No alignment** | Simpler codebase | Misses industry standardization |
+| **Custom protocol** | Full control | No ecosystem, adoption friction |
+
+## Rationale
+
+- **Industry momentum**: Shopify and Google backing means UCP will likely become the standard
+- **Natural fit**: Discount validation is core to both UCP and guardrail-sim
+- **MCP transport**: UCP's MCP binding means our existing MCP server is already compatible
+- **Low overhead**: UCP types are additive, not replacing existing functionality
+- **Platform compatibility**: Enables integration with Shopify, Google Gemini, Microsoft Copilot
+
+## Implementation
+
+### Package Structure
+
+```
+packages/ucp-types/
+├── src/
+│   ├── discount.ts      # DiscountErrorCode, AppliedDiscount, Allocation
+│   ├── checkout.ts      # CheckoutStatus, LineItem, Money
+│   ├── converters.ts    # toUCPErrorCode, buildDiscountExtensionResponse
+│   └── index.ts
+```
+
+### Error Code Mapping
+
+```typescript
+const VIOLATION_TO_UCP_ERROR: Record<string, UCPErrorCode> = {
+  max_discount: 'discount_code_invalid',
+  margin_floor: 'discount_code_invalid',
+  volume_tier: 'discount_code_user_ineligible',
+  stacking_not_allowed: 'discount_code_combination_disallowed',
+  discount_expired: 'discount_code_expired',
+  login_required: 'discount_code_user_not_logged_in',
+};
+```
+
+### New MCP Tools
+
+1. `validate_discount_code` - Pre-validate with UCP error codes
+2. `simulate_checkout_discount` - Full checkout simulation with allocations
+
+## Consequences
+
+### Positive
+
+- Compatible with UCP-compliant platforms out of the box
+- Standard error codes make integration predictable
+- Allocation calculations are reusable across projects
+- Positioned as "UCP-ready" for agentic commerce governance
+
+### Negative
+
+- Additional package to maintain
+- Must track UCP spec changes
+- Slightly larger API surface
+
+## References
+
+- [UCP Specification](https://ucp.dev/spec)
+- [UCP GitHub Repository](https://github.com/Universal-Commerce-Protocol/ucp)
+- [UCP Discount Extension](https://ucp.dev/spec/discount)
+- [UCP MCP Binding](https://ucp.dev/spec/checkout-mcp)
