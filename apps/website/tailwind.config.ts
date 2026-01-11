@@ -18,8 +18,8 @@ export default {
       },
       colors: {
         brand: {
-          lime: '#c8ff00',
-          'lime-dim': '#a3cc00',
+          blue: '#3b82f6',
+          'blue-dim': '#2563eb',
           dark: '#0a0a0a',
         },
       },

@@ -1,9 +1,29 @@
 @import 'fumadocs-ui/style.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ============================================
+   FUMADOCS THEME - Must come before preset.css
+   ============================================ */
+@theme {
+  --color-fd-background: #0a0a0a;
+  --color-fd-foreground: #fafafa;
+  --color-fd-muted: #111111;
+  --color-fd-muted-foreground: #a1a1aa;
+  --color-fd-popover: #111111;
+  --color-fd-popover-foreground: #fafafa;
+  --color-fd-card: #111111;
+  --color-fd-card-foreground: #fafafa;
+  --color-fd-border: #27272a;
+  --color-fd-primary: #3b82f6;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #1a1a1a;
+  --color-fd-secondary-foreground: #fafafa;
+  --color-fd-accent: #222222;
+  --color-fd-accent-foreground: #fafafa;
+  --color-fd-ring: #3b82f6;
+}
 
+@import 'fumadocs-ui/css/preset.css';
+@source '../node_modules/fumadocs-ui/dist/**/*.js';
 @import '../styles/shared.css';
 
 /* ============================================
@@ -69,8 +89,8 @@
   font-size: var(--text-sm);
   font-weight: 500;
   padding: var(--space-3) var(--space-6);
-  background: var(--brand-lime);
-  color: var(--brand-dark);
+  background: var(--brand-blue);
+  color: #ffffff;
   border-radius: var(--radius-md);
   text-decoration: none;
   transition: opacity var(--transition-fast);
