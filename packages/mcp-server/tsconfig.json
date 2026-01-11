@@ -5,5 +5,5 @@
     "rootDir": "src"
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../policy-engine" }]
+  "references": [{ "path": "../policy-engine" }, { "path": "../ucp-types" }]
 }

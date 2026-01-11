@@ -17,6 +17,17 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
 import type { Order, Policy, EvaluationResult } from '@guardrail-sim/policy-engine';
+import {
+  toDiscountValidationResult,
+  buildDiscountExtensionResponse,
+  fromUCPLineItems,
+  calculateAllocations,
+} from '@guardrail-sim/ucp-types';
+import type {
+  DiscountValidationResult,
+  DiscountExtensionResponse,
+  LineItem,
+} from '@guardrail-sim/ucp-types';
 
 export const VERSION = '0.0.1';
 
@@ -120,6 +131,115 @@ Use this tool when:
         },
       },
       required: ['order'],
+    },
+  },
+  // UCP-aligned tools
+  {
+    name: 'validate_discount_code',
+    description: `Validate a discount code against the active policy before submitting to checkout.
+
+UCP-compatible tool that returns standard UCP error codes.
+
+Use this tool when:
+- An AI agent wants to pre-validate a discount before checkout
+- You need UCP-compliant error codes for discount rejection
+- Building UCP-compatible checkout flows`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        code: {
+          type: 'string' as const,
+          description: 'The discount code to validate',
+        },
+        discount_amount: {
+          type: 'number' as const,
+          description: 'The discount amount in minor currency units (cents)',
+        },
+        order: {
+          type: 'object' as const,
+          description: 'Order context for validation',
+          properties: {
+            order_value: {
+              type: 'number' as const,
+              description: 'Total order value in dollars',
+            },
+            quantity: {
+              type: 'number' as const,
+              description: 'Total units in the order',
+            },
+            customer_segment: {
+              type: 'string' as const,
+              description: 'Customer tier/segment',
+            },
+            product_margin: {
+              type: 'number' as const,
+              description: 'Base margin as decimal (0.40 = 40%)',
+            },
+          },
+          required: ['order_value', 'quantity', 'product_margin'],
+        },
+      },
+      required: ['code', 'discount_amount', 'order'],
+    },
+  },
+  {
+    name: 'simulate_checkout_discount',
+    description: `Simulate a UCP checkout with discount codes applied.
+
+Returns a UCP-compatible discount extension response with applied discounts,
+allocations, and any rejection messages.
+
+Use this tool when:
+- Testing how discounts would be applied in a UCP checkout
+- Simulating multi-code discount scenarios
+- Validating discount stacking behavior`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        codes: {
+          type: 'array' as const,
+          items: { type: 'string' as const },
+          description: 'Array of discount codes to apply',
+        },
+        line_items: {
+          type: 'array' as const,
+          description: 'UCP line items for the checkout',
+          items: {
+            type: 'object' as const,
+            properties: {
+              item: {
+                type: 'object' as const,
+                properties: {
+                  id: { type: 'string' as const },
+                },
+                required: ['id'],
+              },
+              quantity: { type: 'number' as const },
+              subtotal: {
+                type: 'object' as const,
+                properties: {
+                  amount: { type: 'number' as const, description: 'Amount in minor units (cents)' },
+                  currency: { type: 'string' as const },
+                },
+              },
+            },
+            required: ['item', 'quantity'],
+          },
+        },
+        currency: {
+          type: 'string' as const,
+          description: 'ISO 4217 currency code (e.g., USD)',
+        },
+        discount_percentage: {
+          type: 'number' as const,
+          description: 'Discount percentage to simulate (0.15 = 15%)',
+        },
+        product_margin: {
+          type: 'number' as const,
+          description: 'Base margin for policy evaluation (0.40 = 40%)',
+        },
+      },
+      required: ['codes', 'line_items', 'currency', 'discount_percentage'],
     },
   },
 ];
@@ -247,6 +367,85 @@ async function handleGetMaxDiscount(args: { order: Order }): Promise<{
 }
 
 /**
+ * Handle validate_discount_code tool call (UCP-aligned)
+ */
+async function handleValidateDiscountCode(args: {
+  code: string;
+  discount_amount: number;
+  order: Order;
+}): Promise<DiscountValidationResult & { code: string }> {
+  // Convert discount amount (cents) to percentage of order value
+  const discountPercentage = args.discount_amount / (args.order.order_value * 100);
+
+  const evaluation = await policyEngine.evaluate(args.order, discountPercentage);
+  const result = toDiscountValidationResult(evaluation, args.code);
+
+  // Calculate max allowed if rejected
+  if (!result.valid) {
+    const maxResult = await handleGetMaxDiscount({ order: args.order });
+    result.max_allowed = Math.round(args.order.order_value * maxResult.max_discount * 100); // in cents
+    result.limiting_factor = maxResult.limiting_factor;
+  }
+
+  return {
+    ...result,
+    code: args.code,
+  };
+}
+
+/**
+ * Handle simulate_checkout_discount tool call (UCP-aligned)
+ */
+async function handleSimulateCheckoutDiscount(args: {
+  codes: string[];
+  line_items: LineItem[];
+  currency: string;
+  discount_percentage: number;
+  product_margin?: number;
+}): Promise<
+  DiscountExtensionResponse & {
+    currency: string;
+    allocations?: Array<{ target: string; amount: number }>;
+  }
+> {
+  // Convert UCP line items to guardrail-sim order
+  const order = fromUCPLineItems(args.line_items, {
+    productMargin: args.product_margin ?? 0.3,
+  });
+
+  // Evaluate against policy
+  const evaluation = await policyEngine.evaluate(order, args.discount_percentage);
+
+  // Calculate discount amount in minor units
+  const discountAmount = Math.round(order.order_value * args.discount_percentage * 100);
+
+  // Build UCP-compatible response
+  const response = buildDiscountExtensionResponse(
+    args.codes,
+    evaluation,
+    discountAmount,
+    `${(args.discount_percentage * 100).toFixed(0)}% Discount`
+  );
+
+  // Calculate allocations if approved
+  let allocations: Array<{ target: string; amount: number }> | undefined;
+  if (evaluation.approved && args.line_items.length > 0) {
+    allocations = calculateAllocations(discountAmount, args.line_items, 'across');
+
+    // Update applied discounts with allocations
+    if (response.applied.length > 0) {
+      response.applied[0].allocations = allocations;
+    }
+  }
+
+  return {
+    ...response,
+    currency: args.currency,
+    allocations,
+  };
+}
+
+/**
  * Create and configure the MCP server
  */
 export function createServer(): Server {
@@ -302,6 +501,43 @@ export function createServer(): Server {
         case 'get_max_discount': {
           const typedArgs = args as { order: Order };
           const result = await handleGetMaxDiscount(typedArgs);
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        // UCP-aligned tools
+        case 'validate_discount_code': {
+          const typedArgs = args as {
+            code: string;
+            discount_amount: number;
+            order: Order;
+          };
+          const result = await handleValidateDiscountCode(typedArgs);
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case 'simulate_checkout_discount': {
+          const typedArgs = args as {
+            codes: string[];
+            line_items: LineItem[];
+            currency: string;
+            discount_percentage: number;
+            product_margin?: number;
+          };
+          const result = await handleSimulateCheckoutDiscount(typedArgs);
           return {
             content: [
               {

@@ -27,12 +27,15 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listTools();
 
-      assert.strictEqual(result.tools.length, 3);
+      assert.strictEqual(result.tools.length, 5);
 
       const toolNames = result.tools.map((t) => t.name);
       assert.ok(toolNames.includes('evaluate_policy'));
       assert.ok(toolNames.includes('get_policy_summary'));
       assert.ok(toolNames.includes('get_max_discount'));
+      // UCP-aligned tools
+      assert.ok(toolNames.includes('validate_discount_code'));
+      assert.ok(toolNames.includes('simulate_checkout_discount'));
     });
 
     it('should have proper schemas for evaluate_policy', async () => {
