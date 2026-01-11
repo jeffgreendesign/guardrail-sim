@@ -3,7 +3,7 @@ import { ArrowRight, Shield, Zap, BarChart3, Bot } from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white grain-texture">
+    <main className="min-h-screen bg-ds-primary text-ds-primary grain-texture">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         {/* Gradient background */}
@@ -177,22 +177,6 @@ const result = await mcp.callTool({
       <footer className="border-t border-white/10 py-12">
         <div className="mx-auto max-w-6xl px-6 text-center text-sm text-zinc-500">
           <p>Guardrail-Sim &mdash; Policy simulation for AI agent pricing governance</p>
-          <p className="mt-2">
-            <Link href="/docs" className="text-accent hover:underline">
-              Documentation
-            </Link>
-            {' · '}
-            <Link href="/playground" className="text-accent hover:underline">
-              Playground
-            </Link>
-            {' · '}
-            <a
-              href="https://github.com/jeffgreendesign/guardrail-sim"
-              className="text-accent hover:underline"
-            >
-              GitHub
-            </a>
-          </p>
         </div>
       </footer>
     </main>

@@ -79,3 +79,62 @@
 pre {
   @apply rounded-lg !important;
 }
+
+/* ================================
+   Guardrail Design System Variables
+   (Coexists with shadcn variables)
+   ================================ */
+
+:root {
+  /* DS Background tokens */
+  --ds-bg-primary: #0a0a0a;
+  --ds-bg-secondary: #111111;
+  --ds-bg-tertiary: #1a1a1a;
+  --ds-bg-elevated: #151515;
+  --ds-bg-hover: #1f1f1f;
+
+  /* DS Text tokens */
+  --ds-text-primary: #f5f5f5;
+  --ds-text-secondary: #a0a0a8;
+  --ds-text-tertiary: #78788a;
+  --ds-text-muted: #52525e;
+
+  /* DS Accent - Guardrail cyan */
+  --ds-accent: #00f0ff;
+  --ds-accent-hover: #00d4e0;
+  --ds-accent-subtle: rgba(0, 240, 255, 0.1);
+
+  /* DS Border tokens */
+  --ds-border-default: rgba(255, 255, 255, 0.08);
+  --ds-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* DS Overlay */
+  --ds-overlay: rgba(0, 0, 0, 0.6);
+}
+
+/* Design system utility classes */
+@layer utilities {
+  .bg-ds-primary { background-color: var(--ds-bg-primary); }
+  .bg-ds-secondary { background-color: var(--ds-bg-secondary); }
+  .bg-ds-tertiary { background-color: var(--ds-bg-tertiary); }
+  .bg-ds-elevated { background-color: var(--ds-bg-elevated); }
+  .bg-ds-hover { background-color: var(--ds-bg-hover); }
+  .bg-ds-overlay { background-color: var(--ds-overlay); }
+
+  .text-ds-primary { color: var(--ds-text-primary); }
+  .text-ds-secondary { color: var(--ds-text-secondary); }
+  .text-ds-tertiary { color: var(--ds-text-tertiary); }
+  .text-ds-muted { color: var(--ds-text-muted); }
+
+  .text-ds-accent { color: var(--ds-accent); }
+  .bg-ds-accent { background-color: var(--ds-accent); }
+  .bg-ds-accent-subtle { background-color: var(--ds-accent-subtle); }
+
+  .border-ds-default { border-color: var(--ds-border-default); }
+  .border-ds-strong { border-color: var(--ds-border-strong); }
+
+  /* Spring easing for nav animations */
+  .ease-spring-subtle {
+    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}

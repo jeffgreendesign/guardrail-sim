@@ -65,6 +65,20 @@ const config: Config = {
       fontFamily: {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
+      keyframes: {
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'slide-in-from-right': {
+          from: { transform: 'translateX(100%)' },
+          to: { transform: 'translateX(0)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 200ms ease-out',
+        'slide-in-from-right': 'slide-in-from-right 300ms ease-out',
+      },
     },
   },
 };

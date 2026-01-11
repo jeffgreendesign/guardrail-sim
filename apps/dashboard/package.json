@@ -4,7 +4,7 @@
   "private": true,
   "description": "Next.js dashboard for policy editing, simulation results, and documentation",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
