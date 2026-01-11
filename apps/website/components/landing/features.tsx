@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileCode, Zap, Shield, Cpu } from 'lucide-react';
+import { FileCode, Zap, Shield, Cpu, Layers } from 'lucide-react';
 
 const features = [
   {
@@ -22,6 +22,12 @@ const features = [
     icon: Cpu,
     title: 'MCP Integration',
     description: 'Use with Claude and other AI assistants. Natural language policy testing.',
+  },
+  {
+    icon: Layers,
+    title: 'UCP Compatible',
+    description:
+      'Built for Universal Commerce Protocol. Standard error codes, allocations, and checkout flows.',
   },
 ] as const;
 

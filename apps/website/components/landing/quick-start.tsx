@@ -1,12 +1,9 @@
-import type { ReactNode } from 'react';
+'use client';
 
-export function QuickStart(): ReactNode {
-  return (
-    <section className="quickstart-section">
-      <h2 className="section-title">Define. Simulate. Ship.</h2>
-      <div className="quickstart-code">
-        <pre>
-          <code>{`import { Policy, evaluate } from '@guardrail-sim/core';
+import type { ReactNode } from 'react';
+import { CopyButton } from '@/components/copy-button';
+
+const CODE_EXAMPLE = `import { Policy, evaluate } from '@guardrail-sim/core';
 
 const policy: Policy = {
   name: 'max-discount',
@@ -23,7 +20,16 @@ const result = evaluate(policy, {
 });
 
 // result.allowed: false
-// result.suggestion: { clampTo: 40 }`}</code>
+// result.suggestion: { clampTo: 40 }`;
+
+export function QuickStart(): ReactNode {
+  return (
+    <section className="quickstart-section">
+      <h2 className="section-title">Define. Simulate. Ship.</h2>
+      <div className="quickstart-code group relative">
+        <CopyButton text={CODE_EXAMPLE} />
+        <pre>
+          <code>{CODE_EXAMPLE}</code>
         </pre>
       </div>
     </section>

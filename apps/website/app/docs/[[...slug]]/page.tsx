@@ -2,6 +2,7 @@ import { source } from '@/lib/source';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 import type { Metadata } from 'next';
 
 interface PageProps {
@@ -23,7 +24,16 @@ export default async function Page({ params }: PageProps): Promise<React.ReactNo
       <DocsTitle>{data.title}</DocsTitle>
       <DocsDescription>{data.description}</DocsDescription>
       <DocsBody>
-        <MDX components={{ ...defaultMdxComponents }} />
+        <MDX
+          components={{
+            ...defaultMdxComponents,
+            pre: ({ ref: _ref, ...props }: React.ComponentProps<'pre'>) => (
+              <CodeBlock {...props}>
+                <Pre>{props.children}</Pre>
+              </CodeBlock>
+            ),
+          }}
+        />
       </DocsBody>
     </DocsPage>
   );

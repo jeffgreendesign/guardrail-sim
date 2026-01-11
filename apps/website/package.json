@@ -9,6 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@guardrail-sim/policy-engine": "workspace:*",
+    "@xyflow/react": "^12.4.0",
     "fumadocs-core": "15.2.5",
     "fumadocs-mdx": "14.2.4",
     "fumadocs-ui": "15.2.5",
