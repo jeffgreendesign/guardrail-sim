@@ -7,7 +7,8 @@ export const baseOptions: BaseLayoutProps = {
     children: <AuthorBadge />,
   },
   links: [
-    { text: 'Docs', url: '/docs' },
+    { text: 'Docs', url: '/docs', active: 'nested-url' },
+    { text: 'Playground', url: '/playground' },
     { text: 'GitHub', url: 'https://github.com/jeffgreendesign/guardrail-sim', external: true },
     { text: 'npm', url: 'https://www.npmjs.com/package/@guardrail-sim/core', external: true },
   ],
