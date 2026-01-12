@@ -33,7 +33,7 @@
     "@guardrail-sim/policy-engine": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
+    "typescript": "^5.9.3",
     "@types/node": "^22.10.5"
   },
   "keywords": [
