@@ -23,10 +23,10 @@ pnpm --filter @guardrail-sim/policy-engine build   # Build single package
 pnpm --filter @guardrail-sim/policy-engine test    # Test single package
 ```
 
-Simulation CLI (when implemented):
+MCP server:
 
 ```bash
-pnpm simulate --orders=100 --policy=default
+npx guardrail-mcp              # Run MCP server
 ```
 
 ### Testing
@@ -41,22 +41,22 @@ node --test --experimental-strip-types packages/policy-engine/test/*.test.ts
 
 ```
 apps/
-  dashboard/           # Next.js 15 App Router + shadcn/ui + Tailwind
-  website/             # Fumadocs documentation site
+  website/             # Fumadocs documentation site + interactive playground
 
 packages/
-  mcp-server/          # MCP server exposing evaluate_policy tool
   policy-engine/       # json-rules-engine integration (deterministic)
-  simulation/          # LLM buyer personas + negotiation loop runner
+  mcp-server/          # MCP server exposing 5 policy evaluation tools
+  ucp-types/           # UCP type definitions for agentic commerce
+  insights/            # Policy health checks and recommendations
+  simulation/          # LLM buyer personas + negotiation loop runner [PLANNED]
 ```
 
 ## Architecture
 
-Three-layer separation of concerns:
+Two-layer separation of concerns:
 
-1. **Dashboard** (Next.js) — Policy editor UI, simulation results viewer
-2. **Simulation Engine** (Node.js) — Generates synthetic orders, runs LLM buyer personas against policies
-3. **Policy Engine** (Deterministic) — json-rules-engine rules, exposed via MCP `evaluate_policy` tool
+1. **Simulation Engine** (Node.js) — Generates synthetic orders, runs LLM buyer personas against policies [PLANNED]
+2. **Policy Engine** (Deterministic) — json-rules-engine rules, exposed via MCP tools
 
 Key principle: LLMs simulate adversarial buyers only. Pricing math is always deterministic via the rules engine.
 
@@ -73,9 +73,9 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 - pnpm monorepo, TypeScript (ES2022, NodeNext)
 - json-rules-engine for policy evaluation
 - @modelcontextprotocol/sdk for MCP server
-- OpenAI GPT-4o-mini Batch API for simulation
+- OpenAI GPT-4o-mini Batch API for simulation [PLANNED]
 - Supabase (PostgreSQL) for persistence
-- Next.js 15 + shadcn/ui for dashboard
+- Next.js 15 + Fumadocs for documentation site
 
 ## Constraints
 

@@ -28,9 +28,10 @@ Guardrail-Sim lets you **simulate thousands of adversarial buyer interactions** 
 | Component     | Status       | Description                                          |
 | ------------- | ------------ | ---------------------------------------------------- |
 | Policy Engine | **Complete** | Deterministic rule evaluation with json-rules-engine |
-| MCP Server    | Planned      | MCP tool interface for AI agents                     |
+| MCP Server    | **Complete** | MCP tool interface for AI agents                     |
+| UCP Types     | **Complete** | Universal Commerce Protocol type definitions         |
+| Insights      | **Complete** | Policy health checks and recommendations             |
 | Simulation    | Planned      | LLM buyer personas and negotiation loops             |
-| Dashboard     | Planned      | Policy editor and results viewer                     |
 
 ## Quick Start
 
@@ -70,13 +71,6 @@ console.log(result.triggeredRules); // which rules fired
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Dashboard                         [PLANNED]
-│                    (Next.js + shadcn/ui)                        │
-│              Policy Editor · Simulation Results                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
 │                     Simulation Engine                     [PLANNED]
 │                 LLM Buyer Personas · Negotiation Loops           │
 │                    (OpenAI GPT-4o-mini Batch API)               │
@@ -95,16 +89,17 @@ console.log(result.triggeredRules); // which rules fired
 | Package                        | Description                                             | Status       |
 | ------------------------------ | ------------------------------------------------------- | ------------ |
 | `@guardrail-sim/policy-engine` | Deterministic policy evaluation using json-rules-engine | **Complete** |
-| `@guardrail-sim/mcp-server`    | MCP server exposing `evaluate_policy` tool              | Planned      |
+| `@guardrail-sim/mcp-server`    | MCP server exposing policy evaluation tools             | **Complete** |
+| `@guardrail-sim/ucp-types`     | UCP type definitions and converters                     | **Complete** |
+| `@guardrail-sim/insights`      | Policy health checks and recommendations                | **Complete** |
 | `@guardrail-sim/simulation`    | LLM buyer personas and negotiation loop runner          | Planned      |
-| `apps/dashboard`               | Next.js policy editor and results viewer                | Planned      |
 
 ## Commands
 
 ```bash
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
-pnpm test             # Run tests (8 passing in policy-engine)
+pnpm test             # Run tests (76 passing)
 pnpm lint             # Run ESLint
 pnpm format           # Format with Prettier
 ```

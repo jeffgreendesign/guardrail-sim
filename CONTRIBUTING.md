@@ -43,12 +43,14 @@ Required variables:
 
 ```text
 apps/
-  dashboard/           # Next.js frontend
+  website/             # Fumadocs documentation site + interactive playground
 
 packages/
   policy-engine/       # Core rule evaluation (json-rules-engine)
-  mcp-server/          # MCP tool interface
-  simulation/          # LLM buyer persona simulation
+  mcp-server/          # MCP server exposing 5 policy evaluation tools
+  ucp-types/           # UCP type definitions for agentic commerce
+  insights/            # Policy health checks and recommendations
+  simulation/          # LLM buyer persona simulation [PLANNED]
 ```
 
 ## Development Workflow
