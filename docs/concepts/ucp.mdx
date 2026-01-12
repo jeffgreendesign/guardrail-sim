@@ -27,13 +27,13 @@ The UCP Discount Extension defines how discounts are applied and communicated. G
 
 When a discount is rejected, we return UCP-standard error codes:
 
-| Error Code | Meaning | Example Violation |
-|------------|---------|-------------------|
-| `discount_code_invalid` | Code doesn't exist or is malformed | `max_discount`, `margin_floor` |
-| `discount_code_expired` | Code is past its validity window | `discount_expired` |
-| `discount_code_user_ineligible` | User doesn't qualify | `volume_tier`, `customer_segment_mismatch` |
-| `discount_code_combination_disallowed` | Can't stack with other codes | `stacking_not_allowed` |
-| `discount_code_user_not_logged_in` | Requires authentication | `login_required` |
+| Error Code                             | Meaning                            | Example Violation                          |
+| -------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| `discount_code_invalid`                | Code doesn't exist or is malformed | `max_discount`, `margin_floor`             |
+| `discount_code_expired`                | Code is past its validity window   | `discount_expired`                         |
+| `discount_code_user_ineligible`        | User doesn't qualify               | `volume_tier`, `customer_segment_mismatch` |
+| `discount_code_combination_disallowed` | Can't stack with other codes       | `stacking_not_allowed`                     |
+| `discount_code_user_not_logged_in`     | Requires authentication            | `login_required`                           |
 
 ### Allocations
 
@@ -126,12 +126,12 @@ import {
 
 Guardrail-sim's UCP implementation is compatible with:
 
-| Platform | Integration | Notes |
-|----------|------------|-------|
-| Shopify | Types + Error Codes | Uses official UCP schemas |
-| Google (Gemini) | MCP Transport | MCP server follows UCP MCP binding |
-| Microsoft Copilot | Types | Same UCP schema compliance |
-| Generic UCP | Full | Passes conformance tests |
+| Platform          | Integration         | Notes                              |
+| ----------------- | ------------------- | ---------------------------------- |
+| Shopify           | Types + Error Codes | Uses official UCP schemas          |
+| Google (Gemini)   | MCP Transport       | MCP server follows UCP MCP binding |
+| Microsoft Copilot | Types               | Same UCP schema compliance         |
+| Generic UCP       | Full                | Passes conformance tests           |
 
 ## Resources
 

@@ -49,7 +49,7 @@ interface EvaluationResult {
 ### Approved (No Violations)
 
 ```typescript
-const result = await engine.evaluate(order, 0.10);
+const result = await engine.evaluate(order, 0.1);
 // {
 //   approved: true,
 //   violations: [],
@@ -61,7 +61,7 @@ const result = await engine.evaluate(order, 0.10);
 ### Rejected (Violations Found)
 
 ```typescript
-const result = await engine.evaluate(order, 0.30);
+const result = await engine.evaluate(order, 0.3);
 // {
 //   approved: false,
 //   violations: [
@@ -79,7 +79,7 @@ Violations map to UCP-compatible error codes for agentic commerce:
 ```typescript
 import { getUCPErrorCode } from '@guardrail-sim/policy-engine';
 
-const result = await engine.evaluate(order, 0.30);
+const result = await engine.evaluate(order, 0.3);
 
 for (const violation of result.violations) {
   const ucpCode = getUCPErrorCode(violation.rule);
@@ -89,14 +89,14 @@ for (const violation of result.violations) {
 
 ### Error Code Mapping
 
-| Violation Rule | UCP Error Code |
-| -------------- | -------------- |
-| `max_discount` | `discount_code_invalid` |
-| `margin_floor` | `discount_code_invalid` |
-| `volume_tier` | `discount_code_user_ineligible` |
+| Violation Rule         | UCP Error Code                         |
+| ---------------------- | -------------------------------------- |
+| `max_discount`         | `discount_code_invalid`                |
+| `margin_floor`         | `discount_code_invalid`                |
+| `volume_tier`          | `discount_code_user_ineligible`        |
 | `stacking_not_allowed` | `discount_code_combination_disallowed` |
-| `discount_expired` | `discount_code_expired` |
-| `login_required` | `discount_code_user_not_logged_in` |
+| `discount_expired`     | `discount_code_expired`                |
+| `login_required`       | `discount_code_user_not_logged_in`     |
 
 ## Handling Violations
 
@@ -145,6 +145,7 @@ The MCP server's `evaluate_policy` tool returns the same result structure:
 ```
 
 AI agents can use this response to:
+
 1. Explain why a discount was rejected
 2. Suggest an alternative discount level
 3. Negotiate within policy limits

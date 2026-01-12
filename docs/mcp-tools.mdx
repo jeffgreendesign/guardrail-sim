@@ -35,25 +35,26 @@ Add to Claude Desktop config:
 Evaluate a proposed discount against the active pricing policy.
 
 **Use this tool when:**
+
 - A B2B buyer requests a discount
 - You need to check if a discount is allowed before committing
 - You want to understand the policy constraints for negotiation
 
 **Parameters:**
 
-| Name               | Type   | Required | Description                                    |
-| ------------------ | ------ | -------- | ---------------------------------------------- |
-| `order`            | Order  | Yes      | The order details for evaluation               |
-| `proposed_discount`| number | Yes      | Requested discount as decimal (0.15 = 15% off) |
+| Name                | Type   | Required | Description                                    |
+| ------------------- | ------ | -------- | ---------------------------------------------- |
+| `order`             | Order  | Yes      | The order details for evaluation               |
+| `proposed_discount` | number | Yes      | Requested discount as decimal (0.15 = 15% off) |
 
 **Order object:**
 
-| Field            | Type   | Required | Description                              |
-| ---------------- | ------ | -------- | ---------------------------------------- |
-| `order_value`    | number | Yes      | Total order value in dollars             |
-| `quantity`       | number | Yes      | Total units in the order                 |
-| `product_margin` | number | Yes      | Base margin as decimal (0.40 = 40%)      |
-| `customer_segment` | string | No     | Customer tier (new, bronze, silver, gold, platinum) |
+| Field              | Type   | Required | Description                                         |
+| ------------------ | ------ | -------- | --------------------------------------------------- |
+| `order_value`      | number | Yes      | Total order value in dollars                        |
+| `quantity`         | number | Yes      | Total units in the order                            |
+| `product_margin`   | number | Yes      | Base margin as decimal (0.40 = 40%)                 |
+| `customer_segment` | string | No       | Customer tier (new, bronze, silver, gold, platinum) |
 
 **Example:**
 
@@ -110,6 +111,7 @@ Evaluate a proposed discount against the active pricing policy.
 Get a human-readable summary of the active policy rules.
 
 **Use this tool when:**
+
 - You need to explain discount limits to a buyer
 - You want to understand what discounts are possible
 - Preparing for a negotiation
@@ -156,6 +158,7 @@ Get a human-readable summary of the active policy rules.
 Calculate the maximum allowed discount for a given order.
 
 **Use this tool when:**
+
 - You want to know the ceiling for negotiation
 - A buyer asks "what's the best you can do?"
 
@@ -204,6 +207,7 @@ These tools return responses conforming to the [Universal Commerce Protocol](htt
 Pre-validate a discount code before applying it to a checkout. Returns UCP-standard error codes.
 
 **Use this tool when:**
+
 - An AI agent wants to pre-validate a discount before checkout
 - You need UCP-compliant error codes for discount rejection
 - Building UCP-compatible checkout flows
@@ -254,13 +258,13 @@ Pre-validate a discount code before applying it to a checkout. Returns UCP-stand
 
 ### UCP Error Codes
 
-| Error Code                           | Description                              |
-| ------------------------------------ | ---------------------------------------- |
-| `discount_code_invalid`              | Code doesn't exist or exceeds limits     |
-| `discount_code_expired`              | Code is past validity window             |
-| `discount_code_user_ineligible`      | User doesn't qualify for this discount   |
+| Error Code                             | Description                            |
+| -------------------------------------- | -------------------------------------- |
+| `discount_code_invalid`                | Code doesn't exist or exceeds limits   |
+| `discount_code_expired`                | Code is past validity window           |
+| `discount_code_user_ineligible`        | User doesn't qualify for this discount |
 | `discount_code_combination_disallowed` | Can't combine with other codes         |
-| `discount_code_user_not_logged_in`   | Requires authentication                  |
+| `discount_code_user_not_logged_in`     | Requires authentication                |
 
 ---
 
@@ -269,19 +273,20 @@ Pre-validate a discount code before applying it to a checkout. Returns UCP-stand
 Simulate a UCP checkout with discount codes applied.
 
 **Use this tool when:**
+
 - Testing how discounts would be applied in a UCP checkout
 - Simulating multi-code discount scenarios
 - Validating discount stacking behavior
 
 **Parameters:**
 
-| Name                 | Type       | Required | Description                              |
-| -------------------- | ---------- | -------- | ---------------------------------------- |
-| `codes`              | string[]   | Yes      | Array of discount codes to apply         |
-| `line_items`         | LineItem[] | Yes      | UCP line items for the checkout          |
-| `currency`           | string     | Yes      | ISO 4217 currency code (e.g., USD)       |
-| `discount_percentage`| number     | Yes      | Discount percentage to simulate (0.15 = 15%) |
-| `product_margin`     | number     | No       | Base margin for policy evaluation (0.40 = 40%) |
+| Name                  | Type       | Required | Description                                    |
+| --------------------- | ---------- | -------- | ---------------------------------------------- |
+| `codes`               | string[]   | Yes      | Array of discount codes to apply               |
+| `line_items`          | LineItem[] | Yes      | UCP line items for the checkout                |
+| `currency`            | string     | Yes      | ISO 4217 currency code (e.g., USD)             |
+| `discount_percentage` | number     | Yes      | Discount percentage to simulate (0.15 = 15%)   |
+| `product_margin`      | number     | No       | Base margin for policy evaluation (0.40 = 40%) |
 
 **LineItem structure:**
 

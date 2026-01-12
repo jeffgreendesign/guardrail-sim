@@ -21,7 +21,7 @@ import { analyzePolicy, createRecommendationEngine } from '@guardrail-sim/insigh
 // Quick analysis
 const report = await analyzePolicy({
   policy: policyData,
-  simulationResults: results
+  simulationResults: results,
 });
 
 console.log(`Found ${report.summary.total} insights`);
@@ -37,15 +37,15 @@ For more control, use the recommendation engine directly:
 import { createRecommendationEngine } from '@guardrail-sim/insights';
 
 const engine = createRecommendationEngine({
-  minSeverity: 'warning',      // Ignore 'info' level insights
+  minSeverity: 'warning', // Ignore 'info' level insights
   categories: ['policy-health', 'margin-protection'],
-  excludeChecks: ['lowSimulationCoverage']  // Skip specific checks
+  excludeChecks: ['lowSimulationCoverage'], // Skip specific checks
 });
 
 const report = await engine.analyze({
   policy: policyData,
   simulationResults: results,
-  userSettings: { marginFloor: 0.15 }
+  userSettings: { marginFloor: 0.15 },
 });
 ```
 
@@ -55,42 +55,42 @@ const report = await engine.analyze({
 
 Checks for structural issues with your policy:
 
-| Check | Description |
-| ----- | ----------- |
-| `noMarginFloor` | Policy has no minimum margin rule |
-| `noMaxDiscountCap` | Policy has no maximum discount cap |
-| `tooFewRules` | Policy has fewer than 2 rules |
-| `conflictingRules` | Rules may contradict each other |
-| `noPrioritySet` | Rules lack priority ordering |
-| `highMarginFloor` | Margin floor may be too restrictive |
-| `lowMarginFloor` | Margin floor may be too permissive |
-| `noVolumeConsideration` | No volume-based rules |
+| Check                   | Description                         |
+| ----------------------- | ----------------------------------- |
+| `noMarginFloor`         | Policy has no minimum margin rule   |
+| `noMaxDiscountCap`      | Policy has no maximum discount cap  |
+| `tooFewRules`           | Policy has fewer than 2 rules       |
+| `conflictingRules`      | Rules may contradict each other     |
+| `noPrioritySet`         | Rules lack priority ordering        |
+| `highMarginFloor`       | Margin floor may be too restrictive |
+| `lowMarginFloor`        | Margin floor may be too permissive  |
+| `noVolumeConsideration` | No volume-based rules               |
 
 ### Margin Protection
 
 Checks for margin risk based on simulation results:
 
-| Check | Description |
-| ----- | ----------- |
-| `highApprovalRate` | > 95% of discounts approved |
-| `lowApprovalRate` | < 50% of discounts approved |
-| `marginFloorFrequentlyHit` | Margin floor is the limiting factor > 30% |
-| `averageMarginDeclining` | Average margin trending down |
-| `singleRuleDominates` | One rule causing > 80% of rejections |
-| `discountGap` | Large gap between requested and max allowed |
+| Check                      | Description                                 |
+| -------------------------- | ------------------------------------------- |
+| `highApprovalRate`         | > 95% of discounts approved                 |
+| `lowApprovalRate`          | < 50% of discounts approved                 |
+| `marginFloorFrequentlyHit` | Margin floor is the limiting factor > 30%   |
+| `averageMarginDeclining`   | Average margin trending down                |
+| `singleRuleDominates`      | One rule causing > 80% of rejections        |
+| `discountGap`              | Large gap between requested and max allowed |
 
 ### Simulation Analysis
 
 Insights from simulation coverage:
 
-| Check | Description |
-| ----- | ----------- |
-| `lowSimulationCoverage` | < 100 scenarios tested |
-| `segmentImbalance` | Customer segments not evenly tested |
-| `unusedRules` | Rules never triggered in simulation |
-| `volumeTierUnderutilized` | Volume discounts rarely used |
-| `highValueOrderRejection` | Large orders being rejected |
-| `noLimitingFactorVariety` | Same rule always limits discounts |
+| Check                     | Description                         |
+| ------------------------- | ----------------------------------- |
+| `lowSimulationCoverage`   | < 100 scenarios tested              |
+| `segmentImbalance`        | Customer segments not evenly tested |
+| `unusedRules`             | Rules never triggered in simulation |
+| `volumeTierUnderutilized` | Volume discounts rarely used        |
+| `highValueOrderRejection` | Large orders being rejected         |
+| `noLimitingFactorVariety` | Same rule always limits discounts   |
 
 ## Built-in Checklists
 
@@ -100,7 +100,7 @@ Pre-built checklists for common workflows:
 import {
   policySetupChecklist,
   policyReviewChecklist,
-  preDeploymentChecklist
+  preDeploymentChecklist,
 } from '@guardrail-sim/insights';
 
 // Use with your policy data
@@ -111,6 +111,7 @@ console.log(`${progress.completed}/${progress.total} items complete`);
 ### Policy Setup Checklist
 
 For new policy creation:
+
 - Has unique policy ID
 - Has descriptive name
 - Has at least 2 rules
@@ -121,6 +122,7 @@ For new policy creation:
 ### Policy Review Checklist
 
 For periodic policy audits:
+
 - Margin floor is appropriate (10-20%)
 - Discount cap is reasonable (< 50%)
 - Volume tiers are utilized
@@ -130,6 +132,7 @@ For periodic policy audits:
 ### Pre-Deployment Checklist
 
 Before going live:
+
 - Ran at least 100 simulations
 - All rules triggered at least once
 - No critical insights
@@ -142,18 +145,18 @@ Each insight follows this structure:
 
 ```typescript
 interface Insight {
-  id: string;           // 'noMarginFloor'
-  category: string;     // 'policy-health'
+  id: string; // 'noMarginFloor'
+  category: string; // 'policy-health'
   severity: 'critical' | 'warning' | 'info';
-  title: string;        // 'Missing Margin Floor'
-  description: string;  // Detailed explanation
-  actions: InsightAction[];  // Suggested fixes
+  title: string; // 'Missing Margin Floor'
+  description: string; // Detailed explanation
+  actions: InsightAction[]; // Suggested fixes
 }
 
 interface InsightAction {
-  label: string;        // 'Add margin floor rule'
+  label: string; // 'Add margin floor rule'
   type: 'link' | 'code' | 'manual';
-  value: string;        // URL, code snippet, or instructions
+  value: string; // URL, code snippet, or instructions
 }
 ```
 
@@ -168,9 +171,7 @@ const myCheck: InsightCheck = {
   id: 'holidaySeasonReady',
   category: 'seasonal',
   check: (context) => {
-    const hasHolidayRule = context.policy.rules.some(
-      r => r.name.includes('holiday')
-    );
+    const hasHolidayRule = context.policy.rules.some((r) => r.name.includes('holiday'));
 
     if (!hasHolidayRule) {
       return {
@@ -178,22 +179,22 @@ const myCheck: InsightCheck = {
         title: 'No Holiday Rules',
         description: 'Consider adding holiday-specific discount rules',
         actions: [
-          { label: 'View example', type: 'link', value: '/docs/examples/promotional-limits' }
-        ]
+          { label: 'View example', type: 'link', value: '/docs/examples/promotional-limits' },
+        ],
       };
     }
     return null;
-  }
+  },
 };
 
 const myPack: InsightPack = {
   name: 'seasonal-checks',
-  checks: [myCheck]
+  checks: [myCheck],
 };
 
 // Register with engine
 const engine = createRecommendationEngine({
-  additionalPacks: [myPack]
+  additionalPacks: [myPack],
 });
 ```
 
@@ -228,8 +229,8 @@ const policy: PolicySummary = {
   rules: [
     { name: 'margin_floor', triggerCount: 45, rejectionCount: 45 },
     { name: 'max_discount', triggerCount: 12, rejectionCount: 12 },
-    { name: 'volume_tier', triggerCount: 28, rejectionCount: 28 }
-  ]
+    { name: 'volume_tier', triggerCount: 28, rejectionCount: 28 },
+  ],
 };
 
 const simulation: SimulationSummary = {
@@ -241,8 +242,8 @@ const simulation: SimulationSummary = {
   segmentBreakdown: {
     new: { count: 100, approved: 70 },
     gold: { count: 200, approved: 185 },
-    platinum: { count: 200, approved: 160 }
-  }
+    platinum: { count: 200, approved: 160 },
+  },
 };
 
 // Analyze

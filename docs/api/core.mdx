@@ -34,6 +34,7 @@ async evaluate(order: Order, proposedDiscount: number): Promise<EvaluationResult
 ```
 
 **Parameters:**
+
 - **order**: Order details including value, quantity, margin, and customer segment
 - **proposedDiscount**: Discount as decimal (0.15 = 15%)
 
@@ -73,10 +74,11 @@ function calculateAllocations(
   discountAmount: number,
   lineItems: LineItem[],
   method?: 'across' | 'each'
-): Allocation[]
+): Allocation[];
 ```
 
 **Parameters:**
+
 - **discountAmount**: Total discount amount
 - **lineItems**: Array of line items with subtotals
 - **method**: Allocation method ('across' proportionally, 'each' evenly)
@@ -106,10 +108,7 @@ const allocations = calculateAllocations(
 Calculate the maximum allowed discount for an order.
 
 ```typescript
-function calculateMaxDiscount(
-  order: Order,
-  options?: { policy?: Policy }
-): number
+function calculateMaxDiscount(order: Order, options?: { policy?: Policy }): number;
 ```
 
 **Returns:** Maximum discount as decimal.
@@ -125,6 +124,7 @@ import { defaultPolicy } from '@guardrail-sim/policy-engine';
 ```
 
 Includes:
+
 - **margin_floor**: 15% minimum margin
 - **max_discount**: 25% maximum discount
 - **volume_tier**: 10% base, 15% for orders >= 100 units
@@ -136,7 +136,7 @@ Includes:
 Map a policy violation to a UCP-compatible error code.
 
 ```typescript
-function getUCPErrorCode(violationRule: string): UCPErrorCode
+function getUCPErrorCode(violationRule: string): UCPErrorCode;
 ```
 
 **Example:**
