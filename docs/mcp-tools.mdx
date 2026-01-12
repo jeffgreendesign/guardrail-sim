@@ -5,19 +5,55 @@ description: Complete reference for guardrail-sim's MCP tools
 
 # MCP Tools Reference
 
-guardrail-sim exposes these tools through the Model Context Protocol.
+guardrail-sim exposes 5 tools through the Model Context Protocol for AI agent integration.
+
+## Setup
+
+Start the MCP server:
+
+```bash
+npx guardrail-mcp
+```
+
+Add to Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "guardrail-sim": {
+      "command": "npx",
+      "args": ["guardrail-mcp"]
+    }
+  }
+}
+```
+
+---
 
 ## evaluate_policy
 
-Evaluate a scenario against a policy.
+Evaluate a proposed discount against the active pricing policy.
+
+**Use this tool when:**
+- A B2B buyer requests a discount
+- You need to check if a discount is allowed before committing
+- You want to understand the policy constraints for negotiation
 
 **Parameters:**
 
-| Name       | Type     | Required | Description            |
-| ---------- | -------- | -------- | ---------------------- |
-| `policy`   | Policy   | Yes      | The policy to evaluate |
-| `scenario` | Scenario | Yes      | The scenario to test   |
-| `options`  | Options  | No       | Evaluation options     |
+| Name               | Type   | Required | Description                                    |
+| ------------------ | ------ | -------- | ---------------------------------------------- |
+| `order`            | Order  | Yes      | The order details for evaluation               |
+| `proposed_discount`| number | Yes      | Requested discount as decimal (0.15 = 15% off) |
+
+**Order object:**
+
+| Field            | Type   | Required | Description                              |
+| ---------------- | ------ | -------- | ---------------------------------------- |
+| `order_value`    | number | Yes      | Total order value in dollars             |
+| `quantity`       | number | Yes      | Total units in the order                 |
+| `product_margin` | number | Yes      | Base margin as decimal (0.40 = 40%)      |
+| `customer_segment` | string | No     | Customer tier (new, bronze, silver, gold, platinum) |
 
 **Example:**
 
@@ -25,16 +61,13 @@ Evaluate a scenario against a policy.
 {
   "name": "evaluate_policy",
   "arguments": {
-    "policy": {
-      "name": "max-discount",
-      "constraints": [{ "type": "max_percentage", "value": 40 }]
+    "order": {
+      "order_value": 5000,
+      "quantity": 100,
+      "product_margin": 0.4,
+      "customer_segment": "gold"
     },
-    "scenario": {
-      "discounts": [
-        { "type": "coupon", "value": 25 },
-        { "type": "sale", "value": 20 }
-      ]
-    }
+    "proposed_discount": 0.12
   }
 }
 ```
@@ -43,32 +76,94 @@ Evaluate a scenario against a policy.
 
 ```json
 {
-  "allowed": false,
-  "action": "reject",
-  "totalRequested": 45,
-  "maxAllowed": 40,
-  "violations": [
-    {
-      "constraint": "max_percentage",
-      "message": "Discount exceeds maximum of 40%"
-    }
-  ],
-  "suggestion": {
-    "clampTo": 40
-  }
+  "approved": true,
+  "violations": [],
+  "triggeredRules": ["margin_floor", "max_discount", "volume_tier"],
+  "calculated_margin": 0.28,
+  "policy_id": "default-b2b-policy",
+  "policy_name": "Default B2B Pricing Policy"
 }
 ```
 
+**Response (rejected):**
+
+```json
+{
+  "approved": false,
+  "violations": [
+    {
+      "rule": "margin_floor",
+      "message": "Calculated margin (12%) falls below 15% floor"
+    }
+  ],
+  "triggeredRules": ["margin_floor"],
+  "calculated_margin": 0.12,
+  "policy_id": "default-b2b-policy",
+  "policy_name": "Default B2B Pricing Policy"
+}
+```
+
+---
+
+## get_policy_summary
+
+Get a human-readable summary of the active policy rules.
+
+**Use this tool when:**
+- You need to explain discount limits to a buyer
+- You want to understand what discounts are possible
+- Preparing for a negotiation
+
+**Parameters:** None
+
+**Example:**
+
+```json
+{
+  "name": "get_policy_summary",
+  "arguments": {}
+}
+```
+
+**Response:**
+
+```json
+{
+  "policy_id": "default-b2b-policy",
+  "policy_name": "Default B2B Pricing Policy",
+  "rules": [
+    {
+      "name": "margin_floor",
+      "description": "Ensures minimum margin of 15% is maintained after discount"
+    },
+    {
+      "name": "max_discount",
+      "description": "Maximum discount cap of 25% regardless of other factors"
+    },
+    {
+      "name": "volume_tier",
+      "description": "Orders with quantity < 100 are limited to 10% discount"
+    }
+  ],
+  "summary": "Policy: Default B2B Pricing Policy\nRules:\n1. Margin Floor (15%): Discounts cannot reduce margin below 15%\n2. Max Discount (25%): No discount can exceed 25% regardless of other factors\n3. Volume Tier: Orders with 100+ units qualify for higher discounts (up to 15% vs 10% base)\n\nTo maximize discount approval:\n- Increase order quantity to 100+ units for volume tier benefits\n- Consider products with higher base margins\n- Stay within the 25% maximum cap"
+}
+```
+
+---
+
 ## get_max_discount
 
-Calculate the maximum allowed discount for a given context.
+Calculate the maximum allowed discount for a given order.
+
+**Use this tool when:**
+- You want to know the ceiling for negotiation
+- A buyer asks "what's the best you can do?"
 
 **Parameters:**
 
-| Name      | Type    | Required | Description                                   |
-| --------- | ------- | -------- | --------------------------------------------- |
-| `policy`  | Policy  | Yes      | The policy to check                           |
-| `context` | Context | No       | Additional context (category, customer, etc.) |
+| Name    | Type  | Required | Description       |
+| ------- | ----- | -------- | ----------------- |
+| `order` | Order | Yes      | The order details |
 
 **Example:**
 
@@ -76,15 +171,10 @@ Calculate the maximum allowed discount for a given context.
 {
   "name": "get_max_discount",
   "arguments": {
-    "policy": {
-      "name": "holiday-limits",
-      "constraints": [
-        { "type": "max_percentage", "value": 50 },
-        { "type": "exclude_category", "value": "clearance" }
-      ]
-    },
-    "context": {
-      "category": "apparel"
+    "order": {
+      "order_value": 5000,
+      "quantity": 50,
+      "product_margin": 0.4
     }
   }
 }
@@ -94,55 +184,10 @@ Calculate the maximum allowed discount for a given context.
 
 ```json
 {
-  "maxPercentage": 50,
-  "maxAbsolute": null,
-  "eligibleForDiscount": true,
-  "restrictions": []
-}
-```
-
-## list_constraints
-
-List all available constraint types.
-
-**Parameters:** None
-
-**Response:**
-
-```json
-{
-  "constraints": [
-    {
-      "type": "max_percentage",
-      "description": "Cap total discount as a percentage",
-      "parameters": ["value"]
-    },
-    {
-      "type": "max_absolute",
-      "description": "Cap total discount as an amount",
-      "parameters": ["value"]
-    }
-  ]
-}
-```
-
-## validate_policy
-
-Check if a policy definition is valid.
-
-**Parameters:**
-
-| Name     | Type   | Required | Description            |
-| -------- | ------ | -------- | ---------------------- |
-| `policy` | Policy | Yes      | The policy to validate |
-
-**Response:**
-
-```json
-{
-  "valid": true,
-  "errors": [],
-  "warnings": ["Policy has no description"]
+  "max_discount": 0.1,
+  "max_discount_pct": "10%",
+  "limiting_factor": "volume_tier",
+  "details": "Volume tier limits orders with <100 units to 10% maximum"
 }
 ```
 
@@ -150,19 +195,26 @@ Check if a policy definition is valid.
 
 ## UCP-Aligned Tools
 
-These tools return responses conforming to the Universal Commerce Protocol specification.
+These tools return responses conforming to the [Universal Commerce Protocol](https://ucp.dev) specification for agentic commerce.
+
+---
 
 ## validate_discount_code
 
 Pre-validate a discount code before applying it to a checkout. Returns UCP-standard error codes.
 
+**Use this tool when:**
+- An AI agent wants to pre-validate a discount before checkout
+- You need UCP-compliant error codes for discount rejection
+- Building UCP-compatible checkout flows
+
 **Parameters:**
 
-| Name                | Type   | Required | Description                             |
-| ------------------- | ------ | -------- | --------------------------------------- |
-| `code`              | string | Yes      | The discount code to validate           |
-| `order`             | Order  | Yes      | Order details for validation            |
-| `proposed_discount` | number | Yes      | Proposed discount percentage (0.10 = 10%) |
+| Name              | Type   | Required | Description                                     |
+| ----------------- | ------ | -------- | ----------------------------------------------- |
+| `code`            | string | Yes      | The discount code to validate                   |
+| `discount_amount` | number | Yes      | Discount amount in minor currency units (cents) |
+| `order`           | Order  | Yes      | Order context for validation                    |
 
 **Example:**
 
@@ -171,13 +223,21 @@ Pre-validate a discount code before applying it to a checkout. Returns UCP-stand
   "name": "validate_discount_code",
   "arguments": {
     "code": "SUMMER20",
+    "discount_amount": 500,
     "order": {
       "order_value": 5000,
       "quantity": 50,
       "product_margin": 0.4
-    },
-    "proposed_discount": 0.2
+    }
   }
+}
+```
+
+**Response (approved):**
+
+```json
+{
+  "valid": true
 }
 ```
 
@@ -192,35 +252,49 @@ Pre-validate a discount code before applying it to a checkout. Returns UCP-stand
 }
 ```
 
-**Response (approved):**
-
-```json
-{
-  "valid": true
-}
-```
-
 ### UCP Error Codes
 
-| Error Code | Description |
-|------------|-------------|
-| `discount_code_invalid` | Code doesn't exist or exceeds limits |
-| `discount_code_expired` | Code is past validity window |
-| `discount_code_user_ineligible` | User doesn't qualify for this discount |
-| `discount_code_combination_disallowed` | Can't combine with other codes |
-| `discount_code_user_not_logged_in` | Requires authentication |
+| Error Code                           | Description                              |
+| ------------------------------------ | ---------------------------------------- |
+| `discount_code_invalid`              | Code doesn't exist or exceeds limits     |
+| `discount_code_expired`              | Code is past validity window             |
+| `discount_code_user_ineligible`      | User doesn't qualify for this discount   |
+| `discount_code_combination_disallowed` | Can't combine with other codes         |
+| `discount_code_user_not_logged_in`   | Requires authentication                  |
+
+---
 
 ## simulate_checkout_discount
 
-Simulate a full checkout with discounts, returning UCP-formatted allocations.
+Simulate a UCP checkout with discount codes applied.
+
+**Use this tool when:**
+- Testing how discounts would be applied in a UCP checkout
+- Simulating multi-code discount scenarios
+- Validating discount stacking behavior
 
 **Parameters:**
 
-| Name                | Type       | Required | Description                             |
-| ------------------- | ---------- | -------- | --------------------------------------- |
-| `codes`             | string[]   | Yes      | Discount codes to apply                 |
-| `line_items`        | LineItem[] | Yes      | Cart line items                         |
-| `proposed_discount` | number     | Yes      | Proposed discount percentage            |
+| Name                 | Type       | Required | Description                              |
+| -------------------- | ---------- | -------- | ---------------------------------------- |
+| `codes`              | string[]   | Yes      | Array of discount codes to apply         |
+| `line_items`         | LineItem[] | Yes      | UCP line items for the checkout          |
+| `currency`           | string     | Yes      | ISO 4217 currency code (e.g., USD)       |
+| `discount_percentage`| number     | Yes      | Discount percentage to simulate (0.15 = 15%) |
+| `product_margin`     | number     | No       | Base margin for policy evaluation (0.40 = 40%) |
+
+**LineItem structure:**
+
+```json
+{
+  "item": { "id": "SKU-001" },
+  "quantity": 2,
+  "subtotal": {
+    "amount": 50000,
+    "currency": "USD"
+  }
+}
+```
 
 **Example:**
 
@@ -231,19 +305,19 @@ Simulate a full checkout with discounts, returning UCP-formatted allocations.
     "codes": ["SUMMER20"],
     "line_items": [
       {
-        "item_id": "SKU-001",
+        "item": { "id": "SKU-001" },
         "quantity": 2,
-        "subtotal": 5000,
-        "product_margin": 0.4
+        "subtotal": { "amount": 500000, "currency": "USD" }
       },
       {
-        "item_id": "SKU-002",
+        "item": { "id": "SKU-002" },
         "quantity": 1,
-        "subtotal": 2500,
-        "product_margin": 0.35
+        "subtotal": { "amount": 250000, "currency": "USD" }
       }
     ],
-    "proposed_discount": 0.1
+    "currency": "USD",
+    "discount_percentage": 0.1,
+    "product_margin": 0.4
   }
 }
 ```
@@ -256,12 +330,12 @@ Simulate a full checkout with discounts, returning UCP-formatted allocations.
     {
       "code": "SUMMER20",
       "title": "Discount SUMMER20",
-      "amount": 750,
+      "amount": { "amount": 75000, "currency": "USD" },
       "method": "across",
       "priority": 1,
       "allocations": [
-        { "target": "$.line_items[0]", "amount": 500 },
-        { "target": "$.line_items[1]", "amount": 250 }
+        { "target": "$.line_items[0]", "amount": { "amount": 50000, "currency": "USD" } },
+        { "target": "$.line_items[1]", "amount": { "amount": 25000, "currency": "USD" } }
       ]
     }
   ],
@@ -291,3 +365,19 @@ Simulate a full checkout with discounts, returning UCP-formatted allocations.
   ]
 }
 ```
+
+---
+
+## Best Practices
+
+### For Negotiation
+
+1. Start with `get_policy_summary` to understand the rules
+2. Use `get_max_discount` to find the ceiling
+3. Call `evaluate_policy` to test specific discount levels
+
+### For UCP Integration
+
+1. Use `validate_discount_code` for pre-checkout validation
+2. Use `simulate_checkout_discount` for full checkout simulation
+3. Handle UCP error codes appropriately in your checkout flow
