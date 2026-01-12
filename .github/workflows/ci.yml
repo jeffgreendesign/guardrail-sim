@@ -206,10 +206,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
+      - name: Build packages
+        run: pnpm build
 
       - name: Test with coverage
         run: pnpm test:coverage
