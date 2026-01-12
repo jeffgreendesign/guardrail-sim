@@ -82,3 +82,33 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 - No Shopify integration — MVP uses synthetic data only (NDA-safe, reproducible)
 - No auth — single-user for MVP
 - Demo-able beats perfect — this is a portfolio project
+
+## PR Workflow
+
+When completing work that's ready for a pull request:
+
+1. **Always create the PR directly** using `gh pr create --title "..." --body "..."` — never just provide a `/pull/new/branch-name` link
+2. **Use conventional commit format** for PR titles: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`
+3. **Include in the PR body:**
+   - Summary of changes (2-4 bullet points)
+   - Link to related issue if applicable (e.g., `Closes #123`)
+   - Test plan or verification steps
+4. **After creating the PR**, provide the actual PR URL returned by `gh`
+
+Example:
+
+```bash
+gh pr create --title "feat(policy-engine): add volume discount rules" --body "$(cat <<'EOF'
+## Summary
+- Add tiered volume discount calculation
+- Support percentage and fixed amount discounts
+- Include validation for discount bounds
+
+Closes #42
+
+## Test Plan
+- Run `pnpm --filter @guardrail-sim/policy-engine test`
+- Verify new discount scenarios in test output
+EOF
+)"
+```
