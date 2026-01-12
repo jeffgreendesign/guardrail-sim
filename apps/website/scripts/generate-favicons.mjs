@@ -1,7 +1,8 @@
+/* eslint-env node */
 import sharp from 'sharp';
-import { writeFileSync, mkdirSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, '..', 'public');
@@ -38,10 +39,6 @@ async function generatePng(size, outputName) {
 
 // Generate ICO (multi-resolution)
 async function generateIco() {
-  // For ICO, we'll create a 32x32 PNG that works well as favicon.ico
-  const svg = createSvg(32);
-  const buffer = Buffer.from(svg);
-
   // Create the individual size buffers for ICO
   const sizes = [16, 32, 48];
   const pngBuffers = await Promise.all(
@@ -54,22 +51,14 @@ async function generateIco() {
     })
   );
 
-  // Create ICO file manually (simplified - single 32x32 image)
-  // For true multi-res ICO, we'd need a proper ICO library
-  // Using 32x32 PNG as favicon.ico (browsers handle it)
-  const png32 = await sharp(Buffer.from(createSvg(32)))
-    .resize(32, 32)
-    .png()
-    .toBuffer();
-
   // Create a proper ICO header for 16x16, 32x32, and 48x48
-  const ico = await createIcoBuffer(pngBuffers, sizes);
+  const ico = createIcoBuffer(pngBuffers, sizes);
   writeFileSync(join(publicDir, 'favicon.ico'), ico);
   console.log('Generated: favicon.ico');
 }
 
 // Create ICO buffer from PNG buffers
-async function createIcoBuffer(pngBuffers, sizes) {
+function createIcoBuffer(pngBuffers, sizes) {
   // ICO file structure:
   // - ICONDIR header (6 bytes)
   // - ICONDIRENTRY for each image (16 bytes each)
