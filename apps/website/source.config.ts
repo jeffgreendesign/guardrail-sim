@@ -3,6 +3,11 @@ import { remarkStructure } from 'fumadocs-core/mdx-plugins';
 
 export const docs = defineDocs({
   dir: '../../docs',
+  docs: {
+    postprocess: {
+      includeProcessedMarkdown: true,
+    },
+  },
 });
 
 export default defineConfig({
