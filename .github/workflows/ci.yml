@@ -9,6 +9,9 @@ on:
     # Run security audit weekly on Mondays at 9am UTC
     - cron: '0 9 * * 1'
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,8 +23,6 @@ jobs:
   install:
     name: Install Dependencies
     runs-on: ubuntu-latest
-    outputs:
-      cache-hit: ${{ steps.cache.outputs.cache-hit }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,20 +35,6 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-        id: pnpm-store
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        id: cache
-        with:
-          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -256,10 +243,10 @@ jobs:
         with:
           name: build-output
 
-      - name: Verify MCP server starts
+      - name: Verify MCP server loads
         run: |
-          timeout 5s node packages/mcp-server/dist/index.js --help || true
-          echo "✓ MCP server executable verified"
+          # Verify the MCP server module can be imported without errors
+          node -e "import('./packages/mcp-server/dist/index.js').then(() => console.log('✓ MCP server module loaded successfully'))"
 
       - name: Verify package exports
         run: |
