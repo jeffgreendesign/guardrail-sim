@@ -46,7 +46,7 @@ jobs:
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
         with:
-          files: ./packages/policy-engine/coverage/lcov.info,./packages/mcp-server/coverage/lcov.info
+          files: ./packages/policy-engine/coverage/lcov.info,./packages/mcp-server/coverage/lcov.info,./packages/insights/coverage/lcov.info
           fail_ci_if_error: false
 
       - name: Format check

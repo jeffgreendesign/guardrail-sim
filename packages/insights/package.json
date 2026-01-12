@@ -15,13 +15,14 @@
     "build": "tsc",
     "pretest": "tsc",
     "test": "node --test --experimental-strip-types test/*.test.ts",
+    "test:coverage": "c8 --reporter=text --reporter=lcov node --test --experimental-strip-types test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@guardrail-sim/policy-engine": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
+    "@types/node": "^22.10.5",
     "typescript": "^5.7.2"
   },
   "keywords": [

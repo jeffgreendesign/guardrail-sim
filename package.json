@@ -12,7 +12,7 @@
     "dev": "pnpm -r --parallel --stream dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "test:coverage": "pnpm -r --filter @guardrail-sim/policy-engine --filter @guardrail-sim/mcp-server test:coverage",
+    "test:coverage": "pnpm -r --filter @guardrail-sim/policy-engine --filter @guardrail-sim/mcp-server --filter @guardrail-sim/insights test:coverage",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
@@ -40,7 +40,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.4.2",
-    "typescript": "^5.3.3",
+    "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2"
   }
 }

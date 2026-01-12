@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-sim/mcp-server",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "MCP server exposing evaluate_policy tool for AI agents",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,7 +28,7 @@
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2"
   }
 }
