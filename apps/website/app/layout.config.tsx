@@ -10,7 +10,11 @@ export const baseOptions: BaseLayoutProps = {
     { text: 'Docs', url: '/docs', active: 'nested-url' },
     { text: 'Playground', url: '/playground' },
     { text: 'GitHub', url: 'https://github.com/jeffgreendesign/guardrail-sim', external: true },
-    { text: 'npm', url: 'https://www.npmjs.com/package/@guardrail-sim/core', external: true },
+    {
+      text: 'npm',
+      url: 'https://www.npmjs.com/package/@guardrail-sim/policy-engine',
+      external: true,
+    },
   ],
   githubUrl: 'https://github.com/jeffgreendesign/guardrail-sim',
 };

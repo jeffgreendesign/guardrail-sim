@@ -17,7 +17,7 @@ export function Hero(): ReactNode {
         enforce pricing guardrails before they hit production.
       </p>
       <div className="hero-meta">
-        <code className="hero-install">npm install @guardrail-sim/core</code>
+        <code className="hero-install">npm install @guardrail-sim/policy-engine</code>
         <AuthorBadge />
       </div>
       <div className="hero-actions">

@@ -3,24 +3,17 @@
 import type { ReactNode } from 'react';
 import { CopyButton } from '@/components/copy-button';
 
-const CODE_EXAMPLE = `import { Policy, evaluate } from '@guardrail-sim/core';
+const CODE_EXAMPLE = `import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
 
-const policy: Policy = {
-  name: 'max-discount',
-  constraints: [
-    { type: 'max_percentage', value: 40 },
-  ],
-};
+const engine = new PolicyEngine(defaultPolicy);
 
-const result = evaluate(policy, {
-  discounts: [
-    { type: 'coupon', value: 25 },
-    { type: 'sale', value: 20 },
-  ],
-});
+const result = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4 },
+  0.15  // 15% discount request
+);
 
-// result.allowed: false
-// result.suggestion: { clampTo: 40 }`;
+// result.approved: true
+// result.calculated_margin: 0.25`;
 
 export function QuickStart(): ReactNode {
   return (
