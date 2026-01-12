@@ -11,14 +11,17 @@ All notable changes to this project are documented below.
 
 ### Added
 
-- Documentation website with Fumadocs
-- Landing page with Jeff Green design system
-- Comprehensive API documentation
-- Example guides for common use cases
+- UCP alignment with Universal Commerce Protocol
+- `@guardrail-sim/ucp-types` package with discount and checkout types
+- `@guardrail-sim/insights` package with policy health checks
+- UCP-aligned MCP tools: `validate_discount_code`, `simulate_checkout_discount`
+- Interactive policy playground in documentation site
+- ADR-002: UCP Protocol Alignment
 
 ### Changed
 
-- Updated project structure to include `apps/website`
+- MCP server now exposes 5 tools (was 1)
+- Updated documentation to match actual API
 
 ## v0.0.1 (December 2025)
 
@@ -26,14 +29,13 @@ All notable changes to this project are documented below.
 
 - Initial policy engine implementation with json-rules-engine
 - MCP server with `evaluate_policy` tool
-- Basic constraint types:
-  - `max_percentage` - Cap total discount percentage
-  - `max_absolute` - Cap total discount amount
-  - `margin_floor` - Enforce minimum margin
-  - `volume_tier` - Volume-based discount tiers
-  - `customer_segment` - Customer-specific rules
-- Simulation package scaffolding
-- Dashboard scaffolding with Next.js 15
+- Default policy with rules:
+  - `margin_floor` - 15% minimum margin
+  - `max_discount` - 25% maximum discount
+  - `volume_tier` - Volume-based limits
+- `get_policy_summary` and `get_max_discount` MCP tools
+- Documentation website with Fumadocs
+- ADR-001: Policy Engine Library selection
 
 ### Technical
 
@@ -42,3 +44,4 @@ All notable changes to this project are documented below.
 - ESLint + Prettier configuration
 - Husky pre-commit hooks
 - Conventional commits with commitlint
+- 76 passing tests across all packages
