@@ -5,78 +5,130 @@ description: How guardrail-sim processes policies
 
 # Evaluation
 
-The **evaluation** process determines whether a scenario satisfies a policy's constraints.
+The **evaluation** process determines whether a discount request is allowed based on policy rules.
 
 ## Evaluation Flow
 
 ```
-Scenario → Policy → Constraints → Actions → Result
+Order → PolicyEngine → Rules → Facts → Result
 ```
 
-1. **Input**: A scenario with discounts, items, customer data
-2. **Policy Selection**: Which policies apply to this scenario
-3. **Constraint Checking**: Each constraint is evaluated
-4. **Action Resolution**: Determine the final outcome
-5. **Result**: Allowed/rejected with details
+1. **Input**: An order with value, quantity, margin, and a proposed discount
+2. **Fact Calculation**: Engine computes facts like calculated margin
+3. **Rule Evaluation**: Each rule's conditions are checked against facts
+4. **Violation Collection**: Failed conditions generate violations
+5. **Result**: Approved/rejected with details
 
 ## Basic Evaluation
 
 ```typescript
-import { evaluate } from '@guardrail-sim/core';
+import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+import type { Order } from '@guardrail-sim/policy-engine';
 
-const result = evaluate(policy, {
-  discounts: [{ type: 'coupon', value: 25 }],
-  item: { price: 100, category: 'apparel' },
-  customer: { isVip: true },
-});
+const engine = new PolicyEngine(defaultPolicy);
+
+const order: Order = {
+  order_value: 5000,
+  quantity: 100,
+  product_margin: 0.4,
+  customer_segment: 'gold'
+};
+
+const result = await engine.evaluate(order, 0.12);
 ```
 
-## Batch Evaluation
-
-Test multiple scenarios at once:
+## Understanding Results
 
 ```typescript
-import { evaluateBatch } from '@guardrail-sim/core';
+interface EvaluationResult {
+  approved: boolean;           // Whether discount is allowed
+  violations: Violation[];     // Rules that were violated
+  applied_rules: string[];     // All rules that triggered
+  calculated_margin: number;   // Final margin after discount
+}
+```
 
-const scenarios = [
-  { discounts: [{ type: 'coupon', value: 10 }] },
-  { discounts: [{ type: 'coupon', value: 30 }] },
-  { discounts: [{ type: 'coupon', value: 50 }] },
+### Approved Result
+
+```typescript
+const result = await engine.evaluate(order, 0.12);
+// {
+//   approved: true,
+//   violations: [],
+//   applied_rules: ['margin_floor', 'max_discount', 'volume_tier'],
+//   calculated_margin: 0.28
+// }
+```
+
+### Rejected Result
+
+```typescript
+const result = await engine.evaluate(order, 0.30);
+// {
+//   approved: false,
+//   violations: [
+//     { rule: 'max_discount', message: 'Discount cannot exceed 25%' }
+//   ],
+//   applied_rules: ['max_discount'],
+//   calculated_margin: 0.10
+// }
+```
+
+## How Rules Are Evaluated
+
+Rules run in priority order (highest first). The engine:
+
+1. Computes all facts from the order and proposed discount
+2. Evaluates each rule's conditions against the facts
+3. Collects violations from failed conditions
+4. Returns approved=true only if no violations occurred
+
+### Computed Facts
+
+The engine automatically calculates:
+
+| Fact | Formula |
+| ---- | ------- |
+| `calculated_margin` | `product_margin - proposed_discount` |
+
+### Rule Priority
+
+```typescript
+const rules = [
+  { name: 'margin_floor', priority: 1 },   // Runs first
+  { name: 'max_discount', priority: 2 },   // Runs second
+  { name: 'volume_tier', priority: 3 },    // Runs third
 ];
-
-const results = evaluateBatch(policy, scenarios);
-// Returns array of results
 ```
 
-## Dry Run Mode
+## Multiple Violations
 
-Preview what would happen without committing:
+If multiple rules are violated, all violations are returned:
 
 ```typescript
-const result = evaluate(policy, scenario, { dryRun: true });
-// result.simulated: true
-// No side effects, just the prediction
+const result = await engine.evaluate(
+  { order_value: 1000, quantity: 5, product_margin: 0.2 },
+  0.25
+);
+// {
+//   approved: false,
+//   violations: [
+//     { rule: 'margin_floor', message: 'Margin below 15%' },
+//     { rule: 'volume_tier', message: 'Quantity must be >= 100 for 15%+ discount' }
+//   ],
+//   ...
+// }
 ```
 
-## Evaluation Context
+## UCP Error Codes
 
-Pass additional context to constraints:
-
-```typescript
-const result = evaluate(policy, scenario, {
-  context: {
-    currentTime: new Date(),
-    storeId: 'store-123',
-    channel: 'web',
-  },
-});
-```
-
-Custom constraints can access this context:
+Violations include UCP-compatible error codes:
 
 ```typescript
-registerConstraint('store_specific', (constraint, context) => {
-  const storeId = context.storeId;
-  // Use storeId in evaluation
-});
+import { getUCPErrorCode } from '@guardrail-sim/policy-engine';
+
+for (const violation of result.violations) {
+  const ucpCode = getUCPErrorCode(violation.rule);
+  // 'discount_code_invalid', 'discount_code_user_ineligible', etc.
+}
 ```

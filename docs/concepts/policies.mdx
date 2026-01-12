@@ -5,76 +5,142 @@ description: The building blocks of guardrail-sim
 
 # Policies
 
-A **policy** is a named collection of constraints that define what's allowed in a given context.
+A **policy** is a named collection of rules that define what discounts are allowed in B2B pricing.
 
 ## Policy Structure
 
 ```typescript
-type Policy = {
+interface Policy {
+  id: string;
   name: string;
-  description?: string;
-  constraints: Constraint[];
-  priority?: number;
-  enabled?: boolean;
-  metadata?: Record<string, unknown>;
-};
+  rules: PolicyRule[];
+}
 ```
 
 ### Required Fields
 
-- **name**: Unique identifier for the policy
-- **constraints**: Array of rules to enforce
+- **id**: Unique identifier for the policy
+- **name**: Human-readable name
+- **rules**: Array of rules to enforce
 
-### Optional Fields
+## Policy Rules
 
-- **description**: Human-readable explanation
-- **priority**: Order of evaluation (higher = first)
-- **enabled**: Toggle without removing
-- **metadata**: Arbitrary data for your use
-
-## Composing Policies
-
-Policies can be combined for complex scenarios:
+Each rule uses the json-rules-engine format with conditions and events:
 
 ```typescript
-import { combinePolicies } from '@guardrail-sim/core';
+interface PolicyRule {
+  name: string;
+  conditions: {
+    all?: RuleCondition[];
+    any?: RuleCondition[];
+  };
+  event: {
+    type: string;
+    params?: Record<string, unknown>;
+  };
+  priority?: number;
+}
+```
+
+### Example Rule
+
+```typescript
+const marginFloorRule: PolicyRule = {
+  name: 'margin_floor',
+  conditions: {
+    all: [
+      {
+        fact: 'calculated_margin',
+        operator: 'lessThan',
+        value: 0.15
+      }
+    ]
+  },
+  event: {
+    type: 'violation',
+    params: {
+      message: 'Calculated margin falls below 15% floor'
+    }
+  },
+  priority: 1
+};
+```
+
+## Default Policy
+
+The default policy includes three rules:
+
+```typescript
+import { defaultPolicy } from '@guardrail-sim/policy-engine';
+
+// Includes:
+// - margin_floor: 15% minimum margin
+// - max_discount: 25% maximum discount
+// - volume_tier: 10% base, 15% for qty >= 100
+```
+
+## Custom Policies
+
+Create custom policies with your own rules:
+
+```typescript
+import { PolicyEngine } from '@guardrail-sim/policy-engine';
+import type { Policy } from '@guardrail-sim/policy-engine';
 
 const holidayPolicy: Policy = {
-  name: 'holiday-limits',
-  constraints: [{ type: 'max_percentage', value: 50 }],
+  id: 'holiday-2026',
+  name: 'Holiday Sale Policy',
+  rules: [
+    {
+      name: 'holiday_max',
+      conditions: {
+        all: [
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.30 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Holiday discount cannot exceed 30%' }
+      }
+    }
+  ]
 };
 
-const clearancePolicy: Policy = {
-  name: 'clearance-rules',
-  constraints: [{ type: 'exclude_category', value: 'clearance' }],
-};
-
-const combined = combinePolicies([holidayPolicy, clearancePolicy]);
+const engine = new PolicyEngine(holidayPolicy);
 ```
 
-## Policy Inheritance
+## Rule Conditions
 
-Create base policies and extend them:
+Conditions use facts, operators, and values:
 
-```typescript
-import { extendPolicy } from '@guardrail-sim/core';
+| Operator | Description |
+| -------- | ----------- |
+| `equal` | Exact match |
+| `notEqual` | Not equal |
+| `lessThan` | Less than value |
+| `lessThanInclusive` | Less than or equal |
+| `greaterThan` | Greater than value |
+| `greaterThanInclusive` | Greater than or equal |
+| `in` | Value in array |
+| `notIn` | Value not in array |
+| `contains` | Array contains value |
 
-const basePolicy: Policy = {
-  name: 'base',
-  constraints: [{ type: 'max_percentage', value: 60 }],
-};
+## Available Facts
 
-const strictPolicy = extendPolicy(basePolicy, {
-  name: 'strict',
-  constraints: [{ type: 'max_percentage', value: 30 }],
-});
-```
+The policy engine provides these facts for conditions:
 
-The child policy's constraints override the parent's when they conflict.
+| Fact | Description |
+| ---- | ----------- |
+| `order_value` | Total order value in dollars |
+| `quantity` | Total units in order |
+| `product_margin` | Base margin (0.40 = 40%) |
+| `proposed_discount` | Requested discount (0.15 = 15%) |
+| `calculated_margin` | Margin after discount |
+| `customer_segment` | Customer tier (gold, silver, etc.) |
 
 ## Best Practices
 
-1. **Name policies clearly**: Use descriptive names like `holiday-sale-2024` not `policy1`
-2. **Document constraints**: Add descriptions explaining the business reason
-3. **Version policies**: Use metadata to track policy versions
-4. **Test thoroughly**: Use the simulator to verify edge cases
+1. **Name rules clearly**: Use descriptive names like `margin_floor` not `rule1`
+2. **Set priorities**: Higher priority rules run first
+3. **Provide messages**: Include helpful violation messages
+4. **Test thoroughly**: Use multiple test scenarios

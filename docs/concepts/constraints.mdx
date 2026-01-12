@@ -5,117 +5,164 @@ description: Rules that policies enforce
 
 # Constraints
 
-**Constraints** are the individual rules within a policy. Each constraint defines a single condition that must be satisfied.
+In guardrail-sim, **constraints** are implemented as policy rules using json-rules-engine. Each rule defines conditions that must be satisfied for a discount to be approved.
 
-## Constraint Structure
+## Default Constraints
+
+The default policy includes these constraint rules:
+
+### Margin Floor
+
+Ensures minimum margin is maintained after discount.
 
 ```typescript
-type Constraint = {
-  type: string;
-  value: unknown;
-  message?: string;
-  severity?: 'error' | 'warning';
+{
+  name: 'margin_floor',
+  conditions: {
+    all: [{
+      fact: 'calculated_margin',
+      operator: 'lessThan',
+      value: 0.15  // 15% minimum margin
+    }]
+  },
+  event: {
+    type: 'violation',
+    params: { message: 'Margin falls below 15% floor' }
+  }
+}
+```
+
+### Maximum Discount
+
+Caps the total discount percentage.
+
+```typescript
+{
+  name: 'max_discount',
+  conditions: {
+    all: [{
+      fact: 'proposed_discount',
+      operator: 'greaterThan',
+      value: 0.25  // 25% maximum
+    }]
+  },
+  event: {
+    type: 'violation',
+    params: { message: 'Discount cannot exceed 25%' }
+  }
+}
+```
+
+### Volume Tier
+
+Requires minimum quantity for larger discounts.
+
+```typescript
+{
+  name: 'volume_tier',
+  conditions: {
+    all: [
+      { fact: 'quantity', operator: 'lessThan', value: 100 },
+      { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
+    ]
+  },
+  event: {
+    type: 'violation',
+    params: { message: 'Discount >10% requires quantity >= 100' }
+  }
+}
+```
+
+## Creating Custom Constraints
+
+Add new constraint rules to your policy:
+
+```typescript
+import type { PolicyRule } from '@guardrail-sim/policy-engine';
+
+// Customer segment constraint
+const goldOnlyRule: PolicyRule = {
+  name: 'gold_tier_discount',
+  conditions: {
+    all: [
+      { fact: 'proposed_discount', operator: 'greaterThan', value: 0.15 },
+      { fact: 'customer_segment', operator: 'notEqual', value: 'gold' }
+    ]
+  },
+  event: {
+    type: 'violation',
+    params: { message: 'Discounts over 15% require Gold tier' }
+  }
 };
 ```
 
-## Built-in Constraint Types
+## Condition Logic
 
-### max_percentage
+### ALL Conditions (AND)
 
-Caps the total discount as a percentage of the original price.
+All conditions must be true for the rule to trigger:
 
 ```typescript
-{
-  type: 'max_percentage',
-  value: 50,
-  message: 'Discount cannot exceed 50%'
+conditions: {
+  all: [
+    { fact: 'quantity', operator: 'lessThan', value: 50 },
+    { fact: 'proposed_discount', operator: 'greaterThan', value: 0.20 }
+  ]
 }
+// Triggers only if quantity < 50 AND discount > 20%
 ```
 
-### max_absolute
+### ANY Conditions (OR)
 
-Caps the total discount as an absolute amount.
+At least one condition must be true:
 
 ```typescript
-{
-  type: 'max_absolute',
-  value: 100,
-  message: 'Discount cannot exceed $100'
+conditions: {
+  any: [
+    { fact: 'customer_segment', operator: 'equal', value: 'new' },
+    { fact: 'quantity', operator: 'lessThan', value: 10 }
+  ]
 }
+// Triggers if customer is new OR quantity < 10
 ```
 
-### exclude_category
+### Nested Conditions
 
-Prevents discounts on specific product categories.
+Combine ALL and ANY for complex logic:
 
 ```typescript
-{
-  type: 'exclude_category',
-  value: 'clearance',
-  message: 'Clearance items are not eligible for discounts'
+conditions: {
+  all: [
+    { fact: 'proposed_discount', operator: 'greaterThan', value: 0.20 },
+    {
+      any: [
+        { fact: 'customer_segment', operator: 'notEqual', value: 'platinum' },
+        { fact: 'order_value', operator: 'lessThan', value: 10000 }
+      ]
+    }
+  ]
 }
+// Discount > 20% AND (not platinum OR order < $10k)
 ```
 
-### require_minimum
+## Available Operators
 
-Requires a minimum cart value before discounts apply.
-
-```typescript
-{
-  type: 'require_minimum',
-  value: 50,
-  message: 'Minimum purchase of $50 required'
-}
-```
-
-### limit_stacking
-
-Limits how many discounts can stack together.
-
-```typescript
-{
-  type: 'limit_stacking',
-  max: 2,
-  message: 'Maximum 2 discounts can be combined'
-}
-```
-
-### time_window
-
-Restricts discounts to specific time periods.
-
-```typescript
-{
-  type: 'time_window',
-  start: '2024-11-28T00:00:00Z',
-  end: '2024-12-02T23:59:59Z',
-  message: 'This promotion is only valid during Black Friday weekend'
-}
-```
-
-## Custom Constraints
-
-Register custom constraint handlers:
-
-```typescript
-import { registerConstraint } from '@guardrail-sim/core';
-
-registerConstraint('vip_only', (constraint, context) => {
-  if (!context.customer?.isVip) {
-    return {
-      satisfied: false,
-      message: constraint.message ?? 'This discount is for VIP members only',
-    };
-  }
-  return { satisfied: true };
-});
-```
+| Operator | Description | Example |
+| -------- | ----------- | ------- |
+| `equal` | Exact match | `{ fact: 'segment', operator: 'equal', value: 'gold' }` |
+| `notEqual` | Not equal | `{ fact: 'segment', operator: 'notEqual', value: 'new' }` |
+| `lessThan` | Less than | `{ fact: 'margin', operator: 'lessThan', value: 0.15 }` |
+| `lessThanInclusive` | Less than or equal | `{ fact: 'discount', operator: 'lessThanInclusive', value: 0.25 }` |
+| `greaterThan` | Greater than | `{ fact: 'quantity', operator: 'greaterThan', value: 100 }` |
+| `greaterThanInclusive` | Greater than or equal | `{ fact: 'value', operator: 'greaterThanInclusive', value: 5000 }` |
+| `in` | Value in array | `{ fact: 'segment', operator: 'in', value: ['gold', 'platinum'] }` |
+| `notIn` | Value not in array | `{ fact: 'category', operator: 'notIn', value: ['clearance'] }` |
+| `contains` | Array contains value | `{ fact: 'tags', operator: 'contains', value: 'vip' }` |
 
 ## Constraint Evaluation Order
 
-Constraints are evaluated in order:
+Constraints are evaluated by rule priority (higher numbers first). Use priorities to:
 
-1. Time-based constraints (fail fast if outside window)
-2. Eligibility constraints (customer, category)
-3. Value constraints (min/max limits)
-4. Stacking constraints (combination rules)
+1. **Fail fast**: Check time/eligibility constraints first
+2. **Layer logic**: Apply volume tiers before final caps
+3. **Ensure order**: Run margin checks before stacking rules

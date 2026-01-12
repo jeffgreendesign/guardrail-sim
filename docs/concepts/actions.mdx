@@ -5,79 +5,146 @@ description: What guardrail-sim does when constraints are violated
 
 # Actions
 
-When a constraint is violated, guardrail-sim can take different **actions** based on your configuration.
+When a policy rule's conditions are met, it triggers a **violation event**. The policy engine collects these violations and determines whether the discount request is approved.
 
-## Action Types
+## Violation Events
 
-### Reject
-
-Block the discount entirely.
+Each rule defines an event that fires when conditions are met:
 
 ```typescript
-const result = evaluate(policy, scenario);
-// result.action: 'reject'
-// result.allowed: false
+{
+  name: 'margin_floor',
+  conditions: {
+    all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }]
+  },
+  event: {
+    type: 'violation',
+    params: {
+      message: 'Calculated margin falls below 15% floor'
+    }
+  }
+}
 ```
 
-### Clamp
+## Evaluation Result
 
-Reduce the discount to the maximum allowed value.
-
-```typescript
-const policy: Policy = {
-  name: 'clamped-discount',
-  constraints: [
-    {
-      type: 'max_percentage',
-      value: 40,
-      action: 'clamp', // Instead of rejecting, reduce to 40%
-    },
-  ],
-};
-```
-
-### Warn
-
-Allow the discount but flag it for review.
+The evaluation result indicates whether the discount was approved:
 
 ```typescript
-const policy: Policy = {
-  name: 'audit-large-discounts',
-  constraints: [
-    {
-      type: 'max_percentage',
-      value: 30,
-      severity: 'warning', // Allow but warn if over 30%
-    },
-  ],
-};
-```
+interface EvaluationResult {
+  /** Whether the discount was approved */
+  approved: boolean;
 
-## Configuring Default Actions
-
-Set global defaults:
-
-```typescript
-import { configure } from '@guardrail-sim/core';
-
-configure({
-  defaultAction: 'clamp', // Default to clamping instead of rejecting
-  defaultSeverity: 'error',
-});
-```
-
-## Action Results
-
-The evaluation result includes action details:
-
-```typescript
-type EvaluationResult = {
-  allowed: boolean;
-  action: 'allow' | 'reject' | 'clamp' | 'warn';
-  originalValue: number;
-  finalValue: number;
+  /** List of rule violations */
   violations: Violation[];
-  warnings: Warning[];
-  appliedConstraints: Constraint[];
-};
+
+  /** Rules that were triggered */
+  applied_rules: string[];
+
+  /** Margin after applying discount */
+  calculated_margin: number;
+}
 ```
+
+### Approved (No Violations)
+
+```typescript
+const result = await engine.evaluate(order, 0.10);
+// {
+//   approved: true,
+//   violations: [],
+//   applied_rules: ['margin_floor', 'max_discount', 'volume_tier'],
+//   calculated_margin: 0.30
+// }
+```
+
+### Rejected (Violations Found)
+
+```typescript
+const result = await engine.evaluate(order, 0.30);
+// {
+//   approved: false,
+//   violations: [
+//     { rule: 'max_discount', message: 'Discount cannot exceed 25%' }
+//   ],
+//   applied_rules: ['max_discount'],
+//   calculated_margin: 0.10
+// }
+```
+
+## UCP Error Codes
+
+Violations map to UCP-compatible error codes for agentic commerce:
+
+```typescript
+import { getUCPErrorCode } from '@guardrail-sim/policy-engine';
+
+const result = await engine.evaluate(order, 0.30);
+
+for (const violation of result.violations) {
+  const ucpCode = getUCPErrorCode(violation.rule);
+  console.log(`UCP Error: ${ucpCode}`);
+}
+```
+
+### Error Code Mapping
+
+| Violation Rule | UCP Error Code |
+| -------------- | -------------- |
+| `max_discount` | `discount_code_invalid` |
+| `margin_floor` | `discount_code_invalid` |
+| `volume_tier` | `discount_code_user_ineligible` |
+| `stacking_not_allowed` | `discount_code_combination_disallowed` |
+| `discount_expired` | `discount_code_expired` |
+| `login_required` | `discount_code_user_not_logged_in` |
+
+## Handling Violations
+
+### Check Before Applying
+
+```typescript
+const result = await engine.evaluate(order, proposedDiscount);
+
+if (!result.approved) {
+  // Show violations to user
+  for (const v of result.violations) {
+    console.log(`Cannot apply: ${v.message}`);
+  }
+  return;
+}
+
+// Safe to apply discount
+applyDiscount(order, proposedDiscount);
+```
+
+### Find Maximum Allowed
+
+```typescript
+import { calculateMaxDiscount } from '@guardrail-sim/policy-engine';
+
+const maxDiscount = calculateMaxDiscount(order);
+console.log(`Maximum allowed: ${maxDiscount * 100}%`);
+```
+
+## MCP Tool Integration
+
+The MCP server's `evaluate_policy` tool returns the same result structure:
+
+```json
+{
+  "approved": false,
+  "violations": [
+    {
+      "rule": "margin_floor",
+      "message": "Calculated margin (12%) falls below 15% floor"
+    }
+  ],
+  "applied_rules": ["margin_floor"],
+  "calculated_margin": 0.12
+}
+```
+
+AI agents can use this response to:
+1. Explain why a discount was rejected
+2. Suggest an alternative discount level
+3. Negotiate within policy limits
