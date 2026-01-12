@@ -15,7 +15,7 @@
     "json-rules-engine": "^6.5.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "@types/node": "^20.10.0"
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.5"
   }
 }
