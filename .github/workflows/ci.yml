@@ -263,9 +263,9 @@ jobs:
 
       - name: Verify package exports
         run: |
-          node -e "import('@guardrail-sim/policy-engine').then(m => console.log('✓ policy-engine exports:', Object.keys(m).join(', ')))"
-          node -e "import('@guardrail-sim/ucp-types').then(m => console.log('✓ ucp-types exports:', Object.keys(m).join(', ')))"
-          node -e "import('@guardrail-sim/insights').then(m => console.log('✓ insights exports:', Object.keys(m).join(', ')))"
+          node -e "import('./packages/policy-engine/dist/index.js').then(m => console.log('✓ policy-engine exports:', Object.keys(m).join(', ')))"
+          node -e "import('./packages/ucp-types/dist/index.js').then(m => console.log('✓ ucp-types exports:', Object.keys(m).join(', ')))"
+          node -e "import('./packages/insights/dist/index.js').then(m => console.log('✓ insights exports:', Object.keys(m).join(', ')))"
 
   # ============================================
   # Weekly: Dependency Health Report
