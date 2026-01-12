@@ -36,8 +36,8 @@
   "pnpm": {
     "overrides": {
       "jsonpath-plus": ">=10.3.0",
-      "react": "19.0.0",
-      "react-dom": "19.0.0"
+      "react": "19.0.3",
+      "react-dom": "19.0.3"
     }
   },
   "devDependencies": {
