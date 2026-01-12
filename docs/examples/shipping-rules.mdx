@@ -1,96 +1,175 @@
 ---
 title: Shipping Rules
-description: Free shipping thresholds and restrictions
+description: Shipping-based discount restrictions
 ---
 
 # Shipping Rules
 
-Control when free shipping applies and what restrictions exist.
+Control discounts based on order characteristics and shipping requirements.
 
 ## The Scenario
 
-Your shipping policy:
+Your B2B pricing policy has shipping considerations:
 
-- Free shipping on orders over $75
-- No free shipping on oversized items
-- Express shipping requires minimum $50
-- Alaska/Hawaii have different thresholds
+- Large orders (100+ units) qualify for better pricing
+- Margin protection varies by product type
+- Different rules for different order values
 
 ## The Policy
 
 ```typescript
-import { Policy, registerConstraint } from '@guardrail-sim/core';
+import { PolicyEngine } from '@guardrail-sim/policy-engine';
+import type { Policy } from '@guardrail-sim/policy-engine';
 
-// Custom constraint for shipping zones
-registerConstraint('shipping_zone', (constraint, context) => {
-  const zone = context.shippingZone;
-  const minValue = constraint.zoneMinimums[zone] ?? constraint.defaultMinimum;
-
-  if (context.cartTotal < minValue) {
-    return {
-      satisfied: false,
-      message: `Free shipping to ${zone} requires $${minValue} minimum`,
-    };
-  }
-  return { satisfied: true };
-});
-
-const shippingPolicy: Policy = {
-  name: 'free-shipping-rules',
-  constraints: [
-    // Base threshold
+const shippingAwarePolicy: Policy = {
+  id: 'shipping-aware-pricing',
+  name: 'Shipping-Aware Pricing Policy',
+  rules: [
+    // Large order discount eligibility
     {
-      type: 'require_minimum',
-      value: 75,
-      message: 'Free shipping requires $75 minimum purchase',
-    },
-    // Zone-specific thresholds
-    {
-      type: 'shipping_zone',
-      defaultMinimum: 75,
-      zoneMinimums: {
-        alaska: 150,
-        hawaii: 150,
-        'puerto-rico': 100,
+      name: 'volume_tier',
+      conditions: {
+        all: [
+          { fact: 'quantity', operator: 'lessThan', value: 100 },
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
+        ]
       },
+      event: {
+        type: 'violation',
+        params: { message: 'Discounts over 10% require 100+ unit orders' }
+      },
+      priority: 1
     },
-    // Exclude oversized
+    // High-value order protection
     {
-      type: 'exclude_attribute',
-      attribute: 'oversized',
-      value: true,
-      message: 'Oversized items do not qualify for free shipping',
+      name: 'high_value_margin',
+      conditions: {
+        all: [
+          { fact: 'order_value', operator: 'greaterThanInclusive', value: 10000 },
+          { fact: 'calculated_margin', operator: 'lessThan', value: 0.18 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Orders over $10k require 18% minimum margin' }
+      },
+      priority: 2
     },
-  ],
+    // Standard margin floor
+    {
+      name: 'margin_floor',
+      conditions: {
+        all: [
+          { fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Margin cannot fall below 15%' }
+      },
+      priority: 3
+    },
+    // Maximum discount cap
+    {
+      name: 'max_discount',
+      conditions: {
+        all: [
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.25 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Maximum discount is 25%' }
+      },
+      priority: 4
+    }
+  ]
 };
+
+const engine = new PolicyEngine(shippingAwarePolicy);
 ```
 
 ## Testing
 
 ```typescript
 // Standard order (allowed)
-const result1 = evaluate(shippingPolicy, {
-  cartTotal: 80,
-  shippingZone: 'continental',
-  items: [{ oversized: false }],
-});
-// result1.allowed: true
+const result1 = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4 },
+  0.15
+);
+// result1.approved: true
+// result1.calculated_margin: 0.25
 
-// Hawaii order (needs higher minimum)
-const result2 = evaluate(shippingPolicy, {
-  cartTotal: 80,
-  shippingZone: 'hawaii',
-  items: [{ oversized: false }],
-});
-// result2.allowed: false
-// result2.violations[0].message: 'Free shipping to hawaii requires $150 minimum'
+// High-value order needs higher margin
+const result2 = await engine.evaluate(
+  { order_value: 15000, quantity: 200, product_margin: 0.35 },
+  0.20
+);
+// result2.approved: false
+// result2.violations: [{ rule: 'high_value_margin', message: '...' }]
 
-// Oversized item (excluded)
-const result3 = evaluate(shippingPolicy, {
-  cartTotal: 200,
-  shippingZone: 'continental',
-  items: [{ oversized: true }],
+// Small order with moderate discount
+const result3 = await engine.evaluate(
+  { order_value: 2000, quantity: 50, product_margin: 0.4 },
+  0.08
+);
+// result3.approved: true
+
+// Small order with large discount (rejected)
+const result4 = await engine.evaluate(
+  { order_value: 2000, quantity: 50, product_margin: 0.4 },
+  0.15
+);
+// result4.approved: false
+// result4.violations: [{ rule: 'volume_tier', message: '...' }]
+```
+
+## Finding Optimal Discount
+
+Use `get_max_discount` to find what's allowed:
+
+```typescript
+import { calculateMaxDiscount } from '@guardrail-sim/policy-engine';
+
+// For a small order
+const maxSmall = calculateMaxDiscount({
+  order_value: 2000,
+  quantity: 50,
+  product_margin: 0.4
 });
-// result3.allowed: false
-// result3.violations[0].message: 'Oversized items do not qualify...'
+// 0.10 (10%) - limited by volume tier
+
+// For a large order
+const maxLarge = calculateMaxDiscount({
+  order_value: 10000,
+  quantity: 150,
+  product_margin: 0.4
+});
+// 0.22 (22%) - limited by high-value margin requirement
+```
+
+## MCP Tool Usage
+
+```json
+{
+  "name": "get_max_discount",
+  "arguments": {
+    "order": {
+      "order_value": 8000,
+      "quantity": 120,
+      "product_margin": 0.38
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "max_discount": 0.15,
+  "max_discount_pct": "15%",
+  "limiting_factor": "volume_tier",
+  "details": "Volume tier allows up to 15% for orders >= 100 units"
+}
 ```

@@ -1,97 +1,165 @@
 ---
 title: Promotional Limits
-description: Time-based and inventory-limited promotions
+description: Time-based and volume-limited promotions
 ---
 
 # Promotional Limits
 
-Control promotions with time windows, inventory limits, and usage caps.
+Control promotions with time windows, volume limits, and customer eligibility.
 
 ## The Scenario
 
 Black Friday promotion:
 
-- 40% off, November 28-December 2 only
-- Limited to first 1000 uses
-- Maximum 3 uses per customer
-- Cannot combine with other promotions
+- Up to 20% off for qualifying orders
+- Only for orders 100+ units
+- Maintain minimum 15% margin
+- Different tiers for different customer segments
 
 ## The Policy
 
 ```typescript
-import { Policy } from '@guardrail-sim/core';
+import { PolicyEngine } from '@guardrail-sim/policy-engine';
+import type { Policy } from '@guardrail-sim/policy-engine';
 
 const blackFridayPolicy: Policy = {
-  name: 'black-friday-2024',
-  description: 'Black Friday promotional rules',
-  constraints: [
-    // Time window
+  id: 'black-friday-2026',
+  name: 'Black Friday 2026 Policy',
+  rules: [
+    // Maximum promotional discount
     {
-      type: 'time_window',
-      start: '2024-11-28T00:00:00Z',
-      end: '2024-12-02T23:59:59Z',
-      message: 'This promotion is only valid during Black Friday weekend',
+      name: 'promo_cap',
+      conditions: {
+        all: [
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.20 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Black Friday discount cannot exceed 20%' }
+      },
+      priority: 1
     },
-    // Global usage limit
+    // Margin protection
     {
-      type: 'usage_limit',
-      maxUses: 1000,
-      scope: 'global',
-      message: 'This promotion has reached its usage limit',
+      name: 'margin_floor',
+      conditions: {
+        all: [
+          { fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Discount would reduce margin below 15%' }
+      },
+      priority: 2
     },
-    // Per-customer limit
+    // Volume requirement for promotional pricing
     {
-      type: 'usage_limit',
-      maxUses: 3,
-      scope: 'customer',
-      message: 'You have reached the maximum uses for this promotion',
+      name: 'volume_requirement',
+      conditions: {
+        all: [
+          { fact: 'quantity', operator: 'lessThan', value: 100 },
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Promotional pricing requires 100+ unit orders' }
+      },
+      priority: 3
     },
-    // Exclusivity
+    // Gold tier bonus
     {
-      type: 'exclusive',
-      message: 'Black Friday discount cannot combine with other promotions',
-    },
-    // The actual discount cap
-    {
-      type: 'max_percentage',
-      value: 40,
-    },
-  ],
+      name: 'gold_tier_limit',
+      conditions: {
+        all: [
+          { fact: 'customer_segment', operator: 'notEqual', value: 'gold' },
+          { fact: 'customer_segment', operator: 'notEqual', value: 'platinum' },
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.15 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Discounts over 15% require Gold or Platinum tier' }
+      },
+      priority: 4
+    }
+  ]
 };
+
+const engine = new PolicyEngine(blackFridayPolicy);
 ```
 
-## Tracking Usage
-
-The MCP server can track usage state:
+## Testing Customer Tiers
 
 ```typescript
-const result = evaluate(blackFridayPolicy, scenario, {
-  context: {
-    currentTime: new Date(),
-    globalUsageCount: 450,
-    customerUsageCount: 2,
-    customerId: 'cust-123',
-  },
-});
+// Standard customer, small discount (allowed)
+const result1 = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4, customer_segment: 'silver' },
+  0.12
+);
+// result1.approved: true
+
+// Standard customer, large discount (rejected)
+const result2 = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4, customer_segment: 'silver' },
+  0.18
+);
+// result2.approved: false
+// result2.violations: [{ rule: 'gold_tier_limit', message: '...' }]
+
+// Gold customer, large discount (allowed)
+const result3 = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4, customer_segment: 'gold' },
+  0.18
+);
+// result3.approved: true
+
+// Anyone, excessive discount (rejected)
+const result4 = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4, customer_segment: 'platinum' },
+  0.25
+);
+// result4.approved: false
+// result4.violations: [{ rule: 'promo_cap', message: '...' }]
 ```
 
-## Testing Time Windows
+## Using with MCP
 
-```typescript
-// During Black Friday
-const duringResult = evaluate(blackFridayPolicy, scenario, {
-  context: {
-    currentTime: new Date('2024-11-29T12:00:00Z'),
-  },
-});
-// duringResult.allowed: true
+Validate promotional discounts before checkout:
 
-// After Black Friday
-const afterResult = evaluate(blackFridayPolicy, scenario, {
-  context: {
-    currentTime: new Date('2024-12-05T12:00:00Z'),
-  },
-});
-// afterResult.allowed: false
-// afterResult.violations[0].message: 'This promotion is only valid during...'
+```json
+{
+  "name": "validate_discount_code",
+  "arguments": {
+    "code": "BF2026",
+    "discount_amount": 100000,
+    "order": {
+      "order_value": 5000,
+      "quantity": 150,
+      "product_margin": 0.35
+    }
+  }
+}
+```
+
+## UCP Integration
+
+The `simulate_checkout_discount` tool returns UCP-formatted allocations:
+
+```json
+{
+  "name": "simulate_checkout_discount",
+  "arguments": {
+    "codes": ["BF2026"],
+    "line_items": [
+      { "item": { "id": "SKU-001" }, "quantity": 100, "subtotal": { "amount": 300000, "currency": "USD" } },
+      { "item": { "id": "SKU-002" }, "quantity": 50, "subtotal": { "amount": 200000, "currency": "USD" } }
+    ],
+    "currency": "USD",
+    "discount_percentage": 0.15,
+    "product_margin": 0.4
+  }
+}
 ```

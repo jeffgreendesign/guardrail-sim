@@ -9,117 +9,158 @@ A common challenge: allowing some discount combinations while preventing abuse.
 
 ## The Scenario
 
-Your store has:
+Your B2B pricing policy needs to handle:
 
-- **Coupons**: Customer-entered codes
-- **Site-wide sales**: Automatic percentage off
-- **Loyalty rewards**: Points-based discounts
-- **Employee discounts**: Staff pricing
+- **Volume discounts**: Based on order quantity
+- **Customer tier discounts**: Based on relationship
+- **Promotional discounts**: Seasonal offers
+- **Stacking limits**: Preventing abuse
 
 Business rules:
 
-- Coupons + sales can stack (up to 40% total)
-- Employee discount cannot stack with anything
-- Loyalty rewards have no stacking limit
+- Maximum total discount: 25%
+- Margin must stay above 15%
+- Volume orders (100+ units) get up to 15% discount
+- Smaller orders limited to 10%
 
 ## The Policy
 
 ```typescript
-import { Policy, evaluate } from '@guardrail-sim/core';
+import { PolicyEngine } from '@guardrail-sim/policy-engine';
+import type { Policy, PolicyRule } from '@guardrail-sim/policy-engine';
 
 const stackingPolicy: Policy = {
-  name: 'discount-stacking-rules',
-  description: 'Controls how discounts combine',
-  constraints: [
-    // Overall cap
+  id: 'discount-stacking-rules',
+  name: 'Discount Stacking Rules',
+  rules: [
+    // Overall discount cap
     {
-      type: 'max_percentage',
-      value: 50,
-      message: 'Total discount cannot exceed 50%',
+      name: 'max_discount',
+      conditions: {
+        all: [
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.25 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Total discount cannot exceed 25%' }
+      },
+      priority: 1
     },
-    // Employee discount is exclusive
+    // Margin floor
     {
-      type: 'exclusive_discount',
-      discountType: 'employee',
-      message: 'Employee discount cannot combine with other offers',
+      name: 'margin_floor',
+      conditions: {
+        all: [
+          { fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Discount would reduce margin below 15%' }
+      },
+      priority: 2
     },
-    // Coupon + sale cap
+    // Volume tier limit
     {
-      type: 'stacking_cap',
-      types: ['coupon', 'sale'],
-      maxCombined: 40,
-      message: 'Coupon and sale discounts combined cannot exceed 40%',
-    },
-  ],
+      name: 'volume_tier',
+      conditions: {
+        all: [
+          { fact: 'quantity', operator: 'lessThan', value: 100 },
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
+        ]
+      },
+      event: {
+        type: 'violation',
+        params: { message: 'Orders under 100 units limited to 10% discount' }
+      },
+      priority: 3
+    }
+  ]
 };
+
+const engine = new PolicyEngine(stackingPolicy);
 ```
 
 ## Testing Scenarios
 
 ```typescript
-// Scenario 1: Coupon + Sale (allowed)
-const result1 = evaluate(stackingPolicy, {
-  discounts: [
-    { type: 'coupon', value: 20 },
-    { type: 'sale', value: 15 },
-  ],
-});
-// result1.allowed: true
-// result1.finalValue: 35
+// Scenario 1: Small order, small discount (allowed)
+const result1 = await engine.evaluate(
+  { order_value: 1000, quantity: 50, product_margin: 0.4 },
+  0.08  // 8% discount
+);
+// result1.approved: true
+// result1.calculated_margin: 0.32
 
-// Scenario 2: Coupon + Sale over limit (clamped)
-const result2 = evaluate(stackingPolicy, {
-  discounts: [
-    { type: 'coupon', value: 25 },
-    { type: 'sale', value: 20 },
-  ],
-});
-// result2.allowed: false
-// result2.suggestion.clampTo: 40
+// Scenario 2: Small order, large discount (rejected)
+const result2 = await engine.evaluate(
+  { order_value: 1000, quantity: 50, product_margin: 0.4 },
+  0.15  // 15% discount
+);
+// result2.approved: false
+// result2.violations: [{ rule: 'volume_tier', message: '...' }]
 
-// Scenario 3: Employee + anything (rejected)
-const result3 = evaluate(stackingPolicy, {
-  discounts: [
-    { type: 'employee', value: 30 },
-    { type: 'loyalty', value: 10 },
-  ],
-});
-// result3.allowed: false
-// result3.violations[0].message: 'Employee discount cannot combine...'
+// Scenario 3: Large order, large discount (allowed)
+const result3 = await engine.evaluate(
+  { order_value: 10000, quantity: 200, product_margin: 0.4 },
+  0.15  // 15% discount
+);
+// result3.approved: true
+// result3.calculated_margin: 0.25
+
+// Scenario 4: Any order, excessive discount (rejected)
+const result4 = await engine.evaluate(
+  { order_value: 10000, quantity: 200, product_margin: 0.4 },
+  0.30  // 30% discount
+);
+// result4.approved: false
+// result4.violations: [{ rule: 'max_discount', message: '...' }]
 ```
 
-## Batch Testing
+## Using with MCP
 
-Test all edge cases at once:
+Test discount requests via MCP tools:
 
-```typescript
-const scenarios = [
-  { discounts: [{ type: 'coupon', value: 10 }] },
-  { discounts: [{ type: 'sale', value: 20 }] },
-  {
-    discounts: [
-      { type: 'coupon', value: 10 },
-      { type: 'sale', value: 10 },
-    ],
-  },
-  {
-    discounts: [
-      { type: 'coupon', value: 30 },
-      { type: 'sale', value: 30 },
-    ],
-  },
-  { discounts: [{ type: 'employee', value: 30 }] },
-  {
-    discounts: [
-      { type: 'employee', value: 30 },
-      { type: 'coupon', value: 10 },
-    ],
-  },
-];
+```json
+{
+  "name": "evaluate_policy",
+  "arguments": {
+    "order": {
+      "order_value": 5000,
+      "quantity": 150,
+      "product_margin": 0.4,
+      "customer_segment": "gold"
+    },
+    "proposed_discount": 0.12
+  }
+}
+```
 
-const results = evaluateBatch(stackingPolicy, scenarios);
+## Finding Maximum Allowed
 
-results.forEach((result, i) => {
-  console.log(`Scenario ${i + 1}: ${result.allowed ? '✅' : '❌'}`);
-});
+Use `get_max_discount` to find the ceiling:
+
+```json
+{
+  "name": "get_max_discount",
+  "arguments": {
+    "order": {
+      "order_value": 5000,
+      "quantity": 50,
+      "product_margin": 0.4
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "max_discount": 0.10,
+  "max_discount_pct": "10%",
+  "limiting_factor": "volume_tier",
+  "details": "Orders under 100 units limited to 10% discount"
+}
 ```
