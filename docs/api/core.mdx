@@ -1,90 +1,167 @@
 ---
-title: Core API
-description: API reference for @guardrail-sim/core
+title: Policy Engine API
+description: API reference for @guardrail-sim/policy-engine
 ---
 
-# Core API
+# Policy Engine API
 
-Complete API reference for the `@guardrail-sim/core` package.
+Complete API reference for the `@guardrail-sim/policy-engine` package.
 
-## evaluate
+## PolicyEngine
 
-Evaluate a scenario against a policy.
+The main class for policy evaluation.
 
 ```typescript
-function evaluate(policy: Policy, scenario: Scenario, options?: EvaluateOptions): EvaluationResult;
+import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+
+const engine = new PolicyEngine(defaultPolicy);
 ```
 
-### Parameters
-
-- **policy**: The policy to evaluate against
-- **scenario**: The scenario containing discounts and context
-- **options**: Optional configuration
-
-### Returns
-
-`EvaluationResult` with the outcome.
-
-### Example
+### Constructor
 
 ```typescript
-import { evaluate } from '@guardrail-sim/core';
+new PolicyEngine(policy: Policy)
+```
 
-const result = evaluate(
-  {
-    name: 'my-policy',
-    constraints: [{ type: 'max_percentage', value: 50 }],
-  },
-  {
-    discounts: [{ type: 'coupon', value: 30 }],
-  }
+Creates a new policy engine instance with the given policy.
+
+### evaluate
+
+Evaluate a discount request against the policy.
+
+```typescript
+async evaluate(order: Order, proposedDiscount: number): Promise<EvaluationResult>
+```
+
+**Parameters:**
+- **order**: Order details including value, quantity, margin, and customer segment
+- **proposedDiscount**: Discount as decimal (0.15 = 15%)
+
+**Returns:** `EvaluationResult` with approval status, violations, and calculated margin.
+
+**Example:**
+
+```typescript
+const result = await engine.evaluate(
+  { order_value: 5000, quantity: 100, product_margin: 0.4 },
+  0.12
 );
+
+if (result.approved) {
+  console.log(`Approved! Margin: ${result.calculated_margin}`);
+} else {
+  console.log('Violations:', result.violations);
+}
 ```
 
-## evaluateBatch
+### getPolicy
 
-Evaluate multiple scenarios at once.
+Get the current policy.
 
 ```typescript
-function evaluateBatch(policy: Policy, scenarios: Scenario[]): EvaluationResult[];
+getPolicy(): Policy
 ```
 
-## combinePolicies
+---
 
-Merge multiple policies into one.
+## calculateAllocations
+
+Calculate how a discount should be allocated across line items.
 
 ```typescript
-function combinePolicies(policies: Policy[]): Policy;
+function calculateAllocations(
+  discountAmount: number,
+  lineItems: LineItem[],
+  method?: 'across' | 'each'
+): Allocation[]
 ```
 
-## extendPolicy
+**Parameters:**
+- **discountAmount**: Total discount amount
+- **lineItems**: Array of line items with subtotals
+- **method**: Allocation method ('across' proportionally, 'each' evenly)
 
-Create a child policy from a parent.
+**Returns:** Array of allocations per line item.
+
+**Example:**
 
 ```typescript
-function extendPolicy(parent: Policy, overrides: Partial<Policy>): Policy;
+import { calculateAllocations } from '@guardrail-sim/policy-engine';
+
+const allocations = calculateAllocations(
+  100, // $100 discount
+  [
+    { item_id: 'A', subtotal: 300 },
+    { item_id: 'B', subtotal: 200 },
+  ],
+  'across'
+);
+// [{ item_id: 'A', amount: 60 }, { item_id: 'B', amount: 40 }]
 ```
 
-## registerConstraint
+---
 
-Add a custom constraint type.
+## calculateMaxDiscount
+
+Calculate the maximum allowed discount for an order.
 
 ```typescript
-function registerConstraint(type: string, handler: ConstraintHandler): void;
-
-type ConstraintHandler = (constraint: Constraint, context: EvaluationContext) => ConstraintResult;
+function calculateMaxDiscount(
+  order: Order,
+  options?: { policy?: Policy }
+): number
 ```
 
-## configure
+**Returns:** Maximum discount as decimal.
 
-Set global configuration.
+---
+
+## defaultPolicy
+
+Pre-configured policy with standard B2B pricing rules.
 
 ```typescript
-function configure(options: ConfigOptions): void;
+import { defaultPolicy } from '@guardrail-sim/policy-engine';
+```
 
-type ConfigOptions = {
-  defaultAction?: 'reject' | 'clamp' | 'warn';
-  defaultSeverity?: 'error' | 'warning';
-  strictMode?: boolean;
+Includes:
+- **margin_floor**: 15% minimum margin
+- **max_discount**: 25% maximum discount
+- **volume_tier**: 10% base, 15% for orders >= 100 units
+
+---
+
+## getUCPErrorCode
+
+Map a policy violation to a UCP-compatible error code.
+
+```typescript
+function getUCPErrorCode(violationRule: string): UCPErrorCode
+```
+
+**Example:**
+
+```typescript
+import { getUCPErrorCode } from '@guardrail-sim/policy-engine';
+
+const code = getUCPErrorCode('margin_floor');
+// 'discount_code_invalid'
+```
+
+---
+
+## VIOLATION_TO_UCP_ERROR
+
+Mapping of violation rules to UCP error codes.
+
+```typescript
+const VIOLATION_TO_UCP_ERROR: Record<string, UCPErrorCode> = {
+  max_discount: 'discount_code_invalid',
+  margin_floor: 'discount_code_invalid',
+  volume_tier: 'discount_code_user_ineligible',
+  stacking_not_allowed: 'discount_code_combination_disallowed',
+  discount_expired: 'discount_code_expired',
+  login_required: 'discount_code_user_not_logged_in',
+  // ...
 };
 ```

@@ -1,82 +1,163 @@
 ---
 title: Type Definitions
-description: TypeScript types for guardrail-sim
+description: TypeScript types for @guardrail-sim/policy-engine
 ---
 
 # Type Definitions
 
-All TypeScript types exported by `@guardrail-sim/core`.
+All TypeScript types exported by `@guardrail-sim/policy-engine`.
+
+## Order
+
+Represents a B2B order for policy evaluation.
+
+```typescript
+interface Order {
+  /** Total order value in dollars */
+  order_value: number;
+
+  /** Total units in the order */
+  quantity: number;
+
+  /** Base margin as decimal (0.40 = 40%) */
+  product_margin: number;
+
+  /** Customer tier/segment (optional) */
+  customer_segment?: string;
+}
+```
 
 ## Policy
 
+A policy containing multiple rules.
+
 ```typescript
-type Policy = {
+interface Policy {
+  /** Unique policy identifier */
+  id: string;
+
+  /** Human-readable policy name */
   name: string;
-  description?: string;
-  constraints: Constraint[];
+
+  /** Array of policy rules */
+  rules: PolicyRule[];
+}
+```
+
+## PolicyRule
+
+A single rule in a policy, wrapping json-rules-engine format.
+
+```typescript
+interface PolicyRule {
+  /** Rule identifier */
+  name: string;
+
+  /** Rule conditions */
+  conditions: {
+    all?: RuleCondition[];
+    any?: RuleCondition[];
+  };
+
+  /** Event triggered when rule matches */
+  event: {
+    type: string;
+    params?: Record<string, unknown>;
+  };
+
+  /** Rule priority (higher = first) */
   priority?: number;
-  enabled?: boolean;
-  metadata?: Record<string, unknown>;
-};
+}
 ```
 
-## Constraint
+## RuleCondition
+
+A condition within a rule.
 
 ```typescript
-type Constraint = {
-  type: string;
+type RuleCondition = FactCondition | NestedCondition;
+
+interface FactCondition {
+  fact: string;
+  operator: string;
   value: unknown;
-  message?: string;
-  severity?: 'error' | 'warning';
-  action?: 'reject' | 'clamp' | 'warn';
-};
-```
+}
 
-## Scenario
-
-```typescript
-type Scenario = {
-  discounts: Discount[];
-  item?: Item;
-  customer?: Customer;
-  cart?: Cart;
-  metadata?: Record<string, unknown>;
-};
-```
-
-## Discount
-
-```typescript
-type Discount = {
-  type: 'coupon' | 'sale' | 'loyalty' | 'employee' | 'custom';
-  value: number;
-  code?: string;
-  source?: string;
-};
+interface NestedCondition {
+  all?: RuleCondition[];
+  any?: RuleCondition[];
+}
 ```
 
 ## EvaluationResult
 
+Result of evaluating an order against a policy.
+
 ```typescript
-type EvaluationResult = {
-  allowed: boolean;
-  action: 'allow' | 'reject' | 'clamp' | 'warn';
-  originalValue: number;
-  finalValue: number;
+interface EvaluationResult {
+  /** Whether the discount was approved */
+  approved: boolean;
+
+  /** List of policy violations */
   violations: Violation[];
-  warnings: Warning[];
-  appliedConstraints: Constraint[];
-  suggestion?: Suggestion;
-};
+
+  /** Rules that were triggered */
+  applied_rules: string[];
+
+  /** Calculated margin after discount */
+  calculated_margin: number;
+}
 ```
 
 ## Violation
 
+A violation that occurred during policy evaluation.
+
 ```typescript
-type Violation = {
-  constraint: string;
+interface Violation {
+  /** Rule that was violated */
+  rule: string;
+
+  /** Human-readable violation message */
   message: string;
-  expected: unknown;
-  actual: unknown;
-};
+
+  /** UCP-compatible error code */
+  ucp_error_code?: UCPErrorCode;
+}
+```
+
+## UCPErrorCode
+
+UCP-compatible error codes for discount validation.
+
+```typescript
+type UCPErrorCode =
+  | 'discount_code_expired'
+  | 'discount_code_invalid'
+  | 'discount_code_already_applied'
+  | 'discount_code_combination_disallowed'
+  | 'discount_code_user_not_logged_in'
+  | 'discount_code_user_ineligible';
+```
+
+## LineItem
+
+A line item for allocation calculation.
+
+```typescript
+interface LineItem {
+  item_id: string;
+  subtotal: number;
+}
+```
+
+## Allocation
+
+Discount allocation for a line item.
+
+```typescript
+interface Allocation {
+  item_id: string;
+  amount: number;
+}
 ```
