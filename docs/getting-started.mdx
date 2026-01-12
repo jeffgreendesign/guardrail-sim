@@ -36,10 +36,10 @@ const engine = new PolicyEngine(defaultPolicy);
 
 // Define an order
 const order: Order = {
-  order_value: 5000,      // $5,000 order
-  quantity: 100,          // 100 units
-  product_margin: 0.4,    // 40% base margin
-  customer_segment: 'gold'
+  order_value: 5000, // $5,000 order
+  quantity: 100, // 100 units
+  product_margin: 0.4, // 40% base margin
+  customer_segment: 'gold',
 };
 
 // Evaluate a 12% discount request
@@ -58,11 +58,11 @@ console.log(result);
 
 The default policy includes these rules:
 
-| Rule            | Description                           | Limit     |
-| --------------- | ------------------------------------- | --------- |
-| `margin_floor`  | Minimum margin after discount         | 15%       |
-| `max_discount`  | Maximum allowed discount              | 25%       |
-| `volume_tier`   | Volume-based discount limits          | 10% base, 15% for 100+ units |
+| Rule           | Description                   | Limit                        |
+| -------------- | ----------------------------- | ---------------------------- |
+| `margin_floor` | Minimum margin after discount | 15%                          |
+| `max_discount` | Maximum allowed discount      | 25%                          |
+| `volume_tier`  | Volume-based discount limits  | 10% base, 15% for 100+ units |
 
 ## Custom Policies
 
@@ -84,10 +84,10 @@ const customPolicy: Policy = {
       conditions: { all: [] },
       event: {
         type: 'max_discount',
-        params: { limit: 0.30 }  // 30% max
-      }
-    }
-  ]
+        params: { limit: 0.3 }, // 30% max
+      },
+    },
+  ],
 };
 
 const engine = new PolicyEngine(customPolicy);
@@ -116,6 +116,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 ```
 
 The MCP server exposes 5 tools:
+
 - `evaluate_policy` - Evaluate discount against policy
 - `get_policy_summary` - Get human-readable policy rules
 - `get_max_discount` - Calculate maximum allowed discount

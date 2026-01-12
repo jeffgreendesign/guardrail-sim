@@ -30,29 +30,25 @@ const blackFridayPolicy: Policy = {
     {
       name: 'promo_cap',
       conditions: {
-        all: [
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.20 }
-        ]
+        all: [{ fact: 'proposed_discount', operator: 'greaterThan', value: 0.2 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Black Friday discount cannot exceed 20%' }
+        params: { message: 'Black Friday discount cannot exceed 20%' },
       },
-      priority: 1
+      priority: 1,
     },
     // Margin protection
     {
       name: 'margin_floor',
       conditions: {
-        all: [
-          { fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }
-        ]
+        all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Discount would reduce margin below 15%' }
+        params: { message: 'Discount would reduce margin below 15%' },
       },
-      priority: 2
+      priority: 2,
     },
     // Volume requirement for promotional pricing
     {
@@ -60,14 +56,14 @@ const blackFridayPolicy: Policy = {
       conditions: {
         all: [
           { fact: 'quantity', operator: 'lessThan', value: 100 },
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
-        ]
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.1 },
+        ],
       },
       event: {
         type: 'violation',
-        params: { message: 'Promotional pricing requires 100+ unit orders' }
+        params: { message: 'Promotional pricing requires 100+ unit orders' },
       },
-      priority: 3
+      priority: 3,
     },
     // Gold tier bonus
     {
@@ -76,16 +72,16 @@ const blackFridayPolicy: Policy = {
         all: [
           { fact: 'customer_segment', operator: 'notEqual', value: 'gold' },
           { fact: 'customer_segment', operator: 'notEqual', value: 'platinum' },
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.15 }
-        ]
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.15 },
+        ],
       },
       event: {
         type: 'violation',
-        params: { message: 'Discounts over 15% require Gold or Platinum tier' }
+        params: { message: 'Discounts over 15% require Gold or Platinum tier' },
       },
-      priority: 4
-    }
-  ]
+      priority: 4,
+    },
+  ],
 };
 
 const engine = new PolicyEngine(blackFridayPolicy);
@@ -154,8 +150,16 @@ The `simulate_checkout_discount` tool returns UCP-formatted allocations:
   "arguments": {
     "codes": ["BF2026"],
     "line_items": [
-      { "item": { "id": "SKU-001" }, "quantity": 100, "subtotal": { "amount": 300000, "currency": "USD" } },
-      { "item": { "id": "SKU-002" }, "quantity": 50, "subtotal": { "amount": 200000, "currency": "USD" } }
+      {
+        "item": { "id": "SKU-001" },
+        "quantity": 100,
+        "subtotal": { "amount": 300000, "currency": "USD" }
+      },
+      {
+        "item": { "id": "SKU-002" },
+        "quantity": 50,
+        "subtotal": { "amount": 200000, "currency": "USD" }
+      }
     ],
     "currency": "USD",
     "discount_percentage": 0.15,

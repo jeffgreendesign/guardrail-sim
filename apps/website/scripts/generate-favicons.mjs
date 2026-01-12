@@ -20,7 +20,7 @@ function createSvg(size) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
   <rect width="${size}" height="${size}" rx="${cornerRadius}" fill="${BRAND_BLUE}"/>
-  <text x="${size/2}" y="${yOffset}" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="${fontSize}" font-weight="800" fill="${WHITE}" letter-spacing="-0.02em">GS</text>
+  <text x="${size / 2}" y="${yOffset}" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="${fontSize}" font-weight="800" fill="${WHITE}" letter-spacing="-0.02em">GS</text>
 </svg>`;
 }
 
@@ -29,10 +29,7 @@ async function generatePng(size, outputName) {
   const svg = createSvg(size);
   const buffer = Buffer.from(svg);
 
-  await sharp(buffer)
-    .resize(size, size)
-    .png()
-    .toFile(join(publicDir, outputName));
+  await sharp(buffer).resize(size, size).png().toFile(join(publicDir, outputName));
 
   console.log(`Generated: ${outputName}`);
 }
@@ -44,10 +41,7 @@ async function generateIco() {
   const pngBuffers = await Promise.all(
     sizes.map(async (size) => {
       const svgForSize = createSvg(size);
-      return sharp(Buffer.from(svgForSize))
-        .resize(size, size)
-        .png()
-        .toBuffer();
+      return sharp(Buffer.from(svgForSize)).resize(size, size).png().toBuffer();
     })
   );
 
@@ -67,7 +61,7 @@ function createIcoBuffer(pngBuffers, sizes) {
   const numImages = pngBuffers.length;
   const headerSize = 6;
   const dirEntrySize = 16;
-  const dataOffset = headerSize + (dirEntrySize * numImages);
+  const dataOffset = headerSize + dirEntrySize * numImages;
 
   // Calculate total size
   let totalSize = dataOffset;
@@ -79,9 +73,12 @@ function createIcoBuffer(pngBuffers, sizes) {
   let offset = 0;
 
   // ICONDIR header
-  ico.writeUInt16LE(0, offset); offset += 2; // Reserved
-  ico.writeUInt16LE(1, offset); offset += 2; // Type: 1 = ICO
-  ico.writeUInt16LE(numImages, offset); offset += 2; // Number of images
+  ico.writeUInt16LE(0, offset);
+  offset += 2; // Reserved
+  ico.writeUInt16LE(1, offset);
+  offset += 2; // Type: 1 = ICO
+  ico.writeUInt16LE(numImages, offset);
+  offset += 2; // Number of images
 
   // ICONDIRENTRY for each image
   let imageOffset = dataOffset;
@@ -89,14 +86,22 @@ function createIcoBuffer(pngBuffers, sizes) {
     const size = sizes[i];
     const pngBuf = pngBuffers[i];
 
-    ico.writeUInt8(size === 256 ? 0 : size, offset); offset += 1; // Width
-    ico.writeUInt8(size === 256 ? 0 : size, offset); offset += 1; // Height
-    ico.writeUInt8(0, offset); offset += 1; // Color palette (0 = no palette)
-    ico.writeUInt8(0, offset); offset += 1; // Reserved
-    ico.writeUInt16LE(1, offset); offset += 2; // Color planes
-    ico.writeUInt16LE(32, offset); offset += 2; // Bits per pixel
-    ico.writeUInt32LE(pngBuf.length, offset); offset += 4; // Image size
-    ico.writeUInt32LE(imageOffset, offset); offset += 4; // Image offset
+    ico.writeUInt8(size === 256 ? 0 : size, offset);
+    offset += 1; // Width
+    ico.writeUInt8(size === 256 ? 0 : size, offset);
+    offset += 1; // Height
+    ico.writeUInt8(0, offset);
+    offset += 1; // Color palette (0 = no palette)
+    ico.writeUInt8(0, offset);
+    offset += 1; // Reserved
+    ico.writeUInt16LE(1, offset);
+    offset += 2; // Color planes
+    ico.writeUInt16LE(32, offset);
+    offset += 2; // Bits per pixel
+    ico.writeUInt32LE(pngBuf.length, offset);
+    offset += 4; // Image size
+    ico.writeUInt32LE(imageOffset, offset);
+    offset += 4; // Image offset
 
     imageOffset += pngBuf.length;
   }

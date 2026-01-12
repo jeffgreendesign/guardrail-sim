@@ -52,17 +52,17 @@ const marginFloorRule: PolicyRule = {
       {
         fact: 'calculated_margin',
         operator: 'lessThan',
-        value: 0.15
-      }
-    ]
+        value: 0.15,
+      },
+    ],
   },
   event: {
     type: 'violation',
     params: {
-      message: 'Calculated margin falls below 15% floor'
-    }
+      message: 'Calculated margin falls below 15% floor',
+    },
   },
-  priority: 1
+  priority: 1,
 };
 ```
 
@@ -94,16 +94,14 @@ const holidayPolicy: Policy = {
     {
       name: 'holiday_max',
       conditions: {
-        all: [
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.30 }
-        ]
+        all: [{ fact: 'proposed_discount', operator: 'greaterThan', value: 0.3 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Holiday discount cannot exceed 30%' }
-      }
-    }
-  ]
+        params: { message: 'Holiday discount cannot exceed 30%' },
+      },
+    },
+  ],
 };
 
 const engine = new PolicyEngine(holidayPolicy);
@@ -113,30 +111,30 @@ const engine = new PolicyEngine(holidayPolicy);
 
 Conditions use facts, operators, and values:
 
-| Operator | Description |
-| -------- | ----------- |
-| `equal` | Exact match |
-| `notEqual` | Not equal |
-| `lessThan` | Less than value |
-| `lessThanInclusive` | Less than or equal |
-| `greaterThan` | Greater than value |
+| Operator               | Description           |
+| ---------------------- | --------------------- |
+| `equal`                | Exact match           |
+| `notEqual`             | Not equal             |
+| `lessThan`             | Less than value       |
+| `lessThanInclusive`    | Less than or equal    |
+| `greaterThan`          | Greater than value    |
 | `greaterThanInclusive` | Greater than or equal |
-| `in` | Value in array |
-| `notIn` | Value not in array |
-| `contains` | Array contains value |
+| `in`                   | Value in array        |
+| `notIn`                | Value not in array    |
+| `contains`             | Array contains value  |
 
 ## Available Facts
 
 The policy engine provides these facts for conditions:
 
-| Fact | Description |
-| ---- | ----------- |
-| `order_value` | Total order value in dollars |
-| `quantity` | Total units in order |
-| `product_margin` | Base margin (0.40 = 40%) |
-| `proposed_discount` | Requested discount (0.15 = 15%) |
-| `calculated_margin` | Margin after discount |
-| `customer_segment` | Customer tier (gold, silver, etc.) |
+| Fact                | Description                        |
+| ------------------- | ---------------------------------- |
+| `order_value`       | Total order value in dollars       |
+| `quantity`          | Total units in order               |
+| `product_margin`    | Base margin (0.40 = 40%)           |
+| `proposed_discount` | Requested discount (0.15 = 15%)    |
+| `calculated_margin` | Margin after discount              |
+| `customer_segment`  | Customer tier (gold, silver, etc.) |
 
 ## Best Practices
 

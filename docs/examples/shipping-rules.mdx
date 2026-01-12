@@ -31,14 +31,14 @@ const shippingAwarePolicy: Policy = {
       conditions: {
         all: [
           { fact: 'quantity', operator: 'lessThan', value: 100 },
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
-        ]
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.1 },
+        ],
       },
       event: {
         type: 'violation',
-        params: { message: 'Discounts over 10% require 100+ unit orders' }
+        params: { message: 'Discounts over 10% require 100+ unit orders' },
       },
-      priority: 1
+      priority: 1,
     },
     // High-value order protection
     {
@@ -46,44 +46,40 @@ const shippingAwarePolicy: Policy = {
       conditions: {
         all: [
           { fact: 'order_value', operator: 'greaterThanInclusive', value: 10000 },
-          { fact: 'calculated_margin', operator: 'lessThan', value: 0.18 }
-        ]
+          { fact: 'calculated_margin', operator: 'lessThan', value: 0.18 },
+        ],
       },
       event: {
         type: 'violation',
-        params: { message: 'Orders over $10k require 18% minimum margin' }
+        params: { message: 'Orders over $10k require 18% minimum margin' },
       },
-      priority: 2
+      priority: 2,
     },
     // Standard margin floor
     {
       name: 'margin_floor',
       conditions: {
-        all: [
-          { fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }
-        ]
+        all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Margin cannot fall below 15%' }
+        params: { message: 'Margin cannot fall below 15%' },
       },
-      priority: 3
+      priority: 3,
     },
     // Maximum discount cap
     {
       name: 'max_discount',
       conditions: {
-        all: [
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.25 }
-        ]
+        all: [{ fact: 'proposed_discount', operator: 'greaterThan', value: 0.25 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Maximum discount is 25%' }
+        params: { message: 'Maximum discount is 25%' },
       },
-      priority: 4
-    }
-  ]
+      priority: 4,
+    },
+  ],
 };
 
 const engine = new PolicyEngine(shippingAwarePolicy);
@@ -103,7 +99,7 @@ const result1 = await engine.evaluate(
 // High-value order needs higher margin
 const result2 = await engine.evaluate(
   { order_value: 15000, quantity: 200, product_margin: 0.35 },
-  0.20
+  0.2
 );
 // result2.approved: false
 // result2.violations: [{ rule: 'high_value_margin', message: '...' }]
@@ -135,7 +131,7 @@ import { calculateMaxDiscount } from '@guardrail-sim/policy-engine';
 const maxSmall = calculateMaxDiscount({
   order_value: 2000,
   quantity: 50,
-  product_margin: 0.4
+  product_margin: 0.4,
 });
 // 0.10 (10%) - limited by volume tier
 
@@ -143,7 +139,7 @@ const maxSmall = calculateMaxDiscount({
 const maxLarge = calculateMaxDiscount({
   order_value: 10000,
   quantity: 150,
-  product_margin: 0.4
+  product_margin: 0.4,
 });
 // 0.22 (22%) - limited by high-value margin requirement
 ```

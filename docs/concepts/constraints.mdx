@@ -86,13 +86,13 @@ const goldOnlyRule: PolicyRule = {
   conditions: {
     all: [
       { fact: 'proposed_discount', operator: 'greaterThan', value: 0.15 },
-      { fact: 'customer_segment', operator: 'notEqual', value: 'gold' }
-    ]
+      { fact: 'customer_segment', operator: 'notEqual', value: 'gold' },
+    ],
   },
   event: {
     type: 'violation',
-    params: { message: 'Discounts over 15% require Gold tier' }
-  }
+    params: { message: 'Discounts over 15% require Gold tier' },
+  },
 };
 ```
 
@@ -106,8 +106,8 @@ All conditions must be true for the rule to trigger:
 conditions: {
   all: [
     { fact: 'quantity', operator: 'lessThan', value: 50 },
-    { fact: 'proposed_discount', operator: 'greaterThan', value: 0.20 }
-  ]
+    { fact: 'proposed_discount', operator: 'greaterThan', value: 0.2 },
+  ];
 }
 // Triggers only if quantity < 50 AND discount > 20%
 ```
@@ -120,8 +120,8 @@ At least one condition must be true:
 conditions: {
   any: [
     { fact: 'customer_segment', operator: 'equal', value: 'new' },
-    { fact: 'quantity', operator: 'lessThan', value: 10 }
-  ]
+    { fact: 'quantity', operator: 'lessThan', value: 10 },
+  ];
 }
 // Triggers if customer is new OR quantity < 10
 ```
@@ -133,31 +133,31 @@ Combine ALL and ANY for complex logic:
 ```typescript
 conditions: {
   all: [
-    { fact: 'proposed_discount', operator: 'greaterThan', value: 0.20 },
+    { fact: 'proposed_discount', operator: 'greaterThan', value: 0.2 },
     {
       any: [
         { fact: 'customer_segment', operator: 'notEqual', value: 'platinum' },
-        { fact: 'order_value', operator: 'lessThan', value: 10000 }
-      ]
-    }
-  ]
+        { fact: 'order_value', operator: 'lessThan', value: 10000 },
+      ],
+    },
+  ];
 }
 // Discount > 20% AND (not platinum OR order < $10k)
 ```
 
 ## Available Operators
 
-| Operator | Description | Example |
-| -------- | ----------- | ------- |
-| `equal` | Exact match | `{ fact: 'segment', operator: 'equal', value: 'gold' }` |
-| `notEqual` | Not equal | `{ fact: 'segment', operator: 'notEqual', value: 'new' }` |
-| `lessThan` | Less than | `{ fact: 'margin', operator: 'lessThan', value: 0.15 }` |
-| `lessThanInclusive` | Less than or equal | `{ fact: 'discount', operator: 'lessThanInclusive', value: 0.25 }` |
-| `greaterThan` | Greater than | `{ fact: 'quantity', operator: 'greaterThan', value: 100 }` |
+| Operator               | Description           | Example                                                            |
+| ---------------------- | --------------------- | ------------------------------------------------------------------ |
+| `equal`                | Exact match           | `{ fact: 'segment', operator: 'equal', value: 'gold' }`            |
+| `notEqual`             | Not equal             | `{ fact: 'segment', operator: 'notEqual', value: 'new' }`          |
+| `lessThan`             | Less than             | `{ fact: 'margin', operator: 'lessThan', value: 0.15 }`            |
+| `lessThanInclusive`    | Less than or equal    | `{ fact: 'discount', operator: 'lessThanInclusive', value: 0.25 }` |
+| `greaterThan`          | Greater than          | `{ fact: 'quantity', operator: 'greaterThan', value: 100 }`        |
 | `greaterThanInclusive` | Greater than or equal | `{ fact: 'value', operator: 'greaterThanInclusive', value: 5000 }` |
-| `in` | Value in array | `{ fact: 'segment', operator: 'in', value: ['gold', 'platinum'] }` |
-| `notIn` | Value not in array | `{ fact: 'category', operator: 'notIn', value: ['clearance'] }` |
-| `contains` | Array contains value | `{ fact: 'tags', operator: 'contains', value: 'vip' }` |
+| `in`                   | Value in array        | `{ fact: 'segment', operator: 'in', value: ['gold', 'platinum'] }` |
+| `notIn`                | Value not in array    | `{ fact: 'category', operator: 'notIn', value: ['clearance'] }`    |
+| `contains`             | Array contains value  | `{ fact: 'tags', operator: 'contains', value: 'vip' }`             |
 
 ## Constraint Evaluation Order
 

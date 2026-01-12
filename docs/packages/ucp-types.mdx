@@ -34,6 +34,7 @@ const code: DiscountErrorCode = 'discount_code_invalid';
 ```
 
 Available codes:
+
 - `discount_code_invalid` - Code doesn't exist or exceeds limits
 - `discount_code_expired` - Code is past validity window
 - `discount_code_already_applied` - Code already in use
@@ -67,8 +68,8 @@ const discount: AppliedDiscount = {
   priority: 1,
   allocations: [
     { target: '$.line_items[0]', amount: { amount: 6000, currency: 'USD' } },
-    { target: '$.line_items[1]', amount: { amount: 4000, currency: 'USD' } }
-  ]
+    { target: '$.line_items[1]', amount: { amount: 4000, currency: 'USD' } },
+  ],
 };
 ```
 
@@ -82,7 +83,7 @@ import type { RejectedDiscount } from '@guardrail-sim/ucp-types';
 const rejected: RejectedDiscount = {
   code: 'INVALID50',
   error_code: 'discount_code_invalid',
-  message: 'Discount exceeds maximum allowed'
+  message: 'Discount exceeds maximum allowed',
 };
 ```
 
@@ -96,7 +97,7 @@ import type { DiscountValidationResult } from '@guardrail-sim/ucp-types';
 const result: DiscountValidationResult = {
   valid: false,
   error_code: 'discount_code_user_ineligible',
-  message: 'Volume tier requires quantity >= 100'
+  message: 'Volume tier requires quantity >= 100',
 };
 ```
 
@@ -112,7 +113,7 @@ import type { LineItem } from '@guardrail-sim/ucp-types';
 const item: LineItem = {
   item: { id: 'SKU-001' },
   quantity: 2,
-  subtotal: { amount: 500000, currency: 'USD' }
+  subtotal: { amount: 500000, currency: 'USD' },
 };
 ```
 
@@ -124,8 +125,8 @@ Currency amounts in minor units.
 import type { Money } from '@guardrail-sim/ucp-types';
 
 const price: Money = {
-  amount: 99900,  // $999.00 in cents
-  currency: 'USD'
+  amount: 99900, // $999.00 in cents
+  currency: 'USD',
 };
 ```
 
@@ -170,7 +171,7 @@ Convert policy evaluation to validation result.
 import { toDiscountValidationResult } from '@guardrail-sim/ucp-types';
 import type { EvaluationResult } from '@guardrail-sim/policy-engine';
 
-const evaluation: EvaluationResult = await engine.evaluate(order, 0.30);
+const evaluation: EvaluationResult = await engine.evaluate(order, 0.3);
 const result = toDiscountValidationResult(evaluation, 'SUMMER30');
 // { valid: false, error_code: 'discount_code_invalid', message: '...' }
 ```
@@ -183,10 +184,10 @@ Build a full UCP discount extension response.
 import { buildDiscountExtensionResponse } from '@guardrail-sim/ucp-types';
 
 const response = buildDiscountExtensionResponse(
-  ['SUMMER20'],           // codes
-  evaluationResult,       // policy result
-  { amount: 75000, currency: 'USD' },  // discount amount
-  'Summer Sale'           // title
+  ['SUMMER20'], // codes
+  evaluationResult, // policy result
+  { amount: 75000, currency: 'USD' }, // discount amount
+  'Summer Sale' // title
 );
 
 // {
@@ -206,13 +207,13 @@ import type { LineItem } from '@guardrail-sim/ucp-types';
 
 const lineItems: LineItem[] = [
   { item: { id: 'A' }, quantity: 2, subtotal: { amount: 300000, currency: 'USD' } },
-  { item: { id: 'B' }, quantity: 1, subtotal: { amount: 200000, currency: 'USD' } }
+  { item: { id: 'B' }, quantity: 1, subtotal: { amount: 200000, currency: 'USD' } },
 ];
 
 const allocations = calculateAllocations(
-  { amount: 50000, currency: 'USD' },  // $500 discount
+  { amount: 50000, currency: 'USD' }, // $500 discount
   lineItems,
-  'across'  // proportional allocation
+  'across' // proportional allocation
 );
 // [
 //   { target: '$.line_items[0]', amount: { amount: 30000, currency: 'USD' } },
@@ -228,7 +229,7 @@ Convert UCP line items to policy engine format.
 import { fromUCPLineItems } from '@guardrail-sim/ucp-types';
 
 const order = fromUCPLineItems(lineItems, {
-  product_margin: 0.4  // 40% base margin
+  product_margin: 0.4, // 40% base margin
 });
 // { order_value: 5000, quantity: 3, product_margin: 0.4 }
 ```

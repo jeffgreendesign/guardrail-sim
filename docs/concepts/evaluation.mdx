@@ -31,7 +31,7 @@ const order: Order = {
   order_value: 5000,
   quantity: 100,
   product_margin: 0.4,
-  customer_segment: 'gold'
+  customer_segment: 'gold',
 };
 
 const result = await engine.evaluate(order, 0.12);
@@ -41,10 +41,10 @@ const result = await engine.evaluate(order, 0.12);
 
 ```typescript
 interface EvaluationResult {
-  approved: boolean;           // Whether discount is allowed
-  violations: Violation[];     // Rules that were violated
-  applied_rules: string[];     // All rules that triggered
-  calculated_margin: number;   // Final margin after discount
+  approved: boolean; // Whether discount is allowed
+  violations: Violation[]; // Rules that were violated
+  applied_rules: string[]; // All rules that triggered
+  calculated_margin: number; // Final margin after discount
 }
 ```
 
@@ -63,7 +63,7 @@ const result = await engine.evaluate(order, 0.12);
 ### Rejected Result
 
 ```typescript
-const result = await engine.evaluate(order, 0.30);
+const result = await engine.evaluate(order, 0.3);
 // {
 //   approved: false,
 //   violations: [
@@ -87,17 +87,17 @@ Rules run in priority order (highest first). The engine:
 
 The engine automatically calculates:
 
-| Fact | Formula |
-| ---- | ------- |
+| Fact                | Formula                              |
+| ------------------- | ------------------------------------ |
 | `calculated_margin` | `product_margin - proposed_discount` |
 
 ### Rule Priority
 
 ```typescript
 const rules = [
-  { name: 'margin_floor', priority: 1 },   // Runs first
-  { name: 'max_discount', priority: 2 },   // Runs second
-  { name: 'volume_tier', priority: 3 },    // Runs third
+  { name: 'margin_floor', priority: 1 }, // Runs first
+  { name: 'max_discount', priority: 2 }, // Runs second
+  { name: 'volume_tier', priority: 3 }, // Runs third
 ];
 ```
 
@@ -106,10 +106,7 @@ const rules = [
 If multiple rules are violated, all violations are returned:
 
 ```typescript
-const result = await engine.evaluate(
-  { order_value: 1000, quantity: 5, product_margin: 0.2 },
-  0.25
-);
+const result = await engine.evaluate({ order_value: 1000, quantity: 5, product_margin: 0.2 }, 0.25);
 // {
 //   approved: false,
 //   violations: [

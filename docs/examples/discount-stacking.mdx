@@ -37,29 +37,25 @@ const stackingPolicy: Policy = {
     {
       name: 'max_discount',
       conditions: {
-        all: [
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.25 }
-        ]
+        all: [{ fact: 'proposed_discount', operator: 'greaterThan', value: 0.25 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Total discount cannot exceed 25%' }
+        params: { message: 'Total discount cannot exceed 25%' },
       },
-      priority: 1
+      priority: 1,
     },
     // Margin floor
     {
       name: 'margin_floor',
       conditions: {
-        all: [
-          { fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }
-        ]
+        all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.15 }],
       },
       event: {
         type: 'violation',
-        params: { message: 'Discount would reduce margin below 15%' }
+        params: { message: 'Discount would reduce margin below 15%' },
       },
-      priority: 2
+      priority: 2,
     },
     // Volume tier limit
     {
@@ -67,16 +63,16 @@ const stackingPolicy: Policy = {
       conditions: {
         all: [
           { fact: 'quantity', operator: 'lessThan', value: 100 },
-          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.10 }
-        ]
+          { fact: 'proposed_discount', operator: 'greaterThan', value: 0.1 },
+        ],
       },
       event: {
         type: 'violation',
-        params: { message: 'Orders under 100 units limited to 10% discount' }
+        params: { message: 'Orders under 100 units limited to 10% discount' },
       },
-      priority: 3
-    }
-  ]
+      priority: 3,
+    },
+  ],
 };
 
 const engine = new PolicyEngine(stackingPolicy);
@@ -88,7 +84,7 @@ const engine = new PolicyEngine(stackingPolicy);
 // Scenario 1: Small order, small discount (allowed)
 const result1 = await engine.evaluate(
   { order_value: 1000, quantity: 50, product_margin: 0.4 },
-  0.08  // 8% discount
+  0.08 // 8% discount
 );
 // result1.approved: true
 // result1.calculated_margin: 0.32
@@ -96,7 +92,7 @@ const result1 = await engine.evaluate(
 // Scenario 2: Small order, large discount (rejected)
 const result2 = await engine.evaluate(
   { order_value: 1000, quantity: 50, product_margin: 0.4 },
-  0.15  // 15% discount
+  0.15 // 15% discount
 );
 // result2.approved: false
 // result2.violations: [{ rule: 'volume_tier', message: '...' }]
@@ -104,7 +100,7 @@ const result2 = await engine.evaluate(
 // Scenario 3: Large order, large discount (allowed)
 const result3 = await engine.evaluate(
   { order_value: 10000, quantity: 200, product_margin: 0.4 },
-  0.15  // 15% discount
+  0.15 // 15% discount
 );
 // result3.approved: true
 // result3.calculated_margin: 0.25
@@ -112,7 +108,7 @@ const result3 = await engine.evaluate(
 // Scenario 4: Any order, excessive discount (rejected)
 const result4 = await engine.evaluate(
   { order_value: 10000, quantity: 200, product_margin: 0.4 },
-  0.30  // 30% discount
+  0.3 // 30% discount
 );
 // result4.approved: false
 // result4.violations: [{ rule: 'max_discount', message: '...' }]
@@ -158,7 +154,7 @@ Response:
 
 ```json
 {
-  "max_discount": 0.10,
+  "max_discount": 0.1,
   "max_discount_pct": "10%",
   "limiting_factor": "volume_tier",
   "details": "Orders under 100 units limited to 10% discount"
