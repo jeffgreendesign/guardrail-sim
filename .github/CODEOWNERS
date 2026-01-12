@@ -4,8 +4,10 @@
 # Package-specific ownership
 /packages/policy-engine/ @jeffgreendesign
 /packages/mcp-server/ @jeffgreendesign
+/packages/ucp-types/ @jeffgreendesign
+/packages/insights/ @jeffgreendesign
 /packages/simulation/ @jeffgreendesign
-/apps/dashboard/ @jeffgreendesign
+/apps/website/ @jeffgreendesign
 
 # CI/CD and tooling
 /.github/ @jeffgreendesign

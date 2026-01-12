@@ -11,7 +11,7 @@ export default tseslint.config(
       '**/.next/**',
       '**/.source/**',
       '**/next-env.d.ts',
-      'apps/dashboard/postcss.config.js',
+      'apps/website/postcss.config.js',
     ],
   },
   {
