@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "json-rules-engine": "^6.5.0"
+    "json-rules-engine": "^7.3.1"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
