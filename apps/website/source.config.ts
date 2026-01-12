@@ -1,4 +1,5 @@
 import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { remarkStructure } from 'fumadocs-core/mdx-plugins';
 
 export const docs = defineDocs({
   dir: '../../docs',
@@ -6,6 +7,7 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
+    remarkPlugins: [remarkStructure],
     rehypeCodeOptions: {
       themes: {
         light: 'github-light',
