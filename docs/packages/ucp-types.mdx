@@ -1,0 +1,260 @@
+---
+title: UCP Types
+description: Universal Commerce Protocol type definitions for agentic commerce
+---
+
+# @guardrail-sim/ucp-types
+
+Type definitions aligned with the [Universal Commerce Protocol](https://ucp.dev) for agentic commerce integration.
+
+## Installation
+
+```bash
+npm install @guardrail-sim/ucp-types
+```
+
+## Overview
+
+This package provides TypeScript types that align with the UCP specification, enabling guardrail-sim to integrate with the agentic commerce ecosystem. It includes:
+
+- **Discount types** - Error codes, allocations, applied/rejected discounts
+- **Checkout types** - Checkout sessions, line items, buyers, totals
+- **Converters** - Functions to convert between policy engine results and UCP formats
+
+## Discount Types
+
+### DiscountErrorCode
+
+Standard UCP error codes for discount validation.
+
+```typescript
+import type { DiscountErrorCode } from '@guardrail-sim/ucp-types';
+
+const code: DiscountErrorCode = 'discount_code_invalid';
+```
+
+Available codes:
+- `discount_code_invalid` - Code doesn't exist or exceeds limits
+- `discount_code_expired` - Code is past validity window
+- `discount_code_already_applied` - Code already in use
+- `discount_code_combination_disallowed` - Can't combine with other codes
+- `discount_code_user_not_logged_in` - Requires authentication
+- `discount_code_user_ineligible` - User doesn't qualify
+
+### DiscountMethod
+
+How discounts are allocated across line items.
+
+```typescript
+import type { DiscountMethod } from '@guardrail-sim/ucp-types';
+
+const method: DiscountMethod = 'across'; // proportional
+// or 'each' - even distribution
+```
+
+### AppliedDiscount
+
+A successfully applied discount.
+
+```typescript
+import type { AppliedDiscount } from '@guardrail-sim/ucp-types';
+
+const discount: AppliedDiscount = {
+  code: 'SUMMER20',
+  title: 'Summer Sale 20%',
+  amount: { amount: 10000, currency: 'USD' },
+  method: 'across',
+  priority: 1,
+  allocations: [
+    { target: '$.line_items[0]', amount: { amount: 6000, currency: 'USD' } },
+    { target: '$.line_items[1]', amount: { amount: 4000, currency: 'USD' } }
+  ]
+};
+```
+
+### RejectedDiscount
+
+A discount that was rejected.
+
+```typescript
+import type { RejectedDiscount } from '@guardrail-sim/ucp-types';
+
+const rejected: RejectedDiscount = {
+  code: 'INVALID50',
+  error_code: 'discount_code_invalid',
+  message: 'Discount exceeds maximum allowed'
+};
+```
+
+### DiscountValidationResult
+
+Result of pre-checkout validation.
+
+```typescript
+import type { DiscountValidationResult } from '@guardrail-sim/ucp-types';
+
+const result: DiscountValidationResult = {
+  valid: false,
+  error_code: 'discount_code_user_ineligible',
+  message: 'Volume tier requires quantity >= 100'
+};
+```
+
+## Checkout Types
+
+### LineItem
+
+A product in the checkout.
+
+```typescript
+import type { LineItem } from '@guardrail-sim/ucp-types';
+
+const item: LineItem = {
+  item: { id: 'SKU-001' },
+  quantity: 2,
+  subtotal: { amount: 500000, currency: 'USD' }
+};
+```
+
+### Money
+
+Currency amounts in minor units.
+
+```typescript
+import type { Money } from '@guardrail-sim/ucp-types';
+
+const price: Money = {
+  amount: 99900,  // $999.00 in cents
+  currency: 'USD'
+};
+```
+
+### CheckoutResponse
+
+A checkout session with discounts.
+
+```typescript
+import type { CheckoutWithDiscounts } from '@guardrail-sim/ucp-types';
+
+const checkout: CheckoutWithDiscounts = {
+  status: 'open',
+  line_items: [...],
+  totals: {
+    subtotal: { amount: 750000, currency: 'USD' },
+    discount: { amount: 75000, currency: 'USD' },
+    total: { amount: 675000, currency: 'USD' }
+  },
+  applied_discounts: [...],
+  rejected_discounts: [...]
+};
+```
+
+## Converter Functions
+
+### toUCPErrorCode
+
+Convert a policy violation to UCP error code.
+
+```typescript
+import { toUCPErrorCode } from '@guardrail-sim/ucp-types';
+
+const code = toUCPErrorCode('margin_floor');
+// 'discount_code_invalid'
+```
+
+### toDiscountValidationResult
+
+Convert policy evaluation to validation result.
+
+```typescript
+import { toDiscountValidationResult } from '@guardrail-sim/ucp-types';
+import type { EvaluationResult } from '@guardrail-sim/policy-engine';
+
+const evaluation: EvaluationResult = await engine.evaluate(order, 0.30);
+const result = toDiscountValidationResult(evaluation, 'SUMMER30');
+// { valid: false, error_code: 'discount_code_invalid', message: '...' }
+```
+
+### buildDiscountExtensionResponse
+
+Build a full UCP discount extension response.
+
+```typescript
+import { buildDiscountExtensionResponse } from '@guardrail-sim/ucp-types';
+
+const response = buildDiscountExtensionResponse(
+  ['SUMMER20'],           // codes
+  evaluationResult,       // policy result
+  { amount: 75000, currency: 'USD' },  // discount amount
+  'Summer Sale'           // title
+);
+
+// {
+//   applied: [{ code: 'SUMMER20', ... }],
+//   rejected: [],
+//   messages: []
+// }
+```
+
+### calculateAllocations
+
+Calculate how a discount is distributed across line items.
+
+```typescript
+import { calculateAllocations } from '@guardrail-sim/ucp-types';
+import type { LineItem } from '@guardrail-sim/ucp-types';
+
+const lineItems: LineItem[] = [
+  { item: { id: 'A' }, quantity: 2, subtotal: { amount: 300000, currency: 'USD' } },
+  { item: { id: 'B' }, quantity: 1, subtotal: { amount: 200000, currency: 'USD' } }
+];
+
+const allocations = calculateAllocations(
+  { amount: 50000, currency: 'USD' },  // $500 discount
+  lineItems,
+  'across'  // proportional allocation
+);
+// [
+//   { target: '$.line_items[0]', amount: { amount: 30000, currency: 'USD' } },
+//   { target: '$.line_items[1]', amount: { amount: 20000, currency: 'USD' } }
+// ]
+```
+
+### fromUCPLineItems
+
+Convert UCP line items to policy engine format.
+
+```typescript
+import { fromUCPLineItems } from '@guardrail-sim/ucp-types';
+
+const order = fromUCPLineItems(lineItems, {
+  product_margin: 0.4  // 40% base margin
+});
+// { order_value: 5000, quantity: 3, product_margin: 0.4 }
+```
+
+## Usage with MCP Server
+
+The MCP server's UCP-aligned tools use these types internally:
+
+```typescript
+// validate_discount_code returns DiscountValidationResult
+{
+  "valid": false,
+  "error_code": "discount_code_user_ineligible",
+  "message": "..."
+}
+
+// simulate_checkout_discount returns DiscountExtensionResponse
+{
+  "applied": [...],
+  "rejected": [...],
+  "messages": [...]
+}
+```
+
+## See Also
+
+- [MCP Tools Reference](/docs/mcp-tools) - UCP-aligned MCP tools
+- [UCP Concepts](/docs/concepts/ucp) - UCP integration overview
+- [ADR-002: UCP Alignment](/docs/adr/002-ucp-alignment) - Design decision
