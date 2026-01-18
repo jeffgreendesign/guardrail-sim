@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-sim/simulation",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "LLM buyer personas and negotiation loop simulation engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,6 +11,26 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
+    "directory": "packages/simulation"
+  },
+  "keywords": [
+    "guardrail-sim",
+    "simulation",
+    "llm",
+    "buyer-personas",
+    "negotiation",
+    "ai-agents"
+  ],
+  "license": "MIT",
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",

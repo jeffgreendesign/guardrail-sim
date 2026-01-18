@@ -22,6 +22,9 @@
     "audit:deps": "pnpm outdated || true",
     "docs:dev": "pnpm --filter guardrail-sim-website dev",
     "docs:build": "pnpm --filter guardrail-sim-website build",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -41,6 +44,8 @@
     }
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.2",
+    "@changesets/cli": "^2.29.8",
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.0",
     "@eslint/js": "^9.17.0",

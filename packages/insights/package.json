@@ -11,6 +11,25 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
+    "directory": "packages/insights"
+  },
+  "keywords": [
+    "guardrail-sim",
+    "policy",
+    "insights",
+    "best-practices",
+    "b2b-commerce"
+  ],
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "pretest": "tsc",
@@ -25,13 +44,5 @@
     "@types/node": "^22.10.5",
     "c8": "^10.1.3",
     "typescript": "^5.7.2"
-  },
-  "keywords": [
-    "guardrail-sim",
-    "policy",
-    "insights",
-    "best-practices",
-    "b2b-commerce"
-  ],
-  "license": "MIT"
+  }
 }

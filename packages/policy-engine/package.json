@@ -1,9 +1,36 @@
 {
   "name": "@guardrail-sim/policy-engine",
   "version": "0.1.0",
+  "description": "Deterministic policy evaluation engine using json-rules-engine for AI pricing governance",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
+    "directory": "packages/policy-engine"
+  },
+  "keywords": [
+    "guardrail-sim",
+    "policy-engine",
+    "json-rules-engine",
+    "pricing",
+    "b2b-commerce",
+    "ai-governance"
+  ],
+  "license": "MIT",
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",

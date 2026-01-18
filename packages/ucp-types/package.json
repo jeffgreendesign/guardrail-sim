@@ -23,6 +23,27 @@
       "import": "./dist/converters.js"
     }
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
+    "directory": "packages/ucp-types"
+  },
+  "keywords": [
+    "ucp",
+    "universal-commerce-protocol",
+    "agentic-commerce",
+    "shopify",
+    "google",
+    "discount",
+    "checkout"
+  ],
+  "license": "MIT",
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",
@@ -35,15 +56,5 @@
   "devDependencies": {
     "typescript": "^5.7.2",
     "@types/node": "^22.10.5"
-  },
-  "keywords": [
-    "ucp",
-    "universal-commerce-protocol",
-    "agentic-commerce",
-    "shopify",
-    "google",
-    "discount",
-    "checkout"
-  ],
-  "license": "MIT"
+  }
 }
