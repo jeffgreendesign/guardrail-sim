@@ -107,7 +107,7 @@ conditions: {
   all: [
     { fact: 'quantity', operator: 'lessThan', value: 50 },
     { fact: 'proposed_discount', operator: 'greaterThan', value: 0.2 },
-  ];
+  ]
 }
 // Triggers only if quantity < 50 AND discount > 20%
 ```
@@ -121,7 +121,7 @@ conditions: {
   any: [
     { fact: 'customer_segment', operator: 'equal', value: 'new' },
     { fact: 'quantity', operator: 'lessThan', value: 10 },
-  ];
+  ]
 }
 // Triggers if customer is new OR quantity < 10
 ```
@@ -140,7 +140,7 @@ conditions: {
         { fact: 'order_value', operator: 'lessThan', value: 10000 },
       ],
     },
-  ];
+  ]
 }
 // Discount > 20% AND (not platinum OR order < $10k)
 ```

@@ -93,11 +93,13 @@ The engine automatically calculates:
 
 ### Rule Priority
 
+Higher priority numbers run first:
+
 ```typescript
 const rules = [
-  { name: 'margin_floor', priority: 1 }, // Runs first
-  { name: 'max_discount', priority: 2 }, // Runs second
-  { name: 'volume_tier', priority: 3 }, // Runs third
+  { name: 'margin_floor', priority: 10 }, // Runs first (highest)
+  { name: 'max_discount', priority: 5 },  // Runs second
+  { name: 'volume_tier', priority: 1 },   // Runs third (lowest)
 ];
 ```
 

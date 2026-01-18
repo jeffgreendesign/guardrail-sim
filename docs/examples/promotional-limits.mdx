@@ -123,7 +123,14 @@ const result4 = await engine.evaluate(
 
 ## Using with MCP
 
-Validate promotional discounts before checkout:
+Validate promotional discounts before checkout.
+
+**Note on units:**
+- `discount_amount`: Integer in minor currency units (cents). Example: 100000 = $1,000.00
+- `order_value`: Dollar amount. Example: 5000 = $5,000.00
+- The tool calculates `discount_percentage` internally as: `discount_amount / (order_value * 100)`
+
+In this example, `100000 / (5000 * 100) = 0.20` (20% discount):
 
 ```json
 {
