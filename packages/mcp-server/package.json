@@ -48,7 +48,7 @@
     "@modelcontextprotocol/sdk": "^1.25.2"
   },
   "devDependencies": {
-    "@types/node": "^22.10.5",
+    "@types/node": "^25.0.9",
     "typescript": "^5.7.2"
   }
 }
