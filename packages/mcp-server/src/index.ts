@@ -374,8 +374,11 @@ async function handleValidateDiscountCode(args: {
   discount_amount: number;
   order: Order;
 }): Promise<DiscountValidationResult & { code: string }> {
-  // Convert discount amount (cents) to percentage of order value
-  const discountPercentage = args.discount_amount / (args.order.order_value * 100);
+  // Guard against division by zero and convert discount amount (cents) to percentage of order value
+  // discount_amount is in cents, order_value is in dollars
+  // Formula: (discount_amount in cents) / (order_value in dollars * 100 cents/dollar)
+  const orderValueInCents = args.order.order_value * 100;
+  const discountPercentage = orderValueInCents > 0 ? args.discount_amount / orderValueInCents : 0;
 
   const evaluation = await policyEngine.evaluate(args.order, discountPercentage);
   const result = toDiscountValidationResult(evaluation, args.code);

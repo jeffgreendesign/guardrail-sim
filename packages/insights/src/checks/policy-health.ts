@@ -422,5 +422,6 @@ export const policyHealthChecks: Map<string, InsightCheck> = new Map([
   ['policy-health-005', checkNoPrioritySet],
   // checkMarginFloorThreshold returns results for both 006 (high) and 007 (low)
   ['policy-health-006', checkMarginFloorThreshold],
+  ['policy-health-007', checkMarginFloorThreshold],
   ['policy-health-008', checkNoVolumeConsideration],
 ]);

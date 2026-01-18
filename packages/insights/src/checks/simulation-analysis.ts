@@ -355,8 +355,8 @@ export const checkSegmentDistribution: InsightCheck = (
   const { ordersBySegment, totalOrders } = context.simulationResults;
   const segments = Object.entries(ordersBySegment);
 
-  // Check for extreme imbalances (any segment > 60% or missing segments)
-  const imbalanced = segments.some(([_, count]) => count / totalOrders > 0.6);
+  // Guard against division by zero and check for extreme imbalances (any segment > 60% or missing segments)
+  const imbalanced = totalOrders > 0 && segments.some(([_, count]) => count / totalOrders > 0.6);
   const missingSegments = ['platinum', 'gold', 'silver', 'bronze', 'new'].filter(
     (seg) => !ordersBySegment[seg] || ordersBySegment[seg] === 0
   );
