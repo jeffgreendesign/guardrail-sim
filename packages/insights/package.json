@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-sim/insights",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Policy insights, health checks, and best practice recommendations for guardrail-sim",
   "type": "module",
   "exports": {

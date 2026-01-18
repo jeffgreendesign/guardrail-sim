@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-sim/policy-engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic policy evaluation engine using json-rules-engine for AI pricing governance",
   "type": "module",
   "main": "dist/index.js",
