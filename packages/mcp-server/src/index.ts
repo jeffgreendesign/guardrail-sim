@@ -7,6 +7,7 @@
  */
 
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -635,7 +636,11 @@ async function main(): Promise<void> {
 }
 
 // Run only when executed directly (not when imported as a library)
-const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+// Use realpathSync to resolve symlinks (needed for npx which uses symlinks)
+const scriptPath = fileURLToPath(import.meta.url);
+const isMainModule =
+  realpathSync(process.argv[1]) === scriptPath ||
+  realpathSync(process.argv[1]) === realpathSync(scriptPath);
 
 if (isMainModule) {
   main().catch((error) => {

@@ -99,7 +99,7 @@ For AI agent integration, run the MCP server:
 
 ```bash
 # Start the MCP server
-npx guardrail-mcp
+npx @guardrail-sim/mcp-server
 ```
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -109,7 +109,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "guardrail-sim": {
       "command": "npx",
-      "args": ["guardrail-mcp"]
+      "args": ["@guardrail-sim/mcp-server"]
     }
   }
 }

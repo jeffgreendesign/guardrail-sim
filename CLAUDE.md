@@ -26,7 +26,7 @@ pnpm --filter @guardrail-sim/policy-engine test    # Test single package
 MCP server:
 
 ```bash
-npx guardrail-mcp              # Run MCP server
+npx @guardrail-sim/mcp-server  # Run MCP server
 ```
 
 ### Testing

@@ -12,7 +12,7 @@ guardrail-sim exposes 5 tools through the Model Context Protocol for AI agent in
 Start the MCP server:
 
 ```bash
-npx guardrail-mcp
+npx @guardrail-sim/mcp-server
 ```
 
 Add to Claude Desktop config:
@@ -22,7 +22,7 @@ Add to Claude Desktop config:
   "mcpServers": {
     "guardrail-sim": {
       "command": "npx",
-      "args": ["guardrail-mcp"]
+      "args": ["@guardrail-sim/mcp-server"]
     }
   }
 }
