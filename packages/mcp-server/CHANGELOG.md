@@ -1,5 +1,11 @@
 # @guardrail-sim/mcp-server
 
+## 0.2.1
+
+### Patch Changes
+
+- [`4d1c837`](https://github.com/jeffgreendesign/guardrail-sim/commit/4d1c837d990b2f3e4705deb185aa1b892b8be129) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Fix npx execution by resolving symlinks in main module check
+
 ## 0.2.0
 
 ### Minor Changes
