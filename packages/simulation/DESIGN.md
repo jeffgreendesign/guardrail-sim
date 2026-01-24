@@ -8,7 +8,7 @@ The simulation package implements adversarial buyer personas that stress-test pr
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Simulation Runner                            │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
@@ -92,7 +92,7 @@ interface NegotiationRound {
 
   // Buyer's move
   buyerRequest: DiscountRequest;
-  buyerReasoning?: string; // LLM chain-of-thought
+  buyerReasoning?: string; // concise rationale summary (avoid full chain-of-thought)
 
   // Policy response
   policyEvaluation: EvaluationResult;

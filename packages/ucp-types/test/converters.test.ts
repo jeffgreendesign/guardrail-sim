@@ -175,6 +175,23 @@ describe('UCP Converters', () => {
       assert.strictEqual(order.customer_segment, 'enterprise');
       assert.strictEqual(order.product_margin, 0.4);
     });
+
+    it('returns zero for line items missing subtotal in totals array', () => {
+      const lineItems: LineItem[] = [
+        {
+          id: 'line1',
+          item: { id: 'item1', title: 'Item 1', price: 1200 },
+          quantity: 2,
+          totals: [{ type: 'discount', amount: 100 }], // no subtotal entry
+        },
+      ];
+
+      const order = fromUCPLineItems(lineItems);
+
+      // When totals array exists but lacks subtotal, order_value is 0
+      assert.strictEqual(order.order_value, 0);
+      assert.strictEqual(order.quantity, 2);
+    });
   });
 
   describe('buildDiscountExtensionResponse', () => {
