@@ -137,14 +137,16 @@ describe('UCP Converters', () => {
     it('converts line items to order', () => {
       const lineItems: LineItem[] = [
         {
-          item: { id: 'item1' },
+          id: 'line1',
+          item: { id: 'item1', title: 'Item 1', price: 2500 },
           quantity: 2,
-          subtotal: { amount: 5000, currency: 'USD' },
+          totals: [{ type: 'subtotal', amount: 5000 }],
         },
         {
-          item: { id: 'item2' },
+          id: 'line2',
+          item: { id: 'item2', title: 'Item 2', price: 3000 },
           quantity: 1,
-          subtotal: { amount: 3000, currency: 'USD' },
+          totals: [{ type: 'subtotal', amount: 3000 }],
         },
       ];
 
@@ -158,9 +160,10 @@ describe('UCP Converters', () => {
     it('accepts custom customer segment and margin', () => {
       const lineItems: LineItem[] = [
         {
-          item: { id: 'item1' },
+          id: 'line1',
+          item: { id: 'item1', title: 'Bulk Item', price: 500 },
           quantity: 100,
-          subtotal: { amount: 50000, currency: 'USD' },
+          totals: [{ type: 'subtotal', amount: 50000 }],
         },
       ];
 
@@ -171,6 +174,40 @@ describe('UCP Converters', () => {
 
       assert.strictEqual(order.customer_segment, 'enterprise');
       assert.strictEqual(order.product_margin, 0.4);
+    });
+
+    it('falls back to price * quantity when subtotal is missing from totals', () => {
+      const lineItems: LineItem[] = [
+        {
+          id: 'line1',
+          item: { id: 'item1', title: 'Item 1', price: 1200 },
+          quantity: 2,
+          totals: [{ type: 'discount', amount: 100 }], // no subtotal entry
+        },
+      ];
+
+      const order = fromUCPLineItems(lineItems);
+
+      // Falls back to item.price * quantity to avoid silent zero
+      assert.strictEqual(order.order_value, 2400); // 1200 * 2
+      assert.strictEqual(order.quantity, 2);
+    });
+
+    it('respects zero subtotal for free promotional items', () => {
+      const lineItems: LineItem[] = [
+        {
+          id: 'line1',
+          item: { id: 'promo1', title: 'Free Gift', price: 500 }, // has list price
+          quantity: 1,
+          totals: [{ type: 'subtotal', amount: 0 }], // but subtotal is 0 (free)
+        },
+      ];
+
+      const order = fromUCPLineItems(lineItems);
+
+      // Should use the explicit zero subtotal, NOT fall back to price * quantity
+      assert.strictEqual(order.order_value, 0);
+      assert.strictEqual(order.quantity, 1);
     });
   });
 
@@ -218,14 +255,16 @@ describe('UCP Converters', () => {
     it('allocates proportionally across line items', () => {
       const lineItems: LineItem[] = [
         {
-          item: { id: 'item1' },
+          id: 'line1',
+          item: { id: 'item1', title: 'Item 1', price: 7500 },
           quantity: 1,
-          subtotal: { amount: 7500, currency: 'USD' },
+          totals: [{ type: 'subtotal', amount: 7500 }],
         },
         {
-          item: { id: 'item2' },
+          id: 'line2',
+          item: { id: 'item2', title: 'Item 2', price: 2500 },
           quantity: 1,
-          subtotal: { amount: 2500, currency: 'USD' },
+          totals: [{ type: 'subtotal', amount: 2500 }],
         },
       ];
 
@@ -240,8 +279,18 @@ describe('UCP Converters', () => {
 
     it('allocates evenly with each method', () => {
       const lineItems: LineItem[] = [
-        { item: { id: 'item1' }, quantity: 1 },
-        { item: { id: 'item2' }, quantity: 1 },
+        {
+          id: 'line1',
+          item: { id: 'item1', title: 'Item 1', price: 100 },
+          quantity: 1,
+          totals: [],
+        },
+        {
+          id: 'line2',
+          item: { id: 'item2', title: 'Item 2', price: 100 },
+          quantity: 1,
+          totals: [],
+        },
       ];
 
       const allocations = calculateAllocations(1000, lineItems, 'each');
@@ -253,9 +302,24 @@ describe('UCP Converters', () => {
 
     it('handles remainder in even split', () => {
       const lineItems: LineItem[] = [
-        { item: { id: 'item1' }, quantity: 1 },
-        { item: { id: 'item2' }, quantity: 1 },
-        { item: { id: 'item3' }, quantity: 1 },
+        {
+          id: 'line1',
+          item: { id: 'item1', title: 'Item 1', price: 100 },
+          quantity: 1,
+          totals: [],
+        },
+        {
+          id: 'line2',
+          item: { id: 'item2', title: 'Item 2', price: 100 },
+          quantity: 1,
+          totals: [],
+        },
+        {
+          id: 'line3',
+          item: { id: 'item3', title: 'Item 3', price: 100 },
+          quantity: 1,
+          totals: [],
+        },
       ];
 
       const allocations = calculateAllocations(100, lineItems, 'each');

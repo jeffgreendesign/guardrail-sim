@@ -14,7 +14,30 @@ import type {
   DiscountExtensionResponse,
   RejectedDiscount,
 } from './discount.js';
-import type { LineItem, Money } from './checkout.js';
+import type { LineItem, LineItemRequest, Money } from './checkout.js';
+
+/**
+ * Get subtotal from line item (handles both new and legacy formats)
+ */
+function getLineItemSubtotal(item: LineItem | LineItemRequest): number {
+  // New format: totals array
+  if ('totals' in item && Array.isArray(item.totals)) {
+    const subtotalEntry = item.totals.find((t) => t.type === 'subtotal');
+    if (subtotalEntry !== undefined) {
+      return subtotalEntry.amount;
+    }
+    // Fall back to price * quantity if subtotal entry is missing
+    if ('item' in item && 'price' in item.item && typeof item.item.price === 'number') {
+      return item.item.price * item.quantity;
+    }
+    return 0;
+  }
+  // Legacy request format: may not have totals yet
+  if ('item' in item && 'price' in item.item && typeof item.item.price === 'number') {
+    return item.item.price * item.quantity;
+  }
+  return 0;
+}
 
 /**
  * Map guardrail-sim violation types to UCP discount error codes
@@ -140,16 +163,15 @@ export function createRejectedDiscount(code: string, violation: Violation): Reje
  * need more context about margins and customer segments.
  */
 export function fromUCPLineItems(
-  lineItems: LineItem[],
+  lineItems: (LineItem | LineItemRequest)[],
   options: {
     customerSegment?: string;
     productMargin?: number;
   } = {}
 ): Order {
-  // Calculate total order value
+  // Calculate total order value from subtotals
   const orderValue = lineItems.reduce((sum, item) => {
-    const subtotal = item.subtotal?.amount ?? 0;
-    return sum + subtotal;
+    return sum + getLineItemSubtotal(item);
   }, 0);
 
   // Calculate total quantity
@@ -189,7 +211,7 @@ export function buildDiscountExtensionResponse(
   return {
     codes,
     applied: [],
-    messages: evaluation.violations.map((violation) => ({
+    messages: evaluation.violations.map((violation: Violation) => ({
       type: 'warning' as const,
       code: toUCPErrorCode(violation),
       message: violation.message,
@@ -207,7 +229,7 @@ export function buildDiscountExtensionResponse(
  */
 export function calculateAllocations(
   discountAmount: number,
-  lineItems: LineItem[],
+  lineItems: (LineItem | LineItemRequest)[],
   method: 'each' | 'across' = 'across'
 ): Array<{ target: string; amount: number }> {
   if (lineItems.length === 0) {
@@ -226,7 +248,7 @@ export function calculateAllocations(
   }
 
   // Proportional allocation based on subtotals
-  const totalValue = lineItems.reduce((sum, item) => sum + (item.subtotal?.amount ?? 0), 0);
+  const totalValue = lineItems.reduce((sum, item) => sum + getLineItemSubtotal(item), 0);
 
   if (totalValue === 0) {
     // Fallback to even split if no subtotals
@@ -235,7 +257,7 @@ export function calculateAllocations(
 
   let allocated = 0;
   const allocations = lineItems.map((item, index) => {
-    const itemValue = item.subtotal?.amount ?? 0;
+    const itemValue = getLineItemSubtotal(item);
     const proportion = itemValue / totalValue;
     const itemDiscount =
       index === lineItems.length - 1
