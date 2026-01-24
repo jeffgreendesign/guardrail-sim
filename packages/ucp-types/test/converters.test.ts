@@ -176,7 +176,7 @@ describe('UCP Converters', () => {
       assert.strictEqual(order.product_margin, 0.4);
     });
 
-    it('returns zero for line items missing subtotal in totals array', () => {
+    it('falls back to price * quantity when subtotal is missing from totals', () => {
       const lineItems: LineItem[] = [
         {
           id: 'line1',
@@ -188,8 +188,8 @@ describe('UCP Converters', () => {
 
       const order = fromUCPLineItems(lineItems);
 
-      // When totals array exists but lacks subtotal, order_value is 0
-      assert.strictEqual(order.order_value, 0);
+      // Falls back to item.price * quantity to avoid silent zero
+      assert.strictEqual(order.order_value, 2400); // 1200 * 2
       assert.strictEqual(order.quantity, 2);
     });
   });

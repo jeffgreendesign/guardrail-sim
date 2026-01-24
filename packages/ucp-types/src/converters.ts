@@ -30,7 +30,17 @@ function getTotalAmount(totals: Total[], type: TotalType): number {
 function getLineItemSubtotal(item: LineItem | LineItemRequest): number {
   // New format: totals array
   if ('totals' in item && Array.isArray(item.totals)) {
-    return getTotalAmount(item.totals, 'subtotal');
+    const subtotal = getTotalAmount(item.totals, 'subtotal');
+    // Fall back to price * quantity if subtotal is missing (avoids silent zero)
+    if (
+      subtotal === 0 &&
+      'item' in item &&
+      'price' in item.item &&
+      typeof item.item.price === 'number'
+    ) {
+      return item.item.price * item.quantity;
+    }
+    return subtotal;
   }
   // Legacy request format: may not have totals yet
   if ('item' in item && 'price' in item.item && typeof item.item.price === 'number') {

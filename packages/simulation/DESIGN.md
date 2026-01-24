@@ -217,7 +217,7 @@ interface EdgeCase {
 ### Phase 2: LLM Integration
 
 - [ ] OpenAI Batch API integration for personas
-- [ ] Chain-of-thought reasoning capture
+- [ ] Rationale summary capture (avoid full chain-of-thought)
 - [ ] Persona strategy adaptation between rounds
 
 ### Phase 3: Adversarial Testing
