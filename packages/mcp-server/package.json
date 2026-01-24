@@ -45,7 +45,7 @@
   "dependencies": {
     "@guardrail-sim/policy-engine": "workspace:*",
     "@guardrail-sim/ucp-types": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.25.2"
+    "@modelcontextprotocol/sdk": "^1.25.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
