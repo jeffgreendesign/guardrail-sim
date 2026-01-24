@@ -14,15 +14,7 @@ import type {
   DiscountExtensionResponse,
   RejectedDiscount,
 } from './discount.js';
-import type { LineItem, LineItemRequest, Money, Total, TotalType } from './checkout.js';
-
-/**
- * Extract a specific total type from a totals array
- */
-function getTotalAmount(totals: Total[], type: TotalType): number {
-  const total = totals.find((t) => t.type === type);
-  return total?.amount ?? 0;
-}
+import type { LineItem, LineItemRequest, Money } from './checkout.js';
 
 /**
  * Get subtotal from line item (handles both new and legacy formats)
@@ -30,17 +22,15 @@ function getTotalAmount(totals: Total[], type: TotalType): number {
 function getLineItemSubtotal(item: LineItem | LineItemRequest): number {
   // New format: totals array
   if ('totals' in item && Array.isArray(item.totals)) {
-    const subtotal = getTotalAmount(item.totals, 'subtotal');
-    // Fall back to price * quantity if subtotal is missing (avoids silent zero)
-    if (
-      subtotal === 0 &&
-      'item' in item &&
-      'price' in item.item &&
-      typeof item.item.price === 'number'
-    ) {
+    const subtotalEntry = item.totals.find((t) => t.type === 'subtotal');
+    if (subtotalEntry !== undefined) {
+      return subtotalEntry.amount;
+    }
+    // Fall back to price * quantity if subtotal entry is missing
+    if ('item' in item && 'price' in item.item && typeof item.item.price === 'number') {
       return item.item.price * item.quantity;
     }
-    return subtotal;
+    return 0;
   }
   // Legacy request format: may not have totals yet
   if ('item' in item && 'price' in item.item && typeof item.item.price === 'number') {

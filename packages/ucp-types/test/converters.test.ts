@@ -192,6 +192,23 @@ describe('UCP Converters', () => {
       assert.strictEqual(order.order_value, 2400); // 1200 * 2
       assert.strictEqual(order.quantity, 2);
     });
+
+    it('respects zero subtotal for free promotional items', () => {
+      const lineItems: LineItem[] = [
+        {
+          id: 'line1',
+          item: { id: 'promo1', title: 'Free Gift', price: 500 }, // has list price
+          quantity: 1,
+          totals: [{ type: 'subtotal', amount: 0 }], // but subtotal is 0 (free)
+        },
+      ];
+
+      const order = fromUCPLineItems(lineItems);
+
+      // Should use the explicit zero subtotal, NOT fall back to price * quantity
+      assert.strictEqual(order.order_value, 0);
+      assert.strictEqual(order.quantity, 1);
+    });
   });
 
   describe('buildDiscountExtensionResponse', () => {
