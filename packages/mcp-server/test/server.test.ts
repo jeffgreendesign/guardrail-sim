@@ -217,8 +217,13 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listResources();
 
-      assert.strictEqual(result.resources.length, 1);
-      assert.strictEqual(result.resources[0].uri, 'guardrail://policies/active');
+      assert.strictEqual(result.resources.length, 3);
+
+      const uris = result.resources.map((r) => r.uri);
+      assert.ok(uris.includes('guardrail://policies/active'));
+      // MCP Apps UI resources
+      assert.ok(uris.includes('ui://guardrail-sim/evaluation-result'));
+      assert.ok(uris.includes('ui://guardrail-sim/policy-dashboard'));
     });
 
     it('should read active policy resource', async () => {
@@ -229,6 +234,23 @@ describe('MCP Server', () => {
       const policy = JSON.parse(result.contents[0].text as string);
       assert.strictEqual(policy.id, 'default');
       assert.strictEqual(policy.rules.length, 3);
+    });
+
+    it('should read UI resources', async () => {
+      const { client } = await createTestClient();
+
+      // Test evaluation result UI
+      const evalResult = await client.readResource({ uri: 'ui://guardrail-sim/evaluation-result' });
+      assert.strictEqual(evalResult.contents.length, 1);
+      assert.strictEqual(evalResult.contents[0].mimeType, 'text/html');
+      assert.ok((evalResult.contents[0].text as string).includes('<!DOCTYPE html>'));
+      assert.ok((evalResult.contents[0].text as string).includes('@modelcontextprotocol/ext-apps'));
+
+      // Test policy dashboard UI
+      const dashResult = await client.readResource({ uri: 'ui://guardrail-sim/policy-dashboard' });
+      assert.strictEqual(dashResult.contents.length, 1);
+      assert.strictEqual(dashResult.contents[0].mimeType, 'text/html');
+      assert.ok((dashResult.contents[0].text as string).includes('<!DOCTYPE html>'));
     });
   });
 

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Policy Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 20px;
+    }
+
+    .loading-bars {
+      display: flex;
+      gap: 4px;
+      height: 32px;
+      align-items: flex-end;
+    }
+
+    .loading-bar {
+      width: 6px;
+      background: linear-gradient(to top, #6366f1, #a78bfa);
+      border-radius: 3px;
+      animation: bars 1s ease-in-out infinite;
+    }
+
+    .loading-bar:nth-child(1) { animation-delay: 0s; }
+    .loading-bar:nth-child(2) { animation-delay: 0.1s; }
+    .loading-bar:nth-child(3) { animation-delay: 0.2s; }
+    .loading-bar:nth-child(4) { animation-delay: 0.3s; }
+    .loading-bar:nth-child(5) { animation-delay: 0.4s; }
+
+    @keyframes bars {
+      0%, 100% { height: 8px; }
+      50% { height: 32px; }
+    }
+
+    .loading-text {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .loading-text::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: ''; }
+      40% { content: '.'; }
+      60% { content: '..'; }
+      80%, 100% { content: '...'; }
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .policy-name {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #818cf8, #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .policy-id {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 4px;
+      font-family: monospace;
+    }
+
+    /* Rule cards */
+    .rules-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .rule-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 20px;
+      animation: slideIn 0.5s ease-out backwards;
+    }
+
+    .rule-card:nth-child(1) { animation-delay: 0.1s; }
+    .rule-card:nth-child(2) { animation-delay: 0.2s; }
+    .rule-card:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .rule-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .rule-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .rule-icon.margin {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .rule-icon.cap {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .rule-icon.volume {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1));
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .rule-name {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .rule-description {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    /* Constraint bars */
+    .constraint-bar {
+      position: relative;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .constraint-fill {
+      height: 100%;
+      border-radius: 4px;
+      position: relative;
+      animation: fillIn 1s ease-out backwards;
+    }
+
+    .constraint-fill.margin {
+      background: linear-gradient(90deg, #22c55e, #4ade80);
+      animation-delay: 0.3s;
+    }
+    .constraint-fill.cap {
+      background: linear-gradient(90deg, #ef4444, #f87171);
+      animation-delay: 0.4s;
+    }
+    .constraint-fill.volume {
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      animation-delay: 0.5s;
+    }
+
+    @keyframes fillIn {
+      from { width: 0 !important; }
+    }
+
+    .constraint-fill::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite 1s;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .constraint-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .constraint-value {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    /* Volume tiers */
+    .volume-tiers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .tier {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .tier-label {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .tier-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .tier-value.base {
+      color: #94a3b8;
+    }
+
+    .tier-value.volume {
+      color: #60a5fa;
+    }
+
+    .tier-units {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Calculator section */
+    .calculator {
+      margin-top: 24px;
+      background: rgba(99, 102, 241, 0.05);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      animation: slideIn 0.5s ease-out 0.4s backwards;
+    }
+
+    .calc-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .calc-title svg {
+      color: #818cf8;
+    }
+
+    .calc-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .input-label {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .input-field {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #e2e8f0;
+      font-size: 14px;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+
+    .calc-result {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .result-label {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .result-value {
+      font-size: 32px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: all 0.3s;
+    }
+
+    .result-detail {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .btn-calculate {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-calculate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-calculate:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="loading" class="loading">
+      <div class="loading-bars">
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+      </div>
+      <div class="loading-text">Loading policy</div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+      <div class="header">
+        <div class="policy-name" id="policy-name">--</div>
+        <div class="policy-id" id="policy-id">--</div>
+      </div>
+
+      <div class="rules-grid">
+        <!-- Margin Floor Rule -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <div class="rule-icon margin">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2L2 7V13L10 18L18 13V7L10 2Z" stroke="#4ade80" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M10 8V12M10 18V12M10 12L15 9M10 12L5 9" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="rule-name">Margin Floor</div>
+          </div>
+          <div class="rule-description">
+            Ensures minimum margin of <strong>15%</strong> is maintained after any discount is applied. Protects profitability on every sale.
+          </div>
+          <div class="constraint-bar">
+            <div class="constraint-fill margin" style="width: 30%;"></div>
+          </div>
+          <div class="constraint-labels">
+            <span>0%</span>
+            <span><span class="constraint-value">15%</span> minimum</span>
+            <span>50%</span>
+          </div>
+        </div>
+
+        <!-- Max Discount Rule -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <div class="rule-icon cap">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="7" stroke="#f87171" stroke-width="1.5"/>
+                <path d="M10 6V10L13 13" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="rule-name">Maximum Discount Cap</div>
+          </div>
+          <div class="rule-description">
+            Absolute ceiling of <strong>25%</strong> on any discount, regardless of customer tier, volume, or margin. No exceptions.
+          </div>
+          <div class="constraint-bar">
+            <div class="constraint-fill cap" style="width: 50%;"></div>
+          </div>
+          <div class="constraint-labels">
+            <span>0%</span>
+            <span><span class="constraint-value">25%</span> maximum</span>
+            <span>50%</span>
+          </div>
+        </div>
+
+        <!-- Volume Tier Rule -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <div class="rule-icon volume">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="3" y="10" width="4" height="7" rx="1" stroke="#60a5fa" stroke-width="1.5"/>
+                <rect x="8" y="6" width="4" height="11" rx="1" stroke="#60a5fa" stroke-width="1.5"/>
+                <rect x="13" y="3" width="4" height="14" rx="1" stroke="#60a5fa" stroke-width="1.5"/>
+              </svg>
+            </div>
+            <div class="rule-name">Volume Tier Bonus</div>
+          </div>
+          <div class="rule-description">
+            Orders with <strong>100+ units</strong> unlock higher discount ceiling. Incentivizes larger orders while protecting small-order margins.
+          </div>
+          <div class="volume-tiers">
+            <div class="tier">
+              <div class="tier-label">Base Tier</div>
+              <div class="tier-value base">10%</div>
+              <div class="tier-units">&lt; 100 units</div>
+            </div>
+            <div class="tier">
+              <div class="tier-label">Volume Tier</div>
+              <div class="tier-value volume">15%</div>
+              <div class="tier-units">100+ units</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Calculator -->
+      <div class="calculator">
+        <div class="calc-title">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M5 5H11M5 8H11M5 11H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Calculate Max Discount
+        </div>
+        <div class="calc-inputs">
+          <div class="input-group">
+            <label class="input-label">Product Margin (%)</label>
+            <input type="number" id="input-margin" class="input-field" value="40" min="0" max="100">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Order Quantity</label>
+            <input type="number" id="input-quantity" class="input-field" value="50" min="1">
+          </div>
+        </div>
+        <div class="calc-result">
+          <div class="result-label">Maximum Allowed Discount</div>
+          <div class="result-value" id="calc-result">10%</div>
+          <div class="result-detail" id="calc-detail">Limited by volume tier (< 100 units)</div>
+        </div>
+        <button id="btn-calculate" class="btn-calculate">
+          <span id="btn-text">Calculate</span>
+          <span id="btn-spinner" class="btn-spinner hidden"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from "@modelcontextprotocol/ext-apps";
+
+    const app = new App();
+
+    // DOM elements
+    const loadingEl = document.getElementById('loading');
+    const dashboardEl = document.getElementById('dashboard');
+    const policyName = document.getElementById('policy-name');
+    const policyId = document.getElementById('policy-id');
+    const inputMargin = document.getElementById('input-margin');
+    const inputQuantity = document.getElementById('input-quantity');
+    const calcResult = document.getElementById('calc-result');
+    const calcDetail = document.getElementById('calc-detail');
+    const btnCalculate = document.getElementById('btn-calculate');
+    const btnText = document.getElementById('btn-text');
+    const btnSpinner = document.getElementById('btn-spinner');
+
+    await app.connect();
+
+    // Handle initial tool result
+    app.ontoolresult = (result) => {
+      loadingEl.classList.add('hidden');
+      dashboardEl.classList.remove('hidden');
+
+      policyName.textContent = result.policy_name || 'Pricing Policy';
+      policyId.textContent = result.policy_id || '';
+
+      // Calculate initial result
+      calculateMax();
+    };
+
+    function calculateMax() {
+      const margin = parseFloat(inputMargin.value) / 100 || 0.4;
+      const quantity = parseInt(inputQuantity.value) || 50;
+
+      // Policy constraints
+      const marginFloor = 0.15;
+      const maxCap = 0.25;
+      const volumeThreshold = 100;
+      const baseLimit = 0.10;
+      const volumeLimit = 0.15;
+
+      // Calculate constraints
+      const marginBasedMax = margin - marginFloor;
+      const volumeBasedMax = quantity >= volumeThreshold ? volumeLimit : baseLimit;
+
+      // Find minimum constraint
+      const constraints = [
+        { name: 'margin_floor', value: marginBasedMax, detail: `Margin-based: ${(margin * 100).toFixed(0)}% - 15% floor` },
+        { name: 'max_cap', value: maxCap, detail: 'Absolute cap of 25%' },
+        { name: 'volume_tier', value: volumeBasedMax, detail: quantity >= volumeThreshold ? 'Volume tier (100+ units)' : 'Base tier (< 100 units)' }
+      ];
+
+      const minConstraint = constraints.reduce((min, c) => c.value < min.value ? c : min);
+      const maxDiscount = Math.max(0, Math.min(...constraints.map(c => c.value)));
+
+      // Update display
+      calcResult.textContent = `${(maxDiscount * 100).toFixed(0)}%`;
+      calcDetail.textContent = `Limited by ${minConstraint.detail.toLowerCase()}`;
+    }
+
+    // Local calculation on input change
+    inputMargin.addEventListener('input', calculateMax);
+    inputQuantity.addEventListener('input', calculateMax);
+
+    // Server-side calculation with animation
+    btnCalculate.addEventListener('click', async () => {
+      btnCalculate.disabled = true;
+      btnText.classList.add('hidden');
+      btnSpinner.classList.remove('hidden');
+
+      const margin = parseFloat(inputMargin.value) / 100 || 0.4;
+      const quantity = parseInt(inputQuantity.value) || 50;
+
+      try {
+        const response = await app.callServerTool({
+          name: 'get_max_discount',
+          arguments: {
+            order: {
+              order_value: 1000,
+              quantity: quantity,
+              product_margin: margin
+            }
+          }
+        });
+
+        if (response) {
+          calcResult.textContent = response.max_discount_pct || `${(response.max_discount * 100).toFixed(0)}%`;
+          calcDetail.textContent = response.details || '';
+
+          // Update model context
+          await app.updateModelContext({
+            content: [{
+              type: 'text',
+              text: `User calculated max discount: ${response.max_discount_pct} for ${quantity} units at ${(margin * 100).toFixed(0)}% margin`
+            }]
+          });
+        }
+      } catch (err) {
+        console.error('Calculation failed:', err);
+        calculateMax(); // Fall back to local calculation
+      }
+
+      btnCalculate.disabled = false;
+      btnText.classList.remove('hidden');
+      btnSpinner.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>
