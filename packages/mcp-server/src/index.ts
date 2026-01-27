@@ -648,29 +648,37 @@ export function createServer(): Server {
 
     // MCP Apps UI resources
     if (uri === 'ui://guardrail-sim/evaluation-result') {
-      const html = await readFile(join(UI_DIR, 'evaluation-result.html'), 'utf-8');
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: 'text/html',
-            text: html,
-          },
-        ],
-      };
+      try {
+        const html = await readFile(join(UI_DIR, 'evaluation-result.html'), 'utf-8');
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: 'text/html',
+              text: html,
+            },
+          ],
+        };
+      } catch {
+        throw new Error(`Failed to read UI resource: ${uri}`);
+      }
     }
 
     if (uri === 'ui://guardrail-sim/policy-dashboard') {
-      const html = await readFile(join(UI_DIR, 'policy-dashboard.html'), 'utf-8');
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: 'text/html',
-            text: html,
-          },
-        ],
-      };
+      try {
+        const html = await readFile(join(UI_DIR, 'policy-dashboard.html'), 'utf-8');
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: 'text/html',
+              text: html,
+            },
+          ],
+        };
+      } catch {
+        throw new Error(`Failed to read UI resource: ${uri}`);
+      }
     }
 
     throw new Error(`Unknown resource: ${uri}`);

@@ -243,14 +243,14 @@ describe('MCP Server', () => {
       const evalResult = await client.readResource({ uri: 'ui://guardrail-sim/evaluation-result' });
       assert.strictEqual(evalResult.contents.length, 1);
       assert.strictEqual(evalResult.contents[0].mimeType, 'text/html');
-      assert.ok((evalResult.contents[0].text as string).includes('<!DOCTYPE html>'));
+      assert.ok((evalResult.contents[0].text as string).includes('<!doctype html>'));
       assert.ok((evalResult.contents[0].text as string).includes('@modelcontextprotocol/ext-apps'));
 
       // Test policy dashboard UI
       const dashResult = await client.readResource({ uri: 'ui://guardrail-sim/policy-dashboard' });
       assert.strictEqual(dashResult.contents.length, 1);
       assert.strictEqual(dashResult.contents[0].mimeType, 'text/html');
-      assert.ok((dashResult.contents[0].text as string).includes('<!DOCTYPE html>'));
+      assert.ok((dashResult.contents[0].text as string).includes('<!doctype html>'));
     });
   });
 
