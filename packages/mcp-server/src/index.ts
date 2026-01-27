@@ -4,10 +4,13 @@
  *
  * MCP server exposing policy evaluation tools for AI agents.
  * Provides deterministic policy evaluation through the evaluate_policy tool.
+ * Supports MCP Apps for interactive UI visualization.
  */
 
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -31,6 +34,11 @@ import type {
 } from '@guardrail-sim/ucp-types';
 
 export const VERSION = '0.0.1';
+
+// Path to UI resources
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const UI_DIR = join(__dirname, 'ui');
 
 // Initialize policy engine with default policy
 const currentPolicy: Policy = defaultPolicy;
@@ -83,6 +91,11 @@ Returns: approval status, violations, applied rules, and calculated margin.`,
       },
       required: ['order', 'proposed_discount'],
     },
+    _meta: {
+      ui: {
+        resourceUri: 'ui://guardrail-sim/evaluation-result',
+      },
+    },
   },
   {
     name: 'get_policy_summary',
@@ -95,6 +108,11 @@ Use this tool when:
     inputSchema: {
       type: 'object' as const,
       properties: {},
+    },
+    _meta: {
+      ui: {
+        resourceUri: 'ui://guardrail-sim/policy-dashboard',
+      },
     },
   },
   {
@@ -594,6 +612,21 @@ export function createServer(): Server {
         description: 'The currently active pricing policy configuration',
         mimeType: 'application/json',
       },
+      // MCP Apps UI resources
+      {
+        uri: 'ui://guardrail-sim/evaluation-result',
+        name: 'Evaluation Result Visualizer',
+        description:
+          'Interactive UI for displaying policy evaluation results with margin gauges and animations',
+        mimeType: 'text/html',
+      },
+      {
+        uri: 'ui://guardrail-sim/policy-dashboard',
+        name: 'Policy Dashboard',
+        description:
+          'Interactive dashboard showing policy rules with visual constraints and discount calculator',
+        mimeType: 'text/html',
+      },
     ],
   }));
 
@@ -611,6 +644,41 @@ export function createServer(): Server {
           },
         ],
       };
+    }
+
+    // MCP Apps UI resources
+    if (uri === 'ui://guardrail-sim/evaluation-result') {
+      try {
+        const html = await readFile(join(UI_DIR, 'evaluation-result.html'), 'utf-8');
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: 'text/html',
+              text: html,
+            },
+          ],
+        };
+      } catch {
+        throw new Error(`Failed to read UI resource: ${uri}`);
+      }
+    }
+
+    if (uri === 'ui://guardrail-sim/policy-dashboard') {
+      try {
+        const html = await readFile(join(UI_DIR, 'policy-dashboard.html'), 'utf-8');
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: 'text/html',
+              text: html,
+            },
+          ],
+        };
+      } catch {
+        throw new Error(`Failed to read UI resource: ${uri}`);
+      }
     }
 
     throw new Error(`Unknown resource: ${uri}`);
