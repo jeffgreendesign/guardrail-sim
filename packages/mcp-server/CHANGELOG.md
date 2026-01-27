@@ -1,5 +1,31 @@
 # @guardrail-sim/mcp-server
 
+## 0.2.2
+
+### Patch Changes
+
+- [#52](https://github.com/jeffgreendesign/guardrail-sim/pull/52) [`19cbae7`](https://github.com/jeffgreendesign/guardrail-sim/commit/19cbae7dbf3c0be3ba32d1cf7c34c97a24c7e65c) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Align ucp-types with official UCP specification (January 2026)
+
+  **Breaking Changes (ucp-types):**
+  - `CheckoutResponse.totals`, `links`, and `payment` are now required fields
+  - `LineItem` now uses `totals: Total[]` array instead of separate `subtotal`, `discount`, `total` fields
+  - `LineItem` now requires `id` field
+  - `Item.title` and `Item.price` are now required (price is integer in minor units)
+  - `Buyer.phone` renamed to `phone_number` (E.164 format)
+  - `Total.label` renamed to `display_text`
+  - `TotalType` enum: `shipping` replaced with `fulfillment`, added `fee`
+
+  **New Types (ucp-types):**
+  - Checkout: `PostalAddress`, `Link`, `FulfillmentOption`, `PaymentHandler`, `PaymentInstrument`, `PaymentResponse`, `ItemReference`, `LineItemRequest`
+  - Identity Linking: `OAuthServerMetadata`, `AuthorizationRequest`, `TokenResponse`, `ClientRegistration`, etc.
+  - Order: `Order`, `OrderLineItem`, `FulfillmentExpectation`, `FulfillmentEvent`, `OrderAdjustment`, `OrderWebhookEvent`
+
+  **Patch (mcp-server):**
+  - Bump `@modelcontextprotocol/sdk` to ^1.25.3
+
+- Updated dependencies [[`19cbae7`](https://github.com/jeffgreendesign/guardrail-sim/commit/19cbae7dbf3c0be3ba32d1cf7c34c97a24c7e65c)]:
+  - @guardrail-sim/ucp-types@1.0.0
+
 ## 0.2.1
 
 ### Patch Changes
