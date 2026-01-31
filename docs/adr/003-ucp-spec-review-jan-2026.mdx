@@ -1,0 +1,203 @@
+---
+title: 'ADR 003: UCP Specification Review — January 2026'
+description: Gap analysis between guardrail-sim's UCP integration and the current UCP spec (v2026-01-23)
+---
+
+# ADR 003: UCP Specification Review — January 2026
+
+**Status:** Proposed
+
+**Date:** January 30, 2026
+
+## Context
+
+Guardrail-sim adopted UCP alignment in ADR 002, implementing discount error codes, allocation methods, and UCP-formatted MCP tools. Since that initial alignment, the UCP specification has matured significantly. The official spec is now at **v2026-01-23** (schema version `2026-01-11`), published at [ucp.dev](https://ucp.dev), with broad industry backing from Google, Shopify, Etsy, Walmart, Target, Wayfair, Visa, Mastercard, Stripe, Adyen, and 20+ other partners.
+
+This ADR documents the gaps between our current implementation and the published specification, and recommends enhancements prioritized by impact.
+
+## Current State of Our UCP Integration
+
+Our `@guardrail-sim/ucp-types` package (v0.2.0) includes:
+
+- **Discount Extension types** — error codes, allocations, applied/rejected discounts
+- **Checkout Capability types** — session status, line items, money, payment handlers, messages
+- **Order Capability types** — line items, fulfillment events/expectations, adjustments, webhooks
+- **Identity Linking types** — OAuth 2.0 flows, token management, client registration
+- **Converter functions** — violation-to-UCP mapping, line item conversion, allocation calculation
+- **2 custom MCP tools** — `validate_discount_code`, `simulate_checkout_discount`
+
+## Gap Analysis Against UCP v2026-01-23
+
+### 1. Missing Discovery and Profile Types (High Priority)
+
+The UCP spec requires businesses to publish a **profile** at `/.well-known/ucp` declaring their supported services, capabilities, extensions, payment handlers, and signing keys. Platforms also publish profiles and include them via the `UCP-Agent` header.
+
+**What we're missing:**
+- `UCPProfile` type (the `/.well-known/ucp` JSON document)
+- `UCPCapabilityDeclaration` — capability name, version, schema URL, and `extends` field
+- `UCPServiceDeclaration` — transport endpoint declarations (REST, MCP, A2A, EP)
+- `UCPPaymentHandlerConfig` — payment handler advertisements in profiles
+- `UCPSigningKey` — JWK-format keys for webhook signature verification
+- Capability negotiation utilities (computing the intersection of platform and business profiles)
+
+**Why it matters:** Discovery is the entry point for all UCP interactions. Without profile types, guardrail-sim cannot participate in or simulate the discovery/negotiation flow that precedes checkout.
+
+**Recommendation:** Add a `profile.ts` module to `@guardrail-sim/ucp-types` with types for business profiles, platform profiles, capability declarations, and a `negotiateCapabilities()` utility function.
+
+### 2. MCP Binding Alignment (High Priority)
+
+The UCP spec defines a **standardized MCP binding** with 5 specific tools for checkout:
+
+| UCP Standard Tool     | Purpose                       | Our Equivalent            |
+| --------------------- | ----------------------------- | ------------------------- |
+| `create_checkout`     | Create a new checkout session | None                      |
+| `get_checkout`        | Retrieve checkout by ID       | None                      |
+| `update_checkout`     | Modify checkout details       | None                      |
+| `complete_checkout`   | Finalize and place order      | None                      |
+| `cancel_checkout`     | Terminate a session           | None                      |
+
+Our current tools (`validate_discount_code`, `simulate_checkout_discount`) are **guardrail-sim-specific tools** built on UCP types, but they don't implement the standard UCP MCP binding.
+
+**Additional MCP binding requirements we're missing:**
+- `_meta.ucp.profile` field in every MCP request (platform profile URL)
+- `idempotency_key` parameter for `create_checkout`, `complete_checkout`, `cancel_checkout`
+- JSON-RPC 2.0 error codes specific to UCP
+- Resource identification pattern (top-level `id` separate from checkout payload)
+
+**Recommendation:** Keep our existing custom tools (they serve our policy-enforcement use case), but also add a `ucp-checkout` tool group that implements the standard 5-tool MCP binding. This would let guardrail-sim act as a UCP-conformant checkout proxy with policy enforcement built in.
+
+### 3. Missing Buyer Consent Extension (Medium Priority)
+
+The spec defines `dev.ucp.shopping.buyer_consent` (v2026-01-11) which extends checkout to manage customer authorization. It adds a `consent` field to `checkout.buyer` containing consent requirements and buyer responses.
+
+**Recommendation:** Add `BuyerConsent` types and integrate them into `CheckoutWithDiscounts` (or create a more general `CheckoutWithExtensions` type).
+
+### 4. Missing AP2 Mandates Extension (Medium Priority)
+
+The spec defines `dev.ucp.shopping.ap2_mandate` for **autonomous agent payments**. This is critical for agentic commerce because it provides cryptographic proof of user authorization through verifiable digital credentials — exactly the kind of guardrail needed when AI agents transact autonomously.
+
+**What it covers:**
+- Non-repudiable authorization via verifiable credentials
+- Mandate creation and lifecycle management
+- Integration with the Agent Payments Protocol (AP2)
+
+**Recommendation:** Add AP2 Mandates Extension types. This aligns directly with guardrail-sim's mission of governing AI agent pricing behavior. A future enhancement could validate AP2 mandates against policy rules.
+
+### 5. Fulfillment Extension Structure (Medium Priority)
+
+Our `checkout.ts` includes `FulfillmentOption` directly in `CheckoutResponse`, but the spec structures fulfillment as a **separate extension** (`dev.ucp.shopping.fulfillment`, v2026-01-11) that composes with checkout via `allOf` schema patterns.
+
+**Current code:**
+```typescript
+// checkout.ts — fulfillment baked into CheckoutResponse
+export interface CheckoutResponse {
+  fulfillment_options?: FulfillmentOption[];
+  selected_fulfillment_id?: string;
+  shipping_address?: PostalAddress;
+}
+```
+
+**What the spec expects:**
+```typescript
+// Fulfillment as a separate extension namespace
+interface CheckoutWithFulfillment extends CheckoutResponse {
+  'dev.ucp.shopping.fulfillment'?: {
+    options: FulfillmentOption[];
+    selected_id?: string;
+    destination?: PostalAddress;
+  };
+}
+```
+
+**Recommendation:** Refactor fulfillment fields out of the base `CheckoutResponse` into a proper extension namespace. Keep backward-compatible re-exports during transition.
+
+### 6. Schema Versioning (Medium Priority)
+
+The UCP spec uses `YYYY-MM-DD` date-based versioning for capabilities and extensions. Our types have no version metadata.
+
+**What the spec requires:**
+- Every capability/extension schema includes `name` and `version` fields
+- Capability name follows reverse-domain format: `dev.ucp.shopping.checkout`
+- Profiles declare specific versions for each capability
+
+**Recommendation:** Add version constants and capability name constants to each module:
+
+```typescript
+export const CHECKOUT_CAPABILITY = {
+  name: 'dev.ucp.shopping.checkout',
+  version: '2026-01-11',
+  schema: 'https://ucp.dev/schemas/shopping/checkout.json',
+} as const;
+```
+
+### 7. Transport Binding Types (Low Priority)
+
+The spec supports 4 transport bindings: REST, MCP, A2A, and Embedded Protocol (EP). Our project only implements MCP.
+
+**Missing transport support:**
+- REST binding types (OpenAPI-aligned request/response wrappers)
+- A2A binding types (Agent2Agent protocol integration)
+- EP binding types (Embedded Protocol for buyer escalation via `continue_url`)
+
+**Recommendation:** Add transport binding type definitions. For guardrail-sim's use case (policy enforcement for AI agents), MCP remains the primary transport, but having REST types would enable broader integration testing.
+
+### 8. Payment Token Exchange Capability (Low Priority)
+
+The spec defines Payment Token Exchange as a core capability for secure PSP/credential provider protocols. This separates **Payment Instruments** (what's accepted) from **Payment Handlers** (how they're processed).
+
+Our types already model `PaymentHandler` and `PaymentInstrument` in `checkout.ts`, but we don't model the actual token exchange flow (credential acquisition, 3DS challenges, AP2 mandate generation).
+
+**Recommendation:** Defer full implementation. Our payment types are sufficient for policy simulation. Token exchange is out of scope for the policy enforcement layer.
+
+### 9. Webhook Signature Verification (Low Priority)
+
+We define `WebhookSignatureHeader` types for detached JWT (RFC 7797) verification, but provide no verification utilities.
+
+**Recommendation:** Add a `verifyWebhookSignature()` utility function, or at minimum document the verification flow. This would be useful when guardrail-sim needs to consume order webhooks in simulation scenarios.
+
+### 10. Order and Identity Linking Converter Functions (Low Priority)
+
+We have converter functions for discount/checkout flows but none for order management or identity linking.
+
+**Recommendation:** Add converter functions as the simulation package develops. Order converters would be needed for post-purchase policy enforcement (e.g., return policy limits).
+
+## Documentation Corrections
+
+Several inaccuracies should be fixed in existing docs:
+
+1. **ADR 002 reference URLs**: Links point to `ucp.dev/spec/...` but the actual spec URLs use `ucp.dev/specification/...`
+2. **UCP concepts page**: Import example references `@guardrail-sim/policy-engine` for `calculateAllocations`, but the function lives in `@guardrail-sim/ucp-types/converters`
+3. **Partner attribution**: UCP was launched by Google with Shopify as a key co-development partner and 20+ industry endorsers. The docs should reflect this broader coalition rather than attributing it solely to "Shopify and Google"
+4. **Platform compatibility table**: The "Microsoft Copilot" row implies a specific integration. Unless validated, this should be qualified as "compatible via standard UCP types" rather than suggesting a direct integration
+
+## Prioritized Roadmap
+
+| Priority | Enhancement                          | Effort | Impact                                   |
+| -------- | ------------------------------------ | ------ | ---------------------------------------- |
+| P0       | Discovery/profile types              | Medium | Required for spec conformance            |
+| P0       | Schema version constants             | Low    | Required for capability negotiation      |
+| P1       | Standard MCP checkout tools          | High   | Enables UCP conformance testing          |
+| P1       | Fulfillment extension refactor       | Medium | Correct schema composition               |
+| P1       | Buyer Consent extension types        | Low    | Spec completeness                        |
+| P2       | AP2 Mandates extension types         | Medium | Agentic payment governance               |
+| P2       | Documentation corrections            | Low    | Accuracy                                 |
+| P2       | Webhook signature verification       | Low    | Order simulation support                 |
+| P3       | REST/A2A transport binding types     | Medium | Broader integration                      |
+| P3       | Order/Identity converter functions   | Medium | Post-purchase policy enforcement         |
+| P3       | Payment Token Exchange modeling      | High   | Out of scope for policy layer            |
+
+## Decision
+
+Adopt the P0 and P1 enhancements as the next phase of UCP alignment. Defer P2/P3 items until the simulation package is under active development or specific integration needs arise.
+
+## References
+
+- [UCP Specification v2026-01-23](https://ucp.dev/2026-01-23/)
+- [UCP Specification Overview](https://ucp.dev/2026-01-23/specification/overview/)
+- [UCP MCP Binding](https://ucp.dev/specification/checkout-mcp/)
+- [UCP Core Concepts](https://ucp.dev/2026-01-23/documentation/core-concepts/)
+- [UCP Schema Authoring](https://ucp.dev/documentation/schema-authoring/)
+- [UCP GitHub Repository](https://github.com/Universal-Commerce-Protocol/ucp)
+- [Google Developer Blog: Under the Hood UCP](https://developers.googleblog.com/under-the-hood-universal-commerce-protocol-ucp/)
+- [Google UCP Developer Guide](https://developers.google.com/merchant/ucp)
+- [Shopify Engineering: Building UCP](https://shopify.engineering/ucp)
