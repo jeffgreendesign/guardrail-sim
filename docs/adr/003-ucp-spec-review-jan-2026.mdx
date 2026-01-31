@@ -1,6 +1,6 @@
 ---
 title: 'ADR 003: UCP Specification Review — January 2026'
-description: Gap analysis between guardrail-sim's UCP integration and the current UCP spec (v2026-01-23)
+description: Gap analysis between guardrail-sim's UCP integration and the current UCP spec (2026-01-11)
 ---
 
 # ADR 003: UCP Specification Review — January 2026
@@ -11,7 +11,7 @@ description: Gap analysis between guardrail-sim's UCP integration and the curren
 
 ## Context
 
-Guardrail-sim adopted UCP alignment in ADR 002, implementing discount error codes, allocation methods, and UCP-formatted MCP tools. Since that initial alignment, the UCP specification has matured significantly. The official spec is now at **v2026-01-23** (schema version `2026-01-11`), published at [ucp.dev](https://ucp.dev), with broad industry backing from Google, Shopify, Etsy, Walmart, Target, Wayfair, Visa, Mastercard, Stripe, Adyen, and 20+ other partners.
+Guardrail-sim adopted UCP alignment in ADR 002, implementing discount error codes, allocation methods, and UCP-formatted MCP tools. Since that initial alignment, the UCP specification has matured significantly. The official spec version is now **2026-01-11** (published on ucp.dev; GitHub release tag [v2026-01-23](https://github.com/Universal-Commerce-Protocol/ucp/releases/tag/v2026-01-23)), with broad industry backing from Google, Shopify, Etsy, Walmart, Target, Wayfair, Visa, Mastercard, Stripe, Adyen, and 20+ other partners.
 
 This ADR documents the gaps between our current implementation and the published specification, and recommends enhancements prioritized by impact. It synthesizes findings from multiple independent reviews of the codebase and the current UCP specification.
 
@@ -40,7 +40,7 @@ Our `@guardrail-sim/ucp-types` package (v0.2.0) includes:
 | AP2 Mandates (`dev.ucp.shopping.ap2_mandate`)    | No      | No         | No        | No      |
 | Discovery/Profiles (`/.well-known/ucp`)          | No      | No         | No        | No      |
 
-## Gap Analysis Against UCP v2026-01-23
+## Gap Analysis Against UCP 2026-01-11
 
 ### 1. Missing Discovery and Profile Types (P0)
 
@@ -198,7 +198,7 @@ export const CART_CAPABILITY = {
 
 **AP2 Mandates** (`dev.ucp.shopping.ap2_mandate`) provides cryptographic proof of user authorization for autonomous agent payments through verifiable digital credentials. This is critical for agentic commerce because it answers the question: "Did the human actually authorize this AI agent to spend $X?"
 
-**Why AP2 matters for guardrail-sim specifically:** An agent might successfully negotiate a price through our policy engine but fail to generate a valid payment mandate if the amount exceeds a pre-authorized limit. Simulating AP2 constraints would catch scenarios where an agent promises a deal it cannot financially authorize — a natural extension of our "brakes and steering" positioning.
+**Guardrail-sim relevance:** An agent might successfully negotiate a price through our policy engine but fail to generate a valid payment mandate if the amount exceeds a pre-authorized limit. Simulating AP2 constraints would catch scenarios where an agent promises a deal it cannot financially authorize — a natural extension of our "brakes and steering" positioning.
 
 **Recommendation:**
 
@@ -211,7 +211,7 @@ export const CART_CAPABILITY = {
 
 The spec defines an **Embedded Protocol** transport where businesses embed interfaces returning events and accepting delegated user actions via `continue_url`. When a checkout reaches `requires_escalation` status, the platform opens the `continue_url` for user interaction (e.g., 3DS authentication, human supervisor approval).
 
-**Why it matters for guardrail-sim:** If a simulated buyer requests a discount deeper than the AI is permitted to grant, the correct behavior isn't just rejection — it's triggering an escalation handoff. Simulating `requires_escalation` → `continue_url` → resolution flows would test an agent's ability to gracefully failover to humans, a key requirement for enterprise AI adoption.
+**Guardrail-sim relevance:** If a simulated buyer requests a discount deeper than the AI is permitted to grant, the correct behavior isn't just rejection — it's triggering an escalation handoff. Simulating `requires_escalation` → `continue_url` → resolution flows would test an agent's ability to gracefully failover to humans, a key requirement for enterprise AI adoption.
 
 **Recommendation:** Add EP transport types and `CheckoutStatus.requires_escalation` handling to the simulation package. This transforms guardrail-sim from a simple pass/fail policy checker into a workflow orchestration tester.
 
