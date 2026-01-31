@@ -28,17 +28,17 @@ Our `@guardrail-sim/ucp-types` package (v0.2.0) includes:
 
 ### Capability Implementation Matrix (Current)
 
-| UCP Capability                          | Types | Converters | MCP Tools | Runtime |
-| --------------------------------------- | ----- | ---------- | --------- | ------- |
-| Checkout (`dev.ucp.shopping.checkout`)  | Yes   | Yes        | Custom    | Yes     |
-| Discount (`dev.ucp.shopping.discount`)  | Yes   | Yes        | Custom    | Yes     |
-| Order (`dev.ucp.shopping.order`)        | Yes   | No         | No        | No      |
-| Identity Linking                        | Yes   | No         | No        | No      |
-| Cart (`dev.ucp.shopping.cart`)          | No    | No         | No        | No      |
-| Fulfillment (`dev.ucp.shopping.fulfillment`) | Partial | No   | No        | No      |
-| Buyer Consent (`dev.ucp.shopping.buyer_consent`) | No | No   | No        | No      |
-| AP2 Mandates (`dev.ucp.shopping.ap2_mandate`) | No | No      | No        | No      |
-| Discovery/Profiles (`/.well-known/ucp`) | No    | No         | No        | No      |
+| UCP Capability                                   | Types   | Converters | MCP Tools | Runtime |
+| ------------------------------------------------ | ------- | ---------- | --------- | ------- |
+| Checkout (`dev.ucp.shopping.checkout`)           | Yes     | Yes        | Custom    | Yes     |
+| Discount (`dev.ucp.shopping.discount`)           | Yes     | Yes        | Custom    | Yes     |
+| Order (`dev.ucp.shopping.order`)                 | Yes     | No         | No        | No      |
+| Identity Linking                                 | Yes     | No         | No        | No      |
+| Cart (`dev.ucp.shopping.cart`)                   | No      | No         | No        | No      |
+| Fulfillment (`dev.ucp.shopping.fulfillment`)     | Partial | No         | No        | No      |
+| Buyer Consent (`dev.ucp.shopping.buyer_consent`) | No      | No         | No        | No      |
+| AP2 Mandates (`dev.ucp.shopping.ap2_mandate`)    | No      | No         | No        | No      |
+| Discovery/Profiles (`/.well-known/ucp`)          | No      | No         | No        | No      |
 
 ## Gap Analysis Against UCP v2026-01-23
 
@@ -47,6 +47,7 @@ Our `@guardrail-sim/ucp-types` package (v0.2.0) includes:
 The UCP spec requires businesses to publish a **profile** at `/.well-known/ucp` declaring their supported services, capabilities, extensions, payment handlers, and signing keys. Platforms also publish profiles and include them via the `UCP-Agent` header. Capability negotiation — computing the intersection of what both parties support — is the entry point for all UCP interactions.
 
 **What we're missing:**
+
 - `UCPProfile` type (the `/.well-known/ucp` JSON document)
 - `UCPCapabilityDeclaration` — capability name, version, schema URL, and `extends` field
 - `UCPServiceDeclaration` — transport endpoint declarations (REST, MCP, A2A, EP)
@@ -63,17 +64,18 @@ The UCP spec requires businesses to publish a **profile** at `/.well-known/ucp` 
 
 The UCP spec defines a **standardized MCP binding** with 5 specific tools for checkout:
 
-| UCP Standard Tool     | Purpose                       | Our Equivalent            |
-| --------------------- | ----------------------------- | ------------------------- |
-| `create_checkout`     | Create a new checkout session | None                      |
-| `get_checkout`        | Retrieve checkout by ID       | None                      |
-| `update_checkout`     | Modify checkout details       | None                      |
-| `complete_checkout`   | Finalize and place order      | None                      |
-| `cancel_checkout`     | Terminate a session           | None                      |
+| UCP Standard Tool   | Purpose                       | Our Equivalent |
+| ------------------- | ----------------------------- | -------------- |
+| `create_checkout`   | Create a new checkout session | None           |
+| `get_checkout`      | Retrieve checkout by ID       | None           |
+| `update_checkout`   | Modify checkout details       | None           |
+| `complete_checkout` | Finalize and place order      | None           |
+| `cancel_checkout`   | Terminate a session           | None           |
 
 Our current tools (`validate_discount_code`, `simulate_checkout_discount`) are **guardrail-sim-specific tools** built on UCP types, but they don't implement the standard UCP MCP binding.
 
 **Additional MCP binding requirements we're missing:**
+
 - `_meta.ucp.profile` field in every MCP request (platform profile URL). We define `UCPMeta` and `MCPRequest<T>` types in `checkout.ts` but never consume them in the MCP server.
 - `idempotency_key` parameter for `create_checkout`, `complete_checkout`, `cancel_checkout`
 - JSON-RPC 2.0 error codes specific to UCP
@@ -85,15 +87,16 @@ Our current tools (`validate_discount_code`, `simulate_checkout_discount`) are *
 
 The spec defines a standalone **Cart capability** (`dev.ucp.shopping.cart`, draft) that is explicitly separate from Checkout. Cart provides a lightweight CRUD interface for item collection before purchase intent is established.
 
-| Aspect  | Cart                    | Checkout                 |
-| ------- | ----------------------- | ------------------------ |
-| Purpose | Pre-purchase exploration | Purchase finalization    |
-| Payment | None required            | Required                 |
-| Status  | Binary (exists/not found)| Lifecycle-based          |
+| Aspect  | Cart                      | Checkout              |
+| ------- | ------------------------- | --------------------- |
+| Purpose | Pre-purchase exploration  | Purchase finalization |
+| Payment | None required             | Required              |
+| Status  | Binary (exists/not found) | Lifecycle-based       |
 
 Cart operations: `create_cart`, `get_cart`, `update_cart`, `cancel_cart`. Platforms can convert a cart to checkout by providing `cart_id` in the Create Checkout request.
 
 **What we're missing:**
+
 - `cart.ts` types aligned to UCP cart schemas
 - Cart-to-checkout conversion helpers (e.g., `fromUCPCartToOrder`, `toUCPCheckoutFromCart`)
 - Cart MCP tools
@@ -107,6 +110,7 @@ Cart operations: `create_cart`, `get_cart`, `update_cart`, `cancel_cart`. Platfo
 The violation-to-UCP error code mapping is **duplicated** between two packages with divergent rule-name coverage:
 
 **`policy-engine/src/types.ts`** (16 entries):
+
 ```
 max_discount, max_discount_exceeded, margin_floor, margin_floor_violated,
 volume_tier, volume_tier_mismatch, customer_segment_mismatch,
@@ -114,6 +118,7 @@ stacking_not_allowed, exclusive_discount, discount_expired, ...
 ```
 
 **`ucp-types/src/converters.ts`** (8 entries, different names):
+
 ```
 max_discount_exceeded, margin_floor_violated, volume_tier_mismatch,
 discount_expired, discount_stacking_violation, user_not_authenticated,
@@ -129,6 +134,7 @@ These maps use different keys for the same violations (e.g., `stacking_not_allow
 Our `checkout.ts` includes `FulfillmentOption` directly in `CheckoutResponse`, but the spec structures fulfillment as a **separate extension** (`dev.ucp.shopping.fulfillment`, v2026-01-11) that composes with checkout via `allOf` schema patterns.
 
 **Current code:**
+
 ```typescript
 // checkout.ts — fulfillment baked into CheckoutResponse
 export interface CheckoutResponse {
@@ -139,6 +145,7 @@ export interface CheckoutResponse {
 ```
 
 **What the spec expects:**
+
 ```typescript
 // Fulfillment as a separate extension namespace
 interface CheckoutWithFulfillment extends CheckoutResponse {
@@ -157,6 +164,7 @@ interface CheckoutWithFulfillment extends CheckoutResponse {
 The UCP spec uses `YYYY-MM-DD` date-based versioning for capabilities and extensions. Our types have no version metadata.
 
 **What the spec requires:**
+
 - Every capability/extension schema includes `name` and `version` fields
 - Capability name follows reverse-domain format: `dev.ucp.shopping.checkout`
 - Profiles declare specific versions for each capability
@@ -193,6 +201,7 @@ export const CART_CAPABILITY = {
 **Why AP2 matters for guardrail-sim specifically:** An agent might successfully negotiate a price through our policy engine but fail to generate a valid payment mandate if the amount exceeds a pre-authorized limit. Simulating AP2 constraints would catch scenarios where an agent promises a deal it cannot financially authorize — a natural extension of our "brakes and steering" positioning.
 
 **Recommendation:**
+
 - Add `buyer-consent.ts` and `ap2-mandates.ts` types under `@guardrail-sim/ucp-types`
 - Create a generic `CheckoutWithExtensions` type that composes checkout with any active extensions
 - Extend the MCP server's checkout simulator to accept and echo those extensions (even if mocked initially)
@@ -236,21 +245,21 @@ Several inaccuracies should be fixed in existing docs:
 
 ## Prioritized Roadmap
 
-| Priority | Enhancement                          | Effort | Impact                                        |
-| -------- | ------------------------------------ | ------ | --------------------------------------------- |
-| P0       | Discovery/profile types + fixture    | Medium | Required for spec conformance                 |
-| P0       | Standard MCP checkout tools          | High   | Enables UCP conformance; uses `_meta.ucp`     |
-| P1       | Cart capability types + converters   | Medium | Pre-checkout agent simulation                 |
-| P1       | Centralize error code mapping        | Low    | Eliminates drift between packages             |
-| P1       | Schema version constants             | Low    | Required for capability negotiation           |
-| P1       | Fulfillment extension refactor       | Medium | Correct schema composition                    |
-| P2       | Buyer Consent extension types        | Low    | Privacy compliance                            |
-| P2       | AP2 Mandates extension types         | Medium | Agentic payment authorization guardrails      |
-| P2       | EP transport + escalation simulation | Medium | Human-failover workflow testing               |
-| P2       | Documentation corrections + matrix   | Low    | Accuracy and discoverability                  |
-| P3       | REST/A2A transport binding types     | Medium | Broader integration                           |
-| P3       | Order/Identity converters + webhooks | Medium | Post-purchase policy enforcement              |
-| P3       | Payment Token Exchange modeling      | High   | Out of scope for policy layer                 |
+| Priority | Enhancement                          | Effort | Impact                                    |
+| -------- | ------------------------------------ | ------ | ----------------------------------------- |
+| P0       | Discovery/profile types + fixture    | Medium | Required for spec conformance             |
+| P0       | Standard MCP checkout tools          | High   | Enables UCP conformance; uses `_meta.ucp` |
+| P1       | Cart capability types + converters   | Medium | Pre-checkout agent simulation             |
+| P1       | Centralize error code mapping        | Low    | Eliminates drift between packages         |
+| P1       | Schema version constants             | Low    | Required for capability negotiation       |
+| P1       | Fulfillment extension refactor       | Medium | Correct schema composition                |
+| P2       | Buyer Consent extension types        | Low    | Privacy compliance                        |
+| P2       | AP2 Mandates extension types         | Medium | Agentic payment authorization guardrails  |
+| P2       | EP transport + escalation simulation | Medium | Human-failover workflow testing           |
+| P2       | Documentation corrections + matrix   | Low    | Accuracy and discoverability              |
+| P3       | REST/A2A transport binding types     | Medium | Broader integration                       |
+| P3       | Order/Identity converters + webhooks | Medium | Post-purchase policy enforcement          |
+| P3       | Payment Token Exchange modeling      | High   | Out of scope for policy layer             |
 
 ## Decision
 
@@ -267,14 +276,16 @@ Defer P2/P3 items until the simulation package is under active development or sp
 
 ## References
 
+All UCP links pinned to v2026-01-23 where applicable:
+
 - [UCP Specification v2026-01-23](https://ucp.dev/2026-01-23/)
 - [UCP Specification Overview](https://ucp.dev/2026-01-23/specification/overview/)
-- [UCP Checkout MCP Binding](https://ucp.dev/specification/checkout-mcp/)
-- [UCP Cart Capability](https://github.com/Universal-Commerce-Protocol/ucp/blob/main/docs/specification/cart.md)
-- [UCP Buyer Consent Extension](https://github.com/Universal-Commerce-Protocol/ucp/blob/main/docs/specification/buyer-consent.md)
-- [UCP AP2 Mandates Extension](https://github.com/Universal-Commerce-Protocol/ucp/blob/main/docs/specification/ap2-mandates.md)
+- [UCP Checkout MCP Binding](https://ucp.dev/2026-01-23/specification/checkout-mcp/)
+- [UCP Cart Capability](https://ucp.dev/2026-01-23/specification/cart/)
+- [UCP Buyer Consent Extension](https://ucp.dev/2026-01-23/specification/buyer-consent/)
+- [UCP AP2 Mandates Extension](https://ucp.dev/2026-01-23/specification/ap2-mandates/)
 - [UCP Core Concepts](https://ucp.dev/2026-01-23/documentation/core-concepts/)
-- [UCP Schema Authoring](https://ucp.dev/documentation/schema-authoring/)
+- [UCP Schema Authoring](https://ucp.dev/2026-01-23/documentation/schema-authoring/)
 - [UCP GitHub Repository](https://github.com/Universal-Commerce-Protocol/ucp)
 - [UCP v2026-01-23 Release](https://github.com/Universal-Commerce-Protocol/ucp/releases/tag/v2026-01-23)
 - [Google Developer Blog: Under the Hood UCP](https://developers.googleblog.com/under-the-hood-universal-commerce-protocol-ucp/)
