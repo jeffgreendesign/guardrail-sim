@@ -1,5 +1,11 @@
 # @guardrail-sim/simulation
 
+## Unreleased
+
+### Minor Changes
+
+- [`19cbae7`](https://github.com/jeffgreendesign/guardrail-sim/commit/19cbae7dbf3c0be3ba32d1cf7c34c97a24c7e65c) - Add DESIGN.md based on ARLAS research for LLM buyer persona simulation
+
 ## 0.2.0
 
 ### Minor Changes
