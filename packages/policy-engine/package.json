@@ -22,6 +22,13 @@
     "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
     "directory": "packages/policy-engine"
   },
+  "homepage": "https://github.com/jeffgreendesign/guardrail-sim/tree/main/packages/policy-engine",
+  "bugs": {
+    "url": "https://github.com/jeffgreendesign/guardrail-sim/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "keywords": [
     "guardrail-sim",
     "policy-engine",

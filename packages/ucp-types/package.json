@@ -34,6 +34,13 @@
     "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
     "directory": "packages/ucp-types"
   },
+  "homepage": "https://github.com/jeffgreendesign/guardrail-sim/tree/main/packages/ucp-types",
+  "bugs": {
+    "url": "https://github.com/jeffgreendesign/guardrail-sim/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "keywords": [
     "ucp",
     "universal-commerce-protocol",

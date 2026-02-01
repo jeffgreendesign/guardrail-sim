@@ -25,6 +25,13 @@
     "url": "https://github.com/jeffgreendesign/guardrail-sim.git",
     "directory": "packages/mcp-server"
   },
+  "homepage": "https://github.com/jeffgreendesign/guardrail-sim/tree/main/packages/mcp-server",
+  "bugs": {
+    "url": "https://github.com/jeffgreendesign/guardrail-sim/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "keywords": [
     "guardrail-sim",
     "mcp",
