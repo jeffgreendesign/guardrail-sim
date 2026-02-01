@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-sim/ucp-types",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "UCP (Universal Commerce Protocol) type definitions for guardrail-sim",
   "type": "module",
   "main": "dist/index.js",

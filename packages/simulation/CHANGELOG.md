@@ -1,5 +1,14 @@
 # @guardrail-sim/simulation
 
+## 0.2.1
+
+### Patch Changes
+
+- [`6df3dfb`](https://github.com/jeffgreendesign/guardrail-sim/commit/6df3dfbbca35e6ecdbc3a2ed1a6629b0590aee47) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Add README.md, LICENSE, and npm metadata (homepage, bugs, engines) to all packages
+
+- Updated dependencies [[`32aea11`](https://github.com/jeffgreendesign/guardrail-sim/commit/32aea1146b80e5b326ec70356832338c2ceb06cd), [`6df3dfb`](https://github.com/jeffgreendesign/guardrail-sim/commit/6df3dfbbca35e6ecdbc3a2ed1a6629b0590aee47)]:
+  - @guardrail-sim/policy-engine@0.2.1
+
 ## Unreleased
 
 ### Minor Changes
