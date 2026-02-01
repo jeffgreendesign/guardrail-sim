@@ -43,6 +43,32 @@ jobs:
   # ============================================
   # Stage 2: Parallel Quality Checks
   # ============================================
+  changeset:
+    name: Changeset Check
+    if: github.event_name == 'pull_request'
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for changeset
+        run: pnpm changeset status --since=origin/main
+
   lint:
     name: Lint
     if: github.event_name != 'schedule'
