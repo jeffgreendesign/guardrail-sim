@@ -5,7 +5,6 @@
 ### Minor Changes
 
 - [`6af6bcd`](https://github.com/jeffgreendesign/guardrail-sim/commit/6af6bcd3cb4eb20510fe0adc96427ecbbb8947d2) - Add MCP Apps UI support with interactive evaluation and policy dashboards
-
   - Implement MCP Apps protocol extension for interactive UI components
   - Add evaluation-result.html UI with animated margin gauges, status badges, and interactive discount slider
   - Add policy-dashboard.html UI with animated rule cards, constraint bars, and interactive max discount calculator
