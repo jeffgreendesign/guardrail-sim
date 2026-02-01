@@ -83,6 +83,22 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 - No auth — single-user for MVP
 - Demo-able beats perfect — this is a portfolio project
 
+## Changesets
+
+This repo uses [changesets](https://github.com/changesets/changesets) for versioning and changelog generation. **Every PR that changes code in `packages/`** must include a changeset file. CI will fail without one.
+
+Add a changeset by creating a `.changeset/<descriptive-name>.md` file:
+
+```markdown
+---
+'@guardrail-sim/policy-engine': minor
+---
+
+Add volume discount rule support
+```
+
+Bump levels: `patch` (bug fixes, dev deps), `minor` (new features), `major` (breaking changes). Changes that only affect `apps/`, `docs/`, CI config, or repo tooling do **not** need a changeset.
+
 ## PR Workflow
 
 When completing work that's ready for a pull request:
