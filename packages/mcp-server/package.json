@@ -45,8 +45,8 @@
     "build": "tsc -b && cp -r src/ui dist/",
     "dev": "tsc -b --watch",
     "start": "node dist/index.js",
-    "test": "node --test --experimental-strip-types test/*.test.ts",
-    "test:coverage": "c8 --reporter=text --reporter=lcov node --test --experimental-strip-types test/*.test.ts",
+    "test": "node --test test/*.test.ts",
+    "test:coverage": "c8 --reporter=text --reporter=lcov node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

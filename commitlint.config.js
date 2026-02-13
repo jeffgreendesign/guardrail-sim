@@ -21,7 +21,16 @@ export default {
     'scope-enum': [
       1,
       'always',
-      ['policy-engine', 'mcp-server', 'simulation', 'dashboard', 'deps', 'release'],
+      [
+        'policy-engine',
+        'mcp-server',
+        'ucp-types',
+        'insights',
+        'simulation',
+        'website',
+        'deps',
+        'release',
+      ],
     ],
     'subject-case': [2, 'always', 'lower-case'],
   },

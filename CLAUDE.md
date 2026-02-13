@@ -31,10 +31,10 @@ npx @guardrail-sim/mcp-server  # Run MCP server
 
 ### Testing
 
-Uses Node's built-in test runner with TypeScript support:
+Uses Node's built-in test runner with native TypeScript support (type stripping is default in Node.js 22+):
 
 ```bash
-node --test --experimental-strip-types packages/policy-engine/test/*.test.ts
+node --test packages/policy-engine/test/*.test.ts
 ```
 
 ## Monorepo Structure
