@@ -2,7 +2,9 @@
   "files": [],
   "references": [
     { "path": "packages/policy-engine" },
+    { "path": "packages/ucp-types" },
     { "path": "packages/mcp-server" },
+    { "path": "packages/insights" },
     { "path": "packages/simulation" }
   ]
 }
