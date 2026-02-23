@@ -32,8 +32,12 @@ pnpm-debug.log*
 # Test coverage
 coverage/
 
-# Claude Code
-.claude/
+# Claude Code (track .claude/settings.json and .claude/commands/ in git)
+.claude/projects/
+.claude/todos/
+.claude/statsig/
+.claude/analytics/
+.claude/credentials.json
 
 # Fumadocs generated files
 .source/

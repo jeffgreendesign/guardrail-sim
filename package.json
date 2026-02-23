@@ -17,7 +17,10 @@
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "quality": "pnpm lint && pnpm typecheck && pnpm test",
+    "quality": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:boundaries",
+    "test:boundaries": "node --test tests/test-workspace-boundaries.ts",
+    "security:check": "bash scripts/security-check.sh",
+    "security:check:strict": "bash scripts/security-check.sh --strict",
     "audit:security": "pnpm audit --audit-level=high",
     "audit:deps": "pnpm outdated || true",
     "docs:dev": "pnpm --filter guardrail-sim-website dev",
@@ -30,7 +33,8 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "bash scripts/security-check.sh"
     ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"
