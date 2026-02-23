@@ -171,6 +171,42 @@ jobs:
       - name: Security audit
         run: pnpm audit --audit-level=high
 
+  security-scan:
+    name: Source Security Scan
+    if: github.event_name != 'schedule'
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run source-level security scanner
+        run: bash scripts/security-check.sh --strict
+
+  boundaries:
+    name: Workspace Boundaries
+    if: github.event_name != 'schedule'
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check workspace import boundaries
+        run: pnpm test:boundaries
+
   # ============================================
   # Stage 3: Build & Test
   # ============================================
@@ -253,7 +289,7 @@ jobs:
   integration:
     name: Integration Check
     if: github.event_name != 'schedule'
-    needs: [build, test, security]
+    needs: [build, test, security, security-scan, boundaries]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -1,0 +1,52 @@
+---
+description: Rules for writing and reviewing shell scripts in this repository
+globs: ["*.sh", ".husky/*"]
+---
+
+# Shell Script Conventions
+
+## Critical Rules
+
+- Every script MUST begin with `set -euo pipefail` after the shebang
+- Quote ALL variables: `"$VAR"` not `$VAR`
+- Quote `case` patterns containing `#` or `*` — unquoted `#*` is parsed as a comment
+- Validate syntax with `bash -n <file>` before committing
+
+## Package Manager
+
+This is a **pnpm-only** monorepo. Do NOT use `npm`, `npx`, or `yarn`:
+
+```bash
+# Correct
+pnpm install --frozen-lockfile
+pnpm build
+pnpm --filter @guardrail-sim/policy-engine test
+
+# Wrong
+npm install
+npm run build
+yarn test
+```
+
+## Error Handling
+
+```bash
+# Correct: Check command existence before using
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm install --frozen-lockfile
+else
+  echo "Error: pnpm is not installed" >&2
+  exit 1
+fi
+
+# Correct: Use default values for optional env vars
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+```
+
+## Common Mistakes
+
+- Using `find | while read` without null-termination — use `find -print0 | while IFS= read -r -d '' file` instead
+- Suppressing stderr when errors should surface — only redirect stderr when intentional
+- Using `pip` directly — use `python -m pip` in non-virtualenv contexts
+- Missing `#!/bin/bash` shebang line
+- Forgetting `chmod +x` on new scripts
