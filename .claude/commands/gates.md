@@ -16,7 +16,7 @@ This executes: lint → typecheck → test (all packages).
 pnpm build
 ```
 
-3. Run workspace boundary checks:
+3. Run workspace boundary checks (explicit re-run for visibility — already included in `pnpm quality` above):
 
 ```bash
 pnpm test:boundaries

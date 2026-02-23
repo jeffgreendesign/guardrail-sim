@@ -6,7 +6,9 @@ cd "$PROJECT_DIR"
 
 echo "--- Session start: installing dependencies ---"
 
-if [ -f "pnpm-lock.yaml" ]; then
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "⚠ pnpm not found — skipping dependency install"
+elif [ -f "pnpm-lock.yaml" ]; then
   pnpm install --frozen-lockfile 2>&1
 else
   echo "⚠ No pnpm-lock.yaml found — skipping dependency install"

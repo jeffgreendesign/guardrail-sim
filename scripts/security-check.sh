@@ -61,7 +61,7 @@ scan_pattern() {
 
   for file in "$@"; do
     [ -f "$file" ] || continue
-    grep $grep_flags "$pattern" "$file" 2>/dev/null | while IFS=: read -r line_num matched_line; do
+    while IFS=: read -r line_num matched_line; do
       # Skip comment lines
       local trimmed
       trimmed=$(echo "$matched_line" | sed 's/^[[:space:]]*//')
@@ -69,7 +69,7 @@ scan_pattern() {
         "//"*|"#"*|"*"*) continue ;; # skip comments
       esac
       warn "$description" "$file" "$line_num"
-    done || true
+    done < <(grep $grep_flags "$pattern" "$file" 2>/dev/null) || true
   done
 }
 
