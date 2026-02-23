@@ -79,6 +79,13 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   mapfile -t STAGED_FILES < <(git diff --cached --name-only --diff-filter=ACM -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null || true)
 fi
 
+if [ "${#STAGED_FILES[@]}" -gt 0 ]; then
+  # Convert repo-relative paths to absolute paths (git diff returns repo-relative)
+  for i in "${!STAGED_FILES[@]}"; do
+    STAGED_FILES[$i]="$PROJECT_DIR/${STAGED_FILES[$i]}"
+  done
+fi
+
 if [ "${#STAGED_FILES[@]}" -eq 0 ]; then
   # No staged files — check all source files across packages
   mapfile -t ALL_FILES < <(find "$PROJECT_DIR/packages" -path '*/src/*' -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \) ! -path '*/node_modules/*' ! -path '*/dist/*' 2>/dev/null || true)
@@ -128,7 +135,7 @@ for file in "${ALL_FILES[@]}"; do
 done
 if [ "${#SCANNABLE_FILES[@]}" -gt 0 ]; then
   scan_pattern "Possible hardcoded secret" \
-    "(api_key|apikey|secret|password|token|private_key)\s*[:=]\s*['\"][A-Za-z0-9+/=_-]{8,}" \
+    "(api_key|apikey|secret|password|token|private_key|access_key|auth_token|client_secret|signing_key)\s*[:=]\s*['\"][A-Za-z0-9+/=_-]{8,}" \
     "${SCANNABLE_FILES[@]}"
 fi
 
