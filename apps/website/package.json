@@ -14,7 +14,7 @@
     "@guardrail-sim/policy-engine": "workspace:*",
     "@vercel/analytics": "^1.6.1",
     "@xyflow/react": "^12.4.0",
-    "fumadocs-core": "15.2.5",
+    "fumadocs-core": "16.6.7",
     "fumadocs-mdx": "14.2.6",
     "fumadocs-ui": "15.2.5",
     "lucide-react": "0.562.0",
