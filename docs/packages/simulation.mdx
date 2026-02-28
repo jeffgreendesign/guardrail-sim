@@ -1,0 +1,155 @@
+---
+title: Simulation
+description: Adversarial buyer persona simulation engine
+---
+
+# @guardrail-sim/simulation
+
+Stress-test your pricing policies by running adversarial buyer personas through multi-round negotiation loops.
+
+## Installation
+
+```bash
+pnpm add @guardrail-sim/simulation
+```
+
+## Quick Start
+
+```typescript
+import { runSimulation, defaultPersonas } from '@guardrail-sim/simulation';
+import { defaultPolicy } from '@guardrail-sim/policy-engine';
+
+const results = await runSimulation({
+  policy: defaultPolicy,
+  personas: defaultPersonas,
+  ordersPerPersona: 20,
+  seed: 42,
+});
+
+console.log(`Approval rate: ${(results.metrics.approvalRate * 100).toFixed(1)}%`);
+console.log(`Edge cases found: ${results.metrics.edgeCasesFound.length}`);
+```
+
+## Buyer Personas
+
+Five built-in personas cover the full spectrum of buyer behavior:
+
+| Persona | Strategy | Behavior |
+|---------|----------|----------|
+| Budget Buyer | Cooperative | Requests modest discounts (3-8%), backs off quickly |
+| Strategic Buyer | Strategic | Starts mid-high, negotiates down incrementally |
+| Margin Hunter | Adversarial | Probes the margin floor with low-margin orders |
+| Volume Gamer | Adversarial | Games volume tier boundaries (orders near qty 100) |
+| Code Stacker | Adversarial | Attempts maximum discounts (20-30%), barely concedes |
+
+### Custom Personas
+
+```typescript
+import type { BuyerPersona } from '@guardrail-sim/simulation';
+
+const enterpriseBuyer: BuyerPersona = {
+  id: 'enterprise-buyer',
+  name: 'Enterprise Buyer',
+  strategy: 'strategic',
+  discountRange: { min: 0.10, max: 0.20 },
+  volumeRange: { min: 200, max: 1000 },
+  marginRange: { min: 0.30, max: 0.50 },
+  maxRounds: 5,
+  adaptationRate: 0.25,
+};
+```
+
+## Negotiation Loop
+
+Each session follows this flow:
+
+1. Persona generates an initial discount request based on its strategy
+2. Policy engine evaluates the request
+3. If approved: session ends with acceptance
+4. If rejected: persona adapts based on `adaptationRate` and tries again
+5. If all rounds exhausted: session ends with rejection
+
+The `adaptationRate` controls how much a persona concedes after rejection:
+- **Cooperative** (0.5): Large concessions, quick resolution
+- **Strategic** (0.3): Moderate concessions, gradual negotiation
+- **Adversarial** (0.1-0.15): Minimal concessions, boundary probing
+
+## Reproducibility
+
+All simulations are deterministic given the same seed:
+
+```typescript
+const run1 = await runSimulation({ policy, personas, ordersPerPersona: 20, seed: 42 });
+const run2 = await runSimulation({ policy, personas, ordersPerPersona: 20, seed: 42 });
+
+// run1.metrics.approvalRate === run2.metrics.approvalRate (always)
+```
+
+Uses a seeded PRNG (mulberry32) — never `Math.random()`.
+
+## Metrics
+
+The `SimulationMetrics` object contains:
+
+- `totalSessions` — Number of negotiation sessions
+- `approvalRate` — Fraction of sessions that ended in acceptance
+- `averageDiscountApproved` — Mean discount for approved sessions
+- `averageDiscountRequested` — Mean discount across all requests
+- `averageMarginAfterDiscount` — Mean margin for approved discounts
+- `violationsByRule` — Count of violations per rule name
+- `outcomesByPersona` — Accepted/rejected/abandoned per persona
+- `limitingFactors` — Which rule limited most often
+- `edgeCasesFound` — Boundary conditions detected
+
+## Edge Case Detection
+
+The engine automatically detects:
+
+- Discounts approved near the margin floor (&lt;17% margin)
+- Orders at volume tier boundaries (qty 95-105 with 10-15% discount)
+- High discounts approved (&gt;20%)
+
+For targeted boundary testing:
+
+```typescript
+import {
+  generateVolumeBoundaryOrders,
+  generateMarginFloorProbes,
+  createBoundaryProber,
+} from '@guardrail-sim/simulation';
+
+// Test qty 99, 100, 101 with same discount
+const volumeTests = generateVolumeBoundaryOrders(0.4, 5000);
+
+// Test incremental margin floor approach
+const marginTests = generateMarginFloorProbes(0.35);
+```
+
+## Insights Bridge
+
+Convert results to feed the `@guardrail-sim/insights` analysis engine:
+
+```typescript
+import { toSimulationSummary } from '@guardrail-sim/simulation';
+import { analyzePolicy } from '@guardrail-sim/insights';
+
+const summary = toSimulationSummary(results);
+const report = await analyzePolicy({
+  policy: policySummary,
+  simulationResults: summary,
+});
+```
+
+This enables 8 built-in simulation insight checks including coverage analysis, segment distribution, unused rule detection, and limiting factor analysis.
+
+## PersonaProvider Interface
+
+The simulation uses a `PersonaProvider` interface for generating requests:
+
+```typescript
+interface PersonaProvider {
+  generateRequest(context: NegotiationContext): DiscountRequest;
+}
+```
+
+The built-in implementation is fully deterministic. The interface is designed for future LLM-backed persona providers without requiring changes to the runner.
