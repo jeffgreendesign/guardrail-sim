@@ -27,7 +27,7 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listTools();
 
-      assert.strictEqual(result.tools.length, 5);
+      assert.strictEqual(result.tools.length, 7);
 
       const toolNames = result.tools.map((t) => t.name);
       assert.ok(toolNames.includes('evaluate_policy'));
@@ -36,6 +36,9 @@ describe('MCP Server', () => {
       // UCP-aligned tools
       assert.ok(toolNames.includes('validate_discount_code'));
       assert.ok(toolNames.includes('simulate_checkout_discount'));
+      // Simulation tools
+      assert.ok(toolNames.includes('run_simulation'));
+      assert.ok(toolNames.includes('analyze_simulation'));
     });
 
     it('should have proper schemas for evaluate_policy', async () => {
@@ -217,13 +220,14 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listResources();
 
-      assert.strictEqual(result.resources.length, 3);
+      assert.strictEqual(result.resources.length, 4);
 
       const uris = result.resources.map((r) => r.uri);
       assert.ok(uris.includes('guardrail://policies/active'));
       // MCP Apps UI resources
       assert.ok(uris.includes('ui://guardrail-sim/evaluation-result'));
       assert.ok(uris.includes('ui://guardrail-sim/policy-dashboard'));
+      assert.ok(uris.includes('ui://guardrail-sim/simulation-results'));
     });
 
     it('should read active policy resource', async () => {
@@ -251,6 +255,77 @@ describe('MCP Server', () => {
       assert.strictEqual(dashResult.contents.length, 1);
       assert.strictEqual(dashResult.contents[0].mimeType, 'text/html');
       assert.ok((dashResult.contents[0].text as string).includes('<!doctype html>'));
+    });
+  });
+
+  describe('run_simulation tool', () => {
+    it('should run simulation with default parameters', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'run_simulation',
+        arguments: {},
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.ok(parsed.totalSessions > 0);
+      assert.ok(typeof parsed.approvalRate === 'number');
+      assert.ok(typeof parsed.averageDiscountApproved === 'number');
+      assert.ok(parsed.outcomesByPersona);
+      assert.strictEqual(parsed.seed, 42);
+      assert.strictEqual(parsed.persona_count, 5);
+    });
+
+    it('should run simulation with specific personas', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'run_simulation',
+        arguments: {
+          personas: ['budget-buyer', 'margin-hunter'],
+          orders_per_persona: 5,
+          seed: 123,
+        },
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(parsed.totalSessions, 10); // 2 personas × 5 orders
+      assert.strictEqual(parsed.persona_count, 2);
+      assert.strictEqual(parsed.seed, 123);
+    });
+
+    it('should cap orders_per_persona at 50', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'run_simulation',
+        arguments: {
+          personas: ['budget-buyer'],
+          orders_per_persona: 100,
+        },
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(parsed.totalSessions, 50); // capped at 50
+    });
+  });
+
+  describe('analyze_simulation tool', () => {
+    it('should return metrics and insights', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'analyze_simulation',
+        arguments: {
+          orders_per_persona: 10,
+        },
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.ok(parsed.metrics);
+      assert.ok(parsed.insights);
+      assert.ok(typeof parsed.insights.total === 'number');
+      assert.ok(Array.isArray(parsed.insights.items));
     });
   });
 

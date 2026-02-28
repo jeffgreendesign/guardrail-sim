@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulation Results</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #e4e4e7;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 700px;
+        margin: 0 auto;
+      }
+
+      .loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+        gap: 16px;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .header h1 {
+        font-size: 1.4rem;
+        margin-bottom: 4px;
+      }
+
+      .header .subtitle {
+        color: #a1a1aa;
+        font-size: 0.85rem;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .metric-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 14px;
+        text-align: center;
+      }
+
+      .metric-card .label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #a1a1aa;
+        margin-bottom: 6px;
+      }
+
+      .metric-card .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .metric-card .value.green { color: #4ade80; }
+      .metric-card .value.yellow { color: #facc15; }
+      .metric-card .value.red { color: #f87171; }
+
+      .section {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .section h2 {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #a1a1aa;
+        margin-bottom: 12px;
+      }
+
+      .persona-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .persona-row:last-child { border-bottom: none; }
+
+      .persona-name {
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+
+      .persona-bar {
+        display: flex;
+        gap: 2px;
+        align-items: center;
+      }
+
+      .bar-segment {
+        height: 18px;
+        border-radius: 3px;
+        min-width: 2px;
+      }
+
+      .bar-accepted { background: #4ade80; }
+      .bar-rejected { background: #f87171; }
+
+      .persona-stats {
+        font-size: 0.75rem;
+        color: #a1a1aa;
+        min-width: 80px;
+        text-align: right;
+      }
+
+      .violation-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 0.85rem;
+      }
+
+      .violation-rule { color: #fbbf24; }
+      .violation-count { color: #a1a1aa; }
+
+      .edge-case {
+        padding: 8px 10px;
+        margin-bottom: 6px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        border-left: 3px solid;
+      }
+
+      .edge-case.warning {
+        background: rgba(251, 191, 36, 0.1);
+        border-color: #fbbf24;
+      }
+
+      .edge-case.info {
+        background: rgba(96, 165, 250, 0.1);
+        border-color: #60a5fa;
+      }
+
+      .edge-case.critical {
+        background: rgba(248, 113, 113, 0.1);
+        border-color: #f87171;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" id="app">
+      <div class="loading">
+        <p>Waiting for simulation results...</p>
+      </div>
+    </div>
+    <script>
+      function render(data) {
+        const app = document.getElementById('app');
+        const approvalPct = (data.approvalRate * 100).toFixed(1);
+        const avgDiscount = (data.averageDiscountApproved * 100).toFixed(1);
+        const avgMargin = (data.averageMarginAfterDiscount * 100).toFixed(1);
+
+        const approvalColor = data.approvalRate > 0.7 ? 'green' : data.approvalRate > 0.4 ? 'yellow' : 'red';
+        const marginColor = data.averageMarginAfterDiscount > 0.2 ? 'green' : data.averageMarginAfterDiscount > 0.15 ? 'yellow' : 'red';
+
+        let html = `
+          <div class="header">
+            <h1>Simulation Results</h1>
+            <div class="subtitle">${data.totalSessions} sessions across ${data.persona_count || Object.keys(data.outcomesByPersona).length} personas</div>
+          </div>
+          <div class="metric-grid">
+            <div class="metric-card">
+              <div class="label">Approval Rate</div>
+              <div class="value ${approvalColor}">${approvalPct}%</div>
+            </div>
+            <div class="metric-card">
+              <div class="label">Avg Discount</div>
+              <div class="value">${avgDiscount}%</div>
+            </div>
+            <div class="metric-card">
+              <div class="label">Avg Margin</div>
+              <div class="value ${marginColor}">${avgMargin}%</div>
+            </div>
+          </div>`;
+
+        // Persona outcomes
+        if (data.outcomesByPersona) {
+          html += '<div class="section"><h2>Outcomes by Persona</h2>';
+          for (const [id, outcomes] of Object.entries(data.outcomesByPersona)) {
+            const total = outcomes.accepted + outcomes.rejected + outcomes.abandoned;
+            const aW = Math.max(0, (outcomes.accepted / total) * 120);
+            const rW = Math.max(0, (outcomes.rejected / total) * 120);
+            html += `
+              <div class="persona-row">
+                <span class="persona-name">${id}</span>
+                <div class="persona-bar">
+                  <div class="bar-segment bar-accepted" style="width:${aW}px"></div>
+                  <div class="bar-segment bar-rejected" style="width:${rW}px"></div>
+                </div>
+                <span class="persona-stats">${outcomes.accepted}/${total} approved</span>
+              </div>`;
+          }
+          html += '</div>';
+        }
+
+        // Violations
+        if (data.violationsByRule && Object.keys(data.violationsByRule).length > 0) {
+          html += '<div class="section"><h2>Violations by Rule</h2>';
+          for (const [rule, count] of Object.entries(data.violationsByRule)) {
+            html += `<div class="violation-row"><span class="violation-rule">${rule}</span><span class="violation-count">${count}</span></div>`;
+          }
+          html += '</div>';
+        }
+
+        // Edge cases
+        if (data.edgeCasesFound && data.edgeCasesFound.length > 0) {
+          html += `<div class="section"><h2>Edge Cases (${data.edgeCasesFound.length})</h2>`;
+          for (const ec of data.edgeCasesFound.slice(0, 10)) {
+            html += `<div class="edge-case ${ec.severity}">${ec.description}</div>`;
+          }
+          if (data.edgeCasesFound.length > 10) {
+            html += `<p style="color:#a1a1aa;font-size:0.8rem;margin-top:8px">...and ${data.edgeCasesFound.length - 10} more</p>`;
+          }
+          html += '</div>';
+        }
+
+        app.innerHTML = html;
+      }
+
+      // MCP Apps event listener
+      window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'tool_result') {
+          try {
+            const data = typeof event.data.data === 'string' ? JSON.parse(event.data.data) : event.data.data;
+            render(data);
+          } catch (e) {
+            console.error('Failed to parse simulation results:', e);
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

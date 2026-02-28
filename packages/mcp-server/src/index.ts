@@ -32,6 +32,9 @@ import type {
   DiscountExtensionResponse,
   LineItem,
 } from '@guardrail-sim/ucp-types';
+import { runSimulation, defaultPersonas, toSimulationSummary } from '@guardrail-sim/simulation';
+import type { SimulationMetrics } from '@guardrail-sim/simulation';
+import { analyzePolicy } from '@guardrail-sim/insights';
 
 export const VERSION = '0.0.1';
 
@@ -261,6 +264,73 @@ Use this tool when:
       required: ['codes', 'line_items', 'currency', 'discount_percentage'],
     },
   },
+  // Simulation tools
+  {
+    name: 'run_simulation',
+    description: `Run an adversarial simulation against the active pricing policy.
+
+Spawns deterministic buyer personas that attempt to extract maximum discounts
+through various strategies (cooperative, strategic, adversarial).
+
+Returns metrics including approval rate, margin erosion, violations by rule,
+outcomes by persona, and discovered edge cases.
+
+Use this tool when:
+- You want to stress-test a policy before deployment
+- You need to understand how different buyer types interact with the policy
+- You want to find edge cases or boundary vulnerabilities`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        orders_per_persona: {
+          type: 'number' as const,
+          description: 'Number of negotiation sessions per persona (default: 20, max: 50)',
+        },
+        personas: {
+          type: 'array' as const,
+          items: { type: 'string' as const },
+          description:
+            'Persona IDs to include (default: all). Options: budget-buyer, strategic-buyer, margin-hunter, volume-gamer, code-stacker',
+        },
+        seed: {
+          type: 'number' as const,
+          description: 'Random seed for reproducible results (default: 42)',
+        },
+      },
+    },
+    _meta: {
+      ui: {
+        resourceUri: 'ui://guardrail-sim/simulation-results',
+      },
+    },
+  },
+  {
+    name: 'analyze_simulation',
+    description: `Run a simulation and analyze the results with the insights engine.
+
+Combines the simulation runner with policy health checks to produce
+actionable recommendations for improving the policy.
+
+Returns both simulation metrics and insight recommendations.
+
+Use this tool when:
+- You want a complete policy assessment with recommendations
+- You need to identify specific policy improvements
+- You want to understand both what happened and what to do about it`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        orders_per_persona: {
+          type: 'number' as const,
+          description: 'Number of negotiation sessions per persona (default: 20, max: 50)',
+        },
+        seed: {
+          type: 'number' as const,
+          description: 'Random seed for reproducible results (default: 42)',
+        },
+      },
+    },
+  },
 ];
 
 /**
@@ -468,6 +538,109 @@ async function handleSimulateCheckoutDiscount(args: {
 }
 
 /**
+ * Handle run_simulation tool call
+ */
+async function handleRunSimulation(args: {
+  orders_per_persona?: number;
+  personas?: string[];
+  seed?: number;
+}): Promise<SimulationMetrics & { seed: number; persona_count: number }> {
+  const ordersPerPersona = Math.min(args.orders_per_persona ?? 20, 50);
+  const seed = args.seed ?? 42;
+
+  // Filter personas if specific ones requested
+  let personas = defaultPersonas;
+  if (args.personas && args.personas.length > 0) {
+    personas = defaultPersonas.filter((p) => args.personas!.includes(p.id));
+    if (personas.length === 0) {
+      throw new Error(
+        `No matching personas found. Available: ${defaultPersonas.map((p) => p.id).join(', ')}`
+      );
+    }
+  }
+
+  const results = await runSimulation({
+    policy: currentPolicy,
+    personas,
+    ordersPerPersona,
+    seed,
+  });
+
+  return {
+    ...results.metrics,
+    seed,
+    persona_count: personas.length,
+  };
+}
+
+/**
+ * Handle analyze_simulation tool call
+ */
+async function handleAnalyzeSimulation(args: {
+  orders_per_persona?: number;
+  seed?: number;
+}): Promise<{
+  metrics: SimulationMetrics;
+  insights: {
+    total: number;
+    critical: number;
+    warnings: number;
+    items: Array<{ id: string; title: string; severity: string; message: string }>;
+  };
+}> {
+  const ordersPerPersona = Math.min(args.orders_per_persona ?? 20, 50);
+  const seed = args.seed ?? 42;
+
+  const results = await runSimulation({
+    policy: currentPolicy,
+    personas: defaultPersonas,
+    ordersPerPersona,
+    seed,
+  });
+
+  const summary = toSimulationSummary(results);
+
+  // Build policy summary for insights (must match PolicySummary interface)
+  const policySummary = {
+    id: currentPolicy.id,
+    name: currentPolicy.name,
+    ruleCount: currentPolicy.rules.length,
+    rules: currentPolicy.rules.map((r) => ({
+      name: r.name,
+      priority: r.priority ?? 0,
+      conditionCount: Object.keys(r.conditions).length,
+      eventType: r.event.type,
+    })),
+    hasMarginFloor: currentPolicy.rules.some((r) => r.name === 'margin_floor'),
+    hasMaxDiscountCap: currentPolicy.rules.some((r) => r.name === 'max_discount'),
+    hasVolumeTiers: currentPolicy.rules.some((r) => r.name === 'volume_tier'),
+    hasSegmentRules: false,
+  };
+
+  const report = await analyzePolicy({
+    policy: policySummary,
+    simulationResults: summary,
+  });
+
+  return {
+    metrics: results.metrics,
+    insights: {
+      total: report.summary.total,
+      critical: report.summary.critical,
+      warnings: report.summary.warning,
+      items: report.insights
+        .filter((r) => r.triggered)
+        .map((r) => ({
+          id: r.insight.id,
+          title: r.insight.title,
+          severity: r.insight.severity,
+          message: r.message ?? r.insight.description,
+        })),
+    },
+  };
+}
+
+/**
  * Create and configure the MCP server
  */
 export function createServer(): Server {
@@ -570,6 +743,40 @@ export function createServer(): Server {
           };
         }
 
+        // Simulation tools
+        case 'run_simulation': {
+          const typedArgs = args as {
+            orders_per_persona?: number;
+            personas?: string[];
+            seed?: number;
+          };
+          const result = await handleRunSimulation(typedArgs);
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case 'analyze_simulation': {
+          const typedArgs = args as {
+            orders_per_persona?: number;
+            seed?: number;
+          };
+          const result = await handleAnalyzeSimulation(typedArgs);
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
         default:
           return {
             content: [
@@ -627,6 +834,13 @@ export function createServer(): Server {
           'Interactive dashboard showing policy rules with visual constraints and discount calculator',
         mimeType: 'text/html',
       },
+      {
+        uri: 'ui://guardrail-sim/simulation-results',
+        name: 'Simulation Results Visualizer',
+        description:
+          'Interactive dashboard showing simulation metrics, persona outcomes, and edge cases',
+        mimeType: 'text/html',
+      },
     ],
   }));
 
@@ -667,6 +881,23 @@ export function createServer(): Server {
     if (uri === 'ui://guardrail-sim/policy-dashboard') {
       try {
         const html = await readFile(join(UI_DIR, 'policy-dashboard.html'), 'utf-8');
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: 'text/html',
+              text: html,
+            },
+          ],
+        };
+      } catch {
+        throw new Error(`Failed to read UI resource: ${uri}`);
+      }
+    }
+
+    if (uri === 'ui://guardrail-sim/simulation-results') {
+      try {
+        const html = await readFile(join(UI_DIR, 'simulation-results.html'), 'utf-8');
         return {
           contents: [
             {
