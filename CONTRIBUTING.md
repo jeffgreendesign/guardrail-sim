@@ -26,31 +26,20 @@ pnpm build
 pnpm test
 ```
 
-### Environment Variables
-
-Copy `.env.example` to `.env.local` and configure:
-
-```bash
-cp .env.example .env.local
-```
-
-Required variables:
-
-- `OPENAI_API_KEY` - For running simulations
-- `SUPABASE_URL` / `SUPABASE_ANON_KEY` - For dashboard persistence
-
 ## Project Structure
 
 ```text
-apps/
-  website/             # Fumadocs documentation site + interactive playground
-
 packages/
   policy-engine/       # Core rule evaluation (json-rules-engine)
-  mcp-server/          # MCP server exposing 5 policy evaluation tools
+  simulation/          # Adversarial buyer personas + negotiation loops
+  mcp-server/          # MCP server exposing 7 policy evaluation tools
   ucp-types/           # UCP type definitions for agentic commerce
   insights/            # Policy health checks and recommendations
-  simulation/          # LLM buyer persona simulation [PLANNED]
+apps/
+  website/             # Fumadocs documentation site + interactive playground
+examples/
+  simulation-demo/     # Run simulation and see formatted results
+  ucp-integration-demo/ # UCP discount validation scenarios
 ```
 
 ## Development Workflow
@@ -58,13 +47,26 @@ packages/
 ### Running Commands
 
 ```bash
-pnpm dev              # Start all packages in dev mode
-pnpm build            # Build all packages
-pnpm test             # Run all tests
+pnpm dev              # Watch mode — rebuilds on file changes
+pnpm build            # Build all packages (runs tsc for each)
+pnpm test             # Run all tests (109 passing across 5 packages)
+pnpm demo             # Run simulation demo (formatted report output)
 pnpm lint             # Run ESLint
 pnpm typecheck        # Run TypeScript checks
 pnpm format           # Format with Prettier
 pnpm format:check     # Check formatting
+```
+
+### Expected Output
+
+After `pnpm test`, you should see:
+
+```
+policy-engine: # tests 26, # pass 26, # fail 0
+ucp-types:     # tests 20, # pass 20, # fail 0
+insights:      # tests 18, # pass 18, # fail 0
+simulation:    # tests 26, # pass 26, # fail 0
+mcp-server:    # tests 19, # pass 19, # fail 0
 ```
 
 ### Working on a Single Package

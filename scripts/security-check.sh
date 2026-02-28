@@ -76,7 +76,9 @@ scan_pattern() {
 # Get files to check: staged files if in git context, else all source files
 STAGED_FILES=()
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  mapfile -t STAGED_FILES < <(git diff --cached --name-only --diff-filter=ACM -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null || true)
+  while IFS= read -r file; do
+    STAGED_FILES+=("$file")
+  done < <(git diff --cached --name-only --diff-filter=ACM -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null || true)
 fi
 
 if [ "${#STAGED_FILES[@]}" -gt 0 ]; then

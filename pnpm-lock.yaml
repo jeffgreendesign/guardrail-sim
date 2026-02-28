@@ -111,6 +111,41 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
 
+  examples/simulation-demo:
+    dependencies:
+      '@guardrail-sim/insights':
+        specifier: workspace:*
+        version: link:../../packages/insights
+      '@guardrail-sim/policy-engine':
+        specifier: workspace:*
+        version: link:../../packages/policy-engine
+      '@guardrail-sim/simulation':
+        specifier: workspace:*
+        version: link:../../packages/simulation
+    devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.7.2
+
+  examples/ucp-integration-demo:
+    dependencies:
+      '@guardrail-sim/policy-engine':
+        specifier: workspace:*
+        version: link:../../packages/policy-engine
+      '@guardrail-sim/ucp-types':
+        specifier: workspace:*
+        version: link:../../packages/ucp-types
+    devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.7.2
+
   packages/insights:
     dependencies:
       '@guardrail-sim/policy-engine':
@@ -129,9 +164,15 @@ importers:
 
   packages/mcp-server:
     dependencies:
+      '@guardrail-sim/insights':
+        specifier: workspace:*
+        version: link:../insights
       '@guardrail-sim/policy-engine':
         specifier: workspace:*
         version: link:../policy-engine
+      '@guardrail-sim/simulation':
+        specifier: workspace:*
+        version: link:../simulation
       '@guardrail-sim/ucp-types':
         specifier: workspace:*
         version: link:../ucp-types
@@ -170,6 +211,9 @@ importers:
 
   packages/simulation:
     dependencies:
+      '@guardrail-sim/insights':
+        specifier: workspace:*
+        version: link:../insights
       '@guardrail-sim/policy-engine':
         specifier: workspace:*
         version: link:../policy-engine
@@ -2252,6 +2296,11 @@ packages:
     resolution: {integrity: sha512-yhlQgA6mnOJUKOsRUFsgJdQCvkKhcz8tlZG5HBQfReYZy46OwLcY+Zia0mtdHsOo9y/hP+CxMN0TU9QxoOtG4g==}
     engines: {node: '>=6 <7 || >=8'}
 
+  fsevents@2.3.3:
+    resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fumadocs-core@15.2.5:
     resolution: {integrity: sha512-vSeyFdbuUCx8H27wrnv6bm7Z5ZGjI7L3mkjSZfbS4oh3qWHWs+L+qEX2lSGmL2IMRIXXrUZGSwe0xohz5uAwAg==}
     peerDependencies:
@@ -2327,6 +2376,9 @@ packages:
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
     engines: {node: '>= 0.4'}
+
+  get-tsconfig@4.13.6:
+    resolution: {integrity: sha512-shZT/QMiSHc/YBLxxOkMtgSid5HFoauqCE3/exfsEcwg1WkeqjG+V40yBbBrsD+jW2HDXcs28xOfcbm2jI8Ddw==}
 
   git-raw-commits@4.0.0:
     resolution: {integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==}
@@ -3323,6 +3375,9 @@ packages:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
 
+  resolve-pkg-maps@1.0.0:
+    resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
+
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
@@ -3554,6 +3609,11 @@ packages:
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  tsx@4.21.0:
+    resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -5871,6 +5931,9 @@ snapshots:
       jsonfile: 4.0.0
       universalify: 0.1.2
 
+  fsevents@2.3.3:
+    optional: true
+
   fumadocs-core@15.2.5(@types/react@19.0.2)(next@15.4.10(react-dom@19.0.3(react@19.0.3))(react@19.0.3))(react-dom@19.0.3(react@19.0.3))(react@19.0.3):
     dependencies:
       '@formatjs/intl-localematcher': 0.6.2
@@ -5979,6 +6042,10 @@ snapshots:
     dependencies:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.1
+
+  get-tsconfig@4.13.6:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
 
   git-raw-commits@4.0.0:
     dependencies:
@@ -7226,6 +7293,8 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
+  resolve-pkg-maps@1.0.0: {}
+
   restore-cursor@5.1.0:
     dependencies:
       onetime: 7.0.0
@@ -7489,6 +7558,13 @@ snapshots:
       typescript: 5.7.2
 
   tslib@2.8.1: {}
+
+  tsx@4.21.0:
+    dependencies:
+      esbuild: 0.27.2
+      get-tsconfig: 4.13.6
+    optionalDependencies:
+      fsevents: 2.3.3
 
   type-check@0.4.0:
     dependencies:

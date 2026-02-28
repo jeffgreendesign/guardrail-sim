@@ -19,47 +19,69 @@ You're deploying an AI sales agent. It can negotiate discounts. But:
 
 ## The Solution
 
-Guardrail-Sim lets you **simulate thousands of adversarial buyer interactions** against your pricing policies before going live. Define rules. Spawn LLM buyer personas that try to game them. See what breaks.
+Guardrail-Sim lets you **simulate thousands of adversarial buyer interactions** against your pricing policies before going live. Define rules. Spawn buyer personas that try to game them. See what breaks.
 
 **Define Policy → Simulate Attacks → Fix Gaps → Deploy with Confidence**
 
-## Project Status
-
-| Component     | Status       | Description                                          |
-| ------------- | ------------ | ---------------------------------------------------- |
-| Policy Engine | **Complete** | Deterministic rule evaluation with json-rules-engine |
-| MCP Server    | **Complete** | MCP tool interface for AI agents                     |
-| UCP Types     | **Complete** | Universal Commerce Protocol type definitions         |
-| Insights      | **Complete** | Policy health checks and recommendations             |
-| Simulation    | Planned      | LLM buyer personas and negotiation loops             |
-
-## Quick Start
+## Try It Now
 
 ```bash
-pnpm install
-pnpm build
-pnpm test
+git clone https://github.com/jeffgreendesign/guardrail-sim.git
+cd guardrail-sim && pnpm install && pnpm build
 ```
 
-## What Works Now
+Run a simulation with 5 adversarial buyer personas:
 
-The policy engine is fully functional with tests:
+```bash
+pnpm demo
+```
+
+Expected output:
+
+```
+===============================================
+  GUARDRAIL-SIM · Simulation Report
+===============================================
+
+  Sessions: 50  |  Seed: 42
+
+  Approval Rate ····· 46.0%
+  Avg Discount ······ 9.0%
+  Avg Margin ········ 28.4%
+
+  PERSONA OUTCOMES
+  budget-buyer········ 10/10 approved
+  strategic-buyer·····  9/10 approved
+  margin-hunter·······  0/10 approved
+  volume-gamer········  4/10 approved
+  code-stacker········  0/10 approved
+```
+
+Or test a single policy evaluation:
 
 ```typescript
 import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
 
 const engine = new PolicyEngine(defaultPolicy);
 
-// Evaluate a 12% discount request
 const result = await engine.evaluate(
   { order_value: 5000, quantity: 100, product_margin: 0.4 },
   0.12
 );
 
-console.log(result.approved); // true or false
-console.log(result.violations); // array of policy violations
-console.log(result.triggeredRules); // which rules fired
+console.log(result.approved); // true
+console.log(result.violations); // []
 ```
+
+## Project Status
+
+| Component     | Status       | Description                                          |
+| ------------- | ------------ | ---------------------------------------------------- |
+| Policy Engine | **Complete** | Deterministic rule evaluation with json-rules-engine |
+| MCP Server    | **Complete** | 7 MCP tools including simulation and UCP-aligned     |
+| UCP Types     | **Complete** | Universal Commerce Protocol type definitions         |
+| Insights      | **Complete** | Policy health checks and recommendations             |
+| Simulation    | **Complete** | Adversarial buyer personas and negotiation loops     |
 
 ### Default Policy Rules
 
@@ -71,35 +93,42 @@ console.log(result.triggeredRules); // which rules fired
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Simulation Engine                     [PLANNED]
-│                 LLM Buyer Personas · Negotiation Loops           │
-│                    (OpenAI GPT-4o-mini Batch API)               │
+│                     Simulation Engine                           │
+│          5 Buyer Personas · Adversarial Negotiation Loops       │
+│               Deterministic (seeded PRNG)                      │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                       Policy Engine                      [COMPLETE]
-│              json-rules-engine · Deterministic Evaluation        │
-│                    Exposed via MCP Server                        │
+│                       Policy Engine                            │
+│              json-rules-engine · Deterministic Evaluation       │
+│                    Exposed via MCP Server (7 tools)             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Packages
+## Project Structure
 
-| Package                        | Description                                             | Status       |
-| ------------------------------ | ------------------------------------------------------- | ------------ |
-| `@guardrail-sim/policy-engine` | Deterministic policy evaluation using json-rules-engine | **Complete** |
-| `@guardrail-sim/mcp-server`    | MCP server exposing policy evaluation tools             | **Complete** |
-| `@guardrail-sim/ucp-types`     | UCP type definitions and converters                     | **Complete** |
-| `@guardrail-sim/insights`      | Policy health checks and recommendations                | **Complete** |
-| `@guardrail-sim/simulation`    | LLM buyer personas and negotiation loop runner          | Planned      |
+```
+packages/
+├── policy-engine/     ✅ Deterministic rule evaluation (json-rules-engine)
+├── simulation/        ✅ Adversarial buyer personas + negotiation loops
+├── mcp-server/        ✅ MCP server with 7 tools (policy + simulation + UCP)
+├── ucp-types/         ✅ UCP type definitions and converters
+├── insights/          ✅ Policy health checks and recommendations
+apps/
+└── website/           ✅ Fumadocs documentation site + interactive playground
+examples/
+├── ucp-integration-demo/   UCP discount validation scenarios
+└── simulation-demo/        Run simulation and see results
+```
 
 ## Commands
 
 ```bash
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
-pnpm test             # Run tests (76 passing)
+pnpm test             # Run tests (109 passing)
+pnpm demo             # Run simulation demo
 pnpm lint             # Run ESLint
 pnpm format           # Format with Prettier
 ```
@@ -109,6 +138,12 @@ Per-package:
 ```bash
 pnpm --filter @guardrail-sim/policy-engine build   # Build single package
 pnpm --filter @guardrail-sim/policy-engine test    # Test single package
+```
+
+MCP server:
+
+```bash
+npx @guardrail-sim/mcp-server  # Run MCP server
 ```
 
 ## Documentation

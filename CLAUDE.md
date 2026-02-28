@@ -45,17 +45,17 @@ apps/
 
 packages/
   policy-engine/       # json-rules-engine integration (deterministic)
-  mcp-server/          # MCP server exposing 5 policy evaluation tools
+  mcp-server/          # MCP server exposing 7 policy evaluation tools
   ucp-types/           # UCP type definitions for agentic commerce
   insights/            # Policy health checks and recommendations
-  simulation/          # LLM buyer personas + negotiation loop runner [PLANNED]
+  simulation/          # Adversarial buyer personas + negotiation loop runner
 ```
 
 ## Architecture
 
 Two-layer separation of concerns:
 
-1. **Simulation Engine** (Node.js) — Generates synthetic orders, runs LLM buyer personas against policies [PLANNED]
+1. **Simulation Engine** (Node.js) — Generates synthetic orders, runs adversarial buyer personas against policies
 2. **Policy Engine** (Deterministic) — json-rules-engine rules, exposed via MCP tools
 
 Key principle: LLMs simulate adversarial buyers only. Pricing math is always deterministic via the rules engine.
@@ -73,8 +73,7 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 - pnpm monorepo, TypeScript (ES2022, NodeNext)
 - json-rules-engine for policy evaluation
 - @modelcontextprotocol/sdk for MCP server
-- OpenAI GPT-4o-mini Batch API for simulation [PLANNED]
-- Supabase (PostgreSQL) for persistence
+- Supabase (PostgreSQL) for persistence [PLANNED]
 - Next.js 15 + Fumadocs for documentation site
 
 ## Constraints
@@ -82,6 +81,18 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 - No Shopify integration — MVP uses synthetic data only (NDA-safe, reproducible)
 - No auth — single-user for MVP
 - Demo-able beats perfect — this is a portfolio project
+
+## Code Quality Rules
+
+Rules enforced during implementation. Run `pnpm build && pnpm test` after every phase.
+
+- **Strict types** — No `any` types. All exports fully typed. Use existing types from sibling packages.
+- **Tests required** — Every new module must have corresponding test coverage using Node's built-in test runner.
+- **Reproducibility** — Simulation output must be deterministic given the same seed. Use seeded PRNG, never `Math.random()`.
+- **No external API deps in simulation core** — The simulation package must work offline with zero API keys. LLM integration deferred behind a `PersonaProvider` interface.
+- **Insights bridge compatibility** — SimulationResults must convert to `SimulationSummary` (from `@guardrail-sim/insights`) so existing insight checks fire.
+- **Reuse existing patterns** — Follow the code style, export patterns, and test structure from `policy-engine` and `mcp-server`. Don't invent new conventions.
+- **Gate after each phase** — `pnpm build && pnpm test` must pass with zero failures before moving to the next phase.
 
 ## Changesets
 
