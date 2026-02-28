@@ -41,11 +41,12 @@
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",
-    "test": "echo \"No tests yet\"",
+    "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@guardrail-sim/policy-engine": "workspace:*"
+    "@guardrail-sim/policy-engine": "workspace:*",
+    "@guardrail-sim/insights": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
