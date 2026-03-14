@@ -1,8 +1,9 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createServer, VERSION } from '../src/index.ts';
+import { createServer, VERSION } from '../dist/index.js';
+import { clearSessions } from '../dist/checkout-store.js';
 
 describe('MCP Server', () => {
   async function createTestClient() {
@@ -27,7 +28,7 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listTools();
 
-      assert.strictEqual(result.tools.length, 7);
+      assert.strictEqual(result.tools.length, 12);
 
       const toolNames = result.tools.map((t) => t.name);
       assert.ok(toolNames.includes('evaluate_policy'));
@@ -39,6 +40,12 @@ describe('MCP Server', () => {
       // Simulation tools
       assert.ok(toolNames.includes('run_simulation'));
       assert.ok(toolNames.includes('analyze_simulation'));
+      // Standard UCP Checkout tools
+      assert.ok(toolNames.includes('create_checkout'));
+      assert.ok(toolNames.includes('get_checkout'));
+      assert.ok(toolNames.includes('update_checkout'));
+      assert.ok(toolNames.includes('complete_checkout'));
+      assert.ok(toolNames.includes('cancel_checkout'));
     });
 
     it('should have proper schemas for evaluate_policy', async () => {
@@ -220,10 +227,11 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listResources();
 
-      assert.strictEqual(result.resources.length, 4);
+      assert.strictEqual(result.resources.length, 5);
 
       const uris = result.resources.map((r) => r.uri);
       assert.ok(uris.includes('guardrail://policies/active'));
+      assert.ok(uris.includes('guardrail://profile/well-known-ucp'));
       // MCP Apps UI resources
       assert.ok(uris.includes('ui://guardrail-sim/evaluation-result'));
       assert.ok(uris.includes('ui://guardrail-sim/policy-dashboard'));
@@ -326,6 +334,273 @@ describe('MCP Server', () => {
       assert.ok(parsed.insights);
       assert.ok(typeof parsed.insights.total === 'number');
       assert.ok(Array.isArray(parsed.insights.items));
+    });
+  });
+
+  describe('UCP Checkout Tools', () => {
+    beforeEach(() => {
+      clearSessions();
+    });
+
+    it('should create a checkout session', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+            buyer: { email: 'buyer@example.com', first_name: 'Test' },
+          },
+        },
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.ok(parsed.checkout.id);
+      assert.strictEqual(parsed.checkout.currency, 'USD');
+      assert.strictEqual(parsed.checkout.line_items.length, 1);
+      assert.strictEqual(parsed.checkout.status, 'ready_for_complete');
+    });
+
+    it('should get a checkout session by ID', async () => {
+      const { client } = await createTestClient();
+
+      // Create first
+      const createResult = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+            buyer: { email: 'test@test.com' },
+          },
+        },
+      });
+      const created = JSON.parse((createResult.content[0] as { type: 'text'; text: string }).text);
+
+      // Get by ID
+      const getResult = await client.callTool({
+        name: 'get_checkout',
+        arguments: { id: created.checkout.id },
+      });
+      const fetched = JSON.parse((getResult.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(fetched.checkout.id, created.checkout.id);
+    });
+
+    it('should return error for non-existent checkout', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'get_checkout',
+        arguments: { id: 'non-existent-id' },
+      });
+
+      assert.ok(result.isError);
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(parsed.code, 'NOT_FOUND');
+    });
+
+    it('should update a checkout session', async () => {
+      const { client } = await createTestClient();
+
+      // Create
+      const createResult = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+          },
+        },
+      });
+      const created = JSON.parse((createResult.content[0] as { type: 'text'; text: string }).text);
+
+      // Update with buyer info
+      const updateResult = await client.callTool({
+        name: 'update_checkout',
+        arguments: {
+          id: created.checkout.id,
+          checkout: {
+            buyer: { email: 'updated@test.com', first_name: 'Updated' },
+          },
+        },
+      });
+      const updated = JSON.parse((updateResult.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(updated.checkout.buyer.email, 'updated@test.com');
+      assert.strictEqual(updated.checkout.status, 'ready_for_complete');
+    });
+
+    it('should complete a checkout session', async () => {
+      const { client } = await createTestClient();
+
+      // Create with buyer (to get ready_for_complete status)
+      const createResult = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+            buyer: { email: 'buyer@test.com' },
+          },
+        },
+      });
+      const created = JSON.parse((createResult.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(created.checkout.status, 'ready_for_complete');
+
+      // Complete
+      const completeResult = await client.callTool({
+        name: 'complete_checkout',
+        arguments: { id: created.checkout.id },
+      });
+      const completed = JSON.parse(
+        (completeResult.content[0] as { type: 'text'; text: string }).text
+      );
+      assert.strictEqual(completed.checkout.status, 'completed');
+      assert.ok(completed.checkout.order);
+      assert.ok(completed.checkout.order.id);
+    });
+
+    it('should reject completing an incomplete session', async () => {
+      const { client } = await createTestClient();
+
+      // Create without buyer (stays incomplete)
+      const createResult = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+          },
+        },
+      });
+      const created = JSON.parse((createResult.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(created.checkout.status, 'incomplete');
+
+      // Try to complete
+      const completeResult = await client.callTool({
+        name: 'complete_checkout',
+        arguments: { id: created.checkout.id },
+      });
+      assert.ok(completeResult.isError);
+    });
+
+    it('should cancel a checkout session', async () => {
+      const { client } = await createTestClient();
+
+      // Create
+      const createResult = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+          },
+        },
+      });
+      const created = JSON.parse((createResult.content[0] as { type: 'text'; text: string }).text);
+
+      // Cancel
+      const cancelResult = await client.callTool({
+        name: 'cancel_checkout',
+        arguments: { id: created.checkout.id },
+      });
+      const canceled = JSON.parse((cancelResult.content[0] as { type: 'text'; text: string }).text);
+      assert.strictEqual(canceled.checkout.status, 'canceled');
+    });
+
+    it('should accept _meta.ucp.profile', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+          },
+          _meta: {
+            ucp: {
+              profile: 'https://platform.example/.well-known/ucp',
+            },
+          },
+        },
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.ok(parsed.checkout.id); // Tool accepted the profile without error
+    });
+
+    it('should handle idempotency keys', async () => {
+      const { client } = await createTestClient();
+
+      const idempotencyKey = 'test-idem-key-123';
+
+      // First create
+      const result1 = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 1 }],
+          },
+          idempotency_key: idempotencyKey,
+        },
+      });
+      const parsed1 = JSON.parse((result1.content[0] as { type: 'text'; text: string }).text);
+
+      // Second create with same key
+      const result2 = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-2', title: 'Different', price: 9999 }, quantity: 5 }],
+          },
+          idempotency_key: idempotencyKey,
+        },
+      });
+      const parsed2 = JSON.parse((result2.content[0] as { type: 'text'; text: string }).text);
+
+      // Same session ID returned
+      assert.strictEqual(parsed1.checkout.id, parsed2.checkout.id);
+    });
+
+    it('should create checkout with discount codes', async () => {
+      const { client } = await createTestClient();
+
+      const result = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 100 }],
+            buyer: { email: 'buyer@test.com' },
+            'dev.ucp.shopping.discount': {
+              codes: ['SAVE10'],
+            },
+          },
+        },
+      });
+
+      const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+      assert.ok(parsed.checkout['dev.ucp.shopping.discount']);
+      assert.deepStrictEqual(parsed.checkout['dev.ucp.shopping.discount'].codes, ['SAVE10']);
+    });
+  });
+
+  describe('UCP Profile Resource', () => {
+    it('should read UCP profile resource', async () => {
+      const { client } = await createTestClient();
+      const result = await client.readResource({ uri: 'guardrail://profile/well-known-ucp' });
+
+      assert.strictEqual(result.contents.length, 1);
+      const profile = JSON.parse(result.contents[0].text as string);
+      assert.strictEqual(profile.name, 'guardrail-sim');
+      assert.ok(profile.capabilities.length > 0);
+      assert.ok(
+        profile.capabilities.some((c: { name: string }) => c.name === 'dev.ucp.shopping.checkout')
+      );
     });
   });
 

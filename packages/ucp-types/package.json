@@ -21,6 +21,18 @@
     "./converters": {
       "types": "./dist/converters.d.ts",
       "import": "./dist/converters.js"
+    },
+    "./versions": {
+      "types": "./dist/versions.d.ts",
+      "import": "./dist/versions.js"
+    },
+    "./profile": {
+      "types": "./dist/profile.d.ts",
+      "import": "./dist/profile.js"
+    },
+    "./cart": {
+      "types": "./dist/cart.d.ts",
+      "import": "./dist/cart.js"
     }
   },
   "files": [
