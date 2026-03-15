@@ -1,0 +1,33 @@
+{
+  "name": "guardrail-sim",
+  "description": "Policy simulation engine for AI agent pricing governance in B2B commerce",
+  "profile_url": "https://guardrail-sim.dev/.well-known/ucp",
+  "capabilities": [
+    {
+      "name": "dev.ucp.shopping.checkout",
+      "version": "2026-01-11",
+      "schema": "https://ucp.dev/schemas/shopping/checkout.json"
+    },
+    {
+      "name": "dev.ucp.shopping.discount",
+      "version": "2026-01-11",
+      "extends": "dev.ucp.shopping.checkout",
+      "schema": "https://ucp.dev/schemas/shopping/discount.json"
+    },
+    {
+      "name": "dev.ucp.shopping.fulfillment",
+      "version": "2026-01-11",
+      "extends": "dev.ucp.shopping.checkout",
+      "schema": "https://ucp.dev/schemas/shopping/fulfillment.json"
+    }
+  ],
+  "services": [
+    {
+      "transport": "mcp",
+      "endpoint": "stdio://guardrail-sim/mcp-server",
+      "version": "2026-01-11"
+    }
+  ],
+  "payment_handlers": [],
+  "signing_keys": []
+}

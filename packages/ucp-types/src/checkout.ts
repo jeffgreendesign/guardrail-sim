@@ -415,12 +415,33 @@ export interface CheckoutResponse {
   messages?: CheckoutMessage[];
   /** Order details (populated after completion) */
   order?: OrderReference;
-  /** Available fulfillment options */
+  /** @deprecated Use CheckoutWithFulfillment extension namespace instead */
   fulfillment_options?: FulfillmentOption[];
-  /** Selected fulfillment option ID */
+  /** @deprecated Use CheckoutWithFulfillment extension namespace instead */
   selected_fulfillment_id?: string;
-  /** Shipping address */
+  /** @deprecated Use CheckoutWithFulfillment extension namespace instead */
   shipping_address?: PostalAddress;
+}
+
+/**
+ * Fulfillment extension data (UCP extension namespace)
+ * See: https://ucp.dev/specification/checkout
+ */
+export interface FulfillmentExtensionData {
+  /** Available fulfillment options */
+  options: FulfillmentOption[];
+  /** Selected fulfillment option ID */
+  selected_id?: string;
+  /** Delivery destination address */
+  destination?: PostalAddress;
+}
+
+/**
+ * Checkout with fulfillment extension (proper UCP namespace)
+ */
+export interface CheckoutWithFulfillment extends CheckoutResponse {
+  /** Fulfillment extension data */
+  'dev.ucp.shopping.fulfillment'?: FulfillmentExtensionData;
 }
 
 /**

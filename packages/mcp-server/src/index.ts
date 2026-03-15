@@ -31,7 +31,17 @@ import type {
   DiscountValidationResult,
   DiscountExtensionResponse,
   LineItem,
+  LineItemRequest,
+  Buyer,
+  PostalAddress,
 } from '@guardrail-sim/ucp-types';
+import {
+  createCheckoutSession,
+  getCheckoutSession,
+  updateCheckoutSession,
+  completeCheckoutSession,
+  cancelCheckoutSession,
+} from './checkout-store.js';
 import { runSimulation, defaultPersonas, toSimulationSummary } from '@guardrail-sim/simulation';
 import type { SimulationMetrics } from '@guardrail-sim/simulation';
 import { analyzePolicy } from '@guardrail-sim/insights';
@@ -329,6 +339,225 @@ Use this tool when:
           description: 'Random seed for reproducible results (default: 42)',
         },
       },
+    },
+  },
+  // Standard UCP Checkout Tools (MCP Binding)
+  {
+    name: 'create_checkout',
+    description: `Create a new UCP checkout session.
+
+Standard UCP MCP binding tool. Creates a checkout session with line items,
+optional buyer info, and optional discount codes. Returns the full checkout
+object with an assigned session ID.
+
+Accepts _meta.ucp.profile for platform capability negotiation.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        checkout: {
+          type: 'object' as const,
+          description: 'Checkout data',
+          properties: {
+            currency: { type: 'string' as const, description: 'ISO 4217 currency code' },
+            line_items: {
+              type: 'array' as const,
+              description: 'Items to add to checkout',
+              items: {
+                type: 'object' as const,
+                properties: {
+                  item: {
+                    type: 'object' as const,
+                    properties: {
+                      id: { type: 'string' as const },
+                      title: { type: 'string' as const },
+                      price: {
+                        type: 'number' as const,
+                        description: 'Price in minor units (cents)',
+                      },
+                    },
+                    required: ['id'],
+                  },
+                  quantity: { type: 'number' as const },
+                },
+                required: ['item', 'quantity'],
+              },
+            },
+            buyer: {
+              type: 'object' as const,
+              properties: {
+                email: { type: 'string' as const },
+                first_name: { type: 'string' as const },
+                last_name: { type: 'string' as const },
+              },
+            },
+            shipping_address: { type: 'object' as const },
+            'dev.ucp.shopping.discount': {
+              type: 'object' as const,
+              properties: {
+                codes: { type: 'array' as const, items: { type: 'string' as const } },
+              },
+            },
+          },
+          required: ['currency', 'line_items'],
+        },
+        idempotency_key: { type: 'string' as const, description: 'UUID for idempotent requests' },
+        _meta: {
+          type: 'object' as const,
+          properties: {
+            ucp: {
+              type: 'object' as const,
+              properties: {
+                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
+              },
+            },
+          },
+        },
+      },
+      required: ['checkout'],
+    },
+  },
+  {
+    name: 'get_checkout',
+    description: `Retrieve a UCP checkout session by ID.
+
+Standard UCP MCP binding tool. Returns the full checkout object
+including current status, line items, totals, and any applied discounts.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, description: 'Checkout session ID' },
+        _meta: {
+          type: 'object' as const,
+          properties: {
+            ucp: {
+              type: 'object' as const,
+              properties: {
+                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
+              },
+            },
+          },
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'update_checkout',
+    description: `Update an existing UCP checkout session.
+
+Standard UCP MCP binding tool. Modify line items, buyer info,
+shipping address, or discount codes. Re-evaluates policy if
+discounts change. Returns the updated checkout object.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, description: 'Checkout session ID' },
+        checkout: {
+          type: 'object' as const,
+          description: 'Fields to update',
+          properties: {
+            line_items: {
+              type: 'array' as const,
+              items: {
+                type: 'object' as const,
+                properties: {
+                  item: {
+                    type: 'object' as const,
+                    properties: {
+                      id: { type: 'string' as const },
+                      title: { type: 'string' as const },
+                      price: { type: 'number' as const },
+                    },
+                    required: ['id'],
+                  },
+                  quantity: { type: 'number' as const },
+                },
+                required: ['item', 'quantity'],
+              },
+            },
+            buyer: {
+              type: 'object' as const,
+              properties: {
+                email: { type: 'string' as const },
+                first_name: { type: 'string' as const },
+                last_name: { type: 'string' as const },
+              },
+            },
+            shipping_address: { type: 'object' as const },
+            'dev.ucp.shopping.discount': {
+              type: 'object' as const,
+              properties: {
+                codes: { type: 'array' as const, items: { type: 'string' as const } },
+              },
+            },
+          },
+        },
+        _meta: {
+          type: 'object' as const,
+          properties: {
+            ucp: {
+              type: 'object' as const,
+              properties: {
+                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
+              },
+            },
+          },
+        },
+      },
+      required: ['id', 'checkout'],
+    },
+  },
+  {
+    name: 'complete_checkout',
+    description: `Complete a UCP checkout session (place order).
+
+Standard UCP MCP binding tool. Transitions the session to "completed"
+status. Session must be in "ready_for_complete" status. Returns the
+checkout with an order reference.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, description: 'Checkout session ID' },
+        idempotency_key: { type: 'string' as const, description: 'UUID for idempotent requests' },
+        _meta: {
+          type: 'object' as const,
+          properties: {
+            ucp: {
+              type: 'object' as const,
+              properties: {
+                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
+              },
+            },
+          },
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'cancel_checkout',
+    description: `Cancel a UCP checkout session.
+
+Standard UCP MCP binding tool. Transitions the session to "canceled"
+status (terminal). Cannot cancel a completed session.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, description: 'Checkout session ID' },
+        idempotency_key: { type: 'string' as const, description: 'UUID for idempotent requests' },
+        _meta: {
+          type: 'object' as const,
+          properties: {
+            ucp: {
+              type: 'object' as const,
+              properties: {
+                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
+              },
+            },
+          },
+        },
+      },
+      required: ['id'],
     },
   },
 ];
@@ -641,6 +870,42 @@ async function handleAnalyzeSimulation(args: {
 }
 
 /**
+ * Validate checkout input fields for create/update operations
+ */
+function validateCheckoutInput(
+  checkout: Record<string, unknown>,
+  requireLineItems: boolean
+): string | null {
+  if (requireLineItems) {
+    if (!checkout.currency || typeof checkout.currency !== 'string') {
+      return 'currency is required and must be a string';
+    }
+    if (!Array.isArray(checkout.line_items) || checkout.line_items.length === 0) {
+      return 'line_items must be a non-empty array';
+    }
+  }
+  if (Array.isArray(checkout.line_items)) {
+    for (const li of checkout.line_items as Array<Record<string, unknown>>) {
+      if (!li.item || typeof li.item !== 'object') return 'each line item must have an item object';
+      if (typeof li.quantity !== 'number' || li.quantity < 1 || !Number.isInteger(li.quantity)) {
+        return 'each line item quantity must be a positive integer';
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Return a tool error response
+ */
+function toolError(code: string, message: string) {
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify({ error: true, code, message }) }],
+    isError: true,
+  };
+}
+
+/**
  * Create and configure the MCP server
  */
 export function createServer(): Server {
@@ -777,6 +1042,167 @@ export function createServer(): Server {
           };
         }
 
+        // Standard UCP Checkout Tools
+        case 'create_checkout': {
+          const typedArgs = args as {
+            checkout: {
+              currency: string;
+              line_items: LineItemRequest[];
+              buyer?: Buyer;
+              shipping_address?: PostalAddress;
+              'dev.ucp.shopping.discount'?: { codes: string[] };
+            };
+            idempotency_key?: string;
+            _meta?: { ucp?: { profile?: string } };
+          };
+
+          // Validate input
+          const createValidationError = validateCheckoutInput(
+            typedArgs.checkout as unknown as Record<string, unknown>,
+            true
+          );
+          if (createValidationError) {
+            return toolError('VALIDATION_ERROR', createValidationError);
+          }
+
+          const { session, isNew } = createCheckoutSession({
+            currency: typedArgs.checkout.currency,
+            line_items: typedArgs.checkout.line_items,
+            buyer: typedArgs.checkout.buyer,
+            shipping_address: typedArgs.checkout.shipping_address,
+            idempotency_key: typedArgs.idempotency_key,
+          });
+
+          // Only evaluate discounts on new sessions (preserve idempotency)
+          if (isNew) {
+            const discountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
+            if (discountExt?.codes?.length) {
+              const order = fromUCPLineItems(session.line_items);
+              const evaluation = await policyEngine.evaluate(order, 0.1);
+              const discountResponse = buildDiscountExtensionResponse(
+                discountExt.codes,
+                evaluation,
+                Math.round(order.order_value * 0.1 * 100)
+              );
+              session['dev.ucp.shopping.discount'] = discountResponse;
+            }
+          }
+
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
+            ],
+          };
+        }
+
+        case 'get_checkout': {
+          const typedArgs = args as { id: string };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
+          const session = getCheckoutSession(typedArgs.id);
+          if (!session) {
+            return toolError('NOT_FOUND', `Checkout session not found: ${typedArgs.id}`);
+          }
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
+            ],
+          };
+        }
+
+        case 'update_checkout': {
+          const typedArgs = args as {
+            id: string;
+            checkout: {
+              line_items?: LineItemRequest[];
+              buyer?: Buyer;
+              shipping_address?: PostalAddress;
+              'dev.ucp.shopping.discount'?: { codes: string[] };
+            };
+            _meta?: { ucp?: { profile?: string } };
+          };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
+
+          // Validate line_items if provided
+          const updateValidationError = validateCheckoutInput(
+            typedArgs.checkout as unknown as Record<string, unknown>,
+            false
+          );
+          if (updateValidationError) {
+            return toolError('VALIDATION_ERROR', updateValidationError);
+          }
+
+          const session = updateCheckoutSession(typedArgs.id, {
+            line_items: typedArgs.checkout.line_items,
+            buyer: typedArgs.checkout.buyer,
+            shipping_address: typedArgs.checkout.shipping_address,
+          });
+
+          // Re-evaluate discounts: caller-provided codes take priority,
+          // but also re-evaluate existing codes when line_items change
+          const updateDiscountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
+          const existingDiscount = session['dev.ucp.shopping.discount'];
+
+          if (updateDiscountExt?.codes !== undefined) {
+            // Explicit codes from caller: empty = delete, non-empty = re-evaluate
+            if (updateDiscountExt.codes.length === 0) {
+              delete session['dev.ucp.shopping.discount'];
+            } else {
+              const order = fromUCPLineItems(session.line_items);
+              const evaluation = await policyEngine.evaluate(order, 0.1);
+              session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
+                updateDiscountExt.codes,
+                evaluation,
+                Math.round(order.order_value * 0.1 * 100)
+              );
+            }
+          } else if (existingDiscount && typedArgs.checkout.line_items) {
+            // Line items changed but codes weren't resent — re-evaluate with existing codes
+            const order = fromUCPLineItems(session.line_items);
+            const evaluation = await policyEngine.evaluate(order, 0.1);
+            session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
+              existingDiscount.codes,
+              evaluation,
+              Math.round(order.order_value * 0.1 * 100)
+            );
+          }
+
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
+            ],
+          };
+        }
+
+        case 'complete_checkout': {
+          const typedArgs = args as { id: string; idempotency_key?: string };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
+          const session = completeCheckoutSession(typedArgs.id, typedArgs.idempotency_key);
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
+            ],
+          };
+        }
+
+        case 'cancel_checkout': {
+          const typedArgs = args as { id: string; idempotency_key?: string };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
+          const session = cancelCheckoutSession(typedArgs.id, typedArgs.idempotency_key);
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
+            ],
+          };
+        }
+
         default:
           return {
             content: [
@@ -819,6 +1245,12 @@ export function createServer(): Server {
         description: 'The currently active pricing policy configuration',
         mimeType: 'application/json',
       },
+      {
+        uri: 'guardrail://profile/well-known-ucp',
+        name: 'UCP Profile',
+        description: 'guardrail-sim UCP business profile (/.well-known/ucp)',
+        mimeType: 'application/json',
+      },
       // MCP Apps UI resources
       {
         uri: 'ui://guardrail-sim/evaluation-result',
@@ -858,6 +1290,38 @@ export function createServer(): Server {
           },
         ],
       };
+    }
+
+    if (uri === 'guardrail://profile/well-known-ucp') {
+      try {
+        const profileJson = await readFile(
+          join(__dirname, '..', '..', 'ucp-types', 'src', 'fixtures', 'well-known-ucp.json'),
+          'utf-8'
+        );
+        return {
+          contents: [{ uri, mimeType: 'application/json', text: profileJson }],
+        };
+      } catch {
+        // Fallback to inline profile if fixture not found (e.g., in published package)
+        const fallbackProfile = {
+          name: 'guardrail-sim',
+          description: 'Policy simulation engine for AI agent pricing governance',
+          capabilities: [
+            { name: 'dev.ucp.shopping.checkout', version: '2026-01-11' },
+            {
+              name: 'dev.ucp.shopping.discount',
+              version: '2026-01-11',
+              extends: 'dev.ucp.shopping.checkout',
+            },
+          ],
+          services: [{ transport: 'mcp', endpoint: 'stdio://guardrail-sim/mcp-server' }],
+        };
+        return {
+          contents: [
+            { uri, mimeType: 'application/json', text: JSON.stringify(fallbackProfile, null, 2) },
+          ],
+        };
+      }
     }
 
     // MCP Apps UI resources

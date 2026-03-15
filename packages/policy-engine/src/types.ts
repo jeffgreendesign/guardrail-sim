@@ -89,6 +89,7 @@ export const VIOLATION_TO_UCP_ERROR: Record<string, UCPErrorCode> = {
   // Combination violations
   stacking_not_allowed: 'discount_code_combination_disallowed',
   exclusive_discount: 'discount_code_combination_disallowed',
+  discount_stacking_violation: 'discount_code_combination_disallowed',
 
   // Temporal violations
   discount_expired: 'discount_code_expired',
@@ -96,6 +97,11 @@ export const VIOLATION_TO_UCP_ERROR: Record<string, UCPErrorCode> = {
 
   // Auth violations
   login_required: 'discount_code_user_not_logged_in',
+  user_not_authenticated: 'discount_code_user_not_logged_in',
+
+  // Eligibility violations (additional aliases)
+  user_ineligible: 'discount_code_user_ineligible',
+  code_already_used: 'discount_code_already_applied',
 };
 
 /**

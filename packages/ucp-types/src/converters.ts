@@ -6,6 +6,7 @@
  */
 
 import type { Order, EvaluationResult, Violation } from '@guardrail-sim/policy-engine';
+import { getUCPErrorCode } from '@guardrail-sim/policy-engine';
 import type {
   DiscountErrorCode,
   DiscountValidationResult,
@@ -14,7 +15,8 @@ import type {
   DiscountExtensionResponse,
   RejectedDiscount,
 } from './discount.js';
-import type { LineItem, LineItemRequest, Money } from './checkout.js';
+import type { LineItem, LineItemRequest, Money, CreateCheckoutRequest } from './checkout.js';
+import type { CartResponse } from './cart.js';
 
 /**
  * Get subtotal from line item (handles both new and legacy formats)
@@ -40,34 +42,11 @@ function getLineItemSubtotal(item: LineItem | LineItemRequest): number {
 }
 
 /**
- * Map guardrail-sim violation types to UCP discount error codes
- */
-const VIOLATION_TO_UCP_ERROR: Record<string, DiscountErrorCode> = {
-  max_discount_exceeded: 'discount_code_invalid',
-  margin_floor_violated: 'discount_code_invalid',
-  volume_tier_mismatch: 'discount_code_user_ineligible',
-  discount_expired: 'discount_code_expired',
-  discount_stacking_violation: 'discount_code_combination_disallowed',
-  user_not_authenticated: 'discount_code_user_not_logged_in',
-  user_ineligible: 'discount_code_user_ineligible',
-  code_already_used: 'discount_code_already_applied',
-};
-
-/**
- * Convert a guardrail-sim violation to a UCP error code
+ * Convert a guardrail-sim violation to a UCP error code.
+ * Delegates to the canonical mapping in @guardrail-sim/policy-engine.
  */
 export function toUCPErrorCode(violation: Violation): DiscountErrorCode {
-  // Check for known violation types
-  const normalizedRule = violation.rule.toLowerCase().replace(/[-\s]/g, '_');
-
-  for (const [pattern, errorCode] of Object.entries(VIOLATION_TO_UCP_ERROR)) {
-    if (normalizedRule.includes(pattern)) {
-      return errorCode;
-    }
-  }
-
-  // Default to invalid for unknown violations
-  return 'discount_code_invalid';
+  return getUCPErrorCode(violation.rule);
 }
 
 /**
@@ -273,6 +252,40 @@ export function calculateAllocations(
   });
 
   return allocations;
+}
+
+/**
+ * Convert a UCP cart to a guardrail-sim order for policy evaluation
+ */
+export function fromUCPCartToOrder(
+  cart: CartResponse,
+  options: {
+    customerSegment?: string;
+    productMargin?: number;
+  } = {}
+): Order {
+  const orderValue = cart.line_items.reduce((sum, li) => sum + li.item.price * li.quantity, 0);
+  const quantity = cart.line_items.reduce((sum, li) => sum + li.quantity, 0);
+
+  return {
+    order_value: orderValue,
+    quantity,
+    customer_segment: options.customerSegment,
+    product_margin: options.productMargin ?? 0.3,
+  };
+}
+
+/**
+ * Convert a UCP cart to a create checkout request
+ */
+export function toCheckoutFromCart(cart: CartResponse): CreateCheckoutRequest {
+  return {
+    currency: cart.currency,
+    line_items: cart.line_items.map((li) => ({
+      item: li.item,
+      quantity: li.quantity,
+    })),
+  };
 }
 
 /**

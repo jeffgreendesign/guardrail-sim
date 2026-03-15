@@ -3,12 +3,45 @@
  *
  * UCP (Universal Commerce Protocol) type definitions for guardrail-sim.
  *
- * This package provides TypeScript types aligned with the UCP specification,
+ * This package provides TypeScript types aligned with the UCP specification (v2026-01-11),
  * enabling guardrail-sim to integrate with the agentic commerce ecosystem.
  *
  * @see https://ucp.dev
  * @see https://github.com/Universal-Commerce-Protocol/ucp
  */
+
+// Version constants
+export {
+  UCP_SPEC_VERSION,
+  CHECKOUT_CAPABILITY,
+  DISCOUNT_EXTENSION,
+  ORDER_CAPABILITY,
+  CART_CAPABILITY,
+  FULFILLMENT_EXTENSION,
+  IDENTITY_LINKING_CAPABILITY,
+} from './versions.js';
+export type { UCPCapabilityDescriptor } from './versions.js';
+
+// Profile / Discovery types
+export { compareVersions, negotiateCapabilities, profileSupportsCapability } from './profile.js';
+export type {
+  UCPTransportType,
+  UCPServiceDeclaration,
+  UCPCapabilityDeclaration,
+  UCPPaymentHandlerConfig,
+  UCPSigningKey,
+  UCPProfile,
+} from './profile.js';
+
+// Cart types
+export type {
+  CartStatus,
+  CartLineItem,
+  CartLineItemInput,
+  CartResponse,
+  CreateCartRequest,
+  UpdateCartRequest,
+} from './cart.js';
 
 // Discount types
 export type {
@@ -67,6 +100,8 @@ export type {
   MCPRequest,
   OrderReference,
   CompleteCheckoutResponse,
+  FulfillmentExtensionData,
+  CheckoutWithFulfillment,
 } from './checkout.js';
 
 // Identity Linking types (OAuth 2.0)
@@ -115,4 +150,6 @@ export {
   buildDiscountExtensionResponse,
   calculateAllocations,
   formatMoney,
+  fromUCPCartToOrder,
+  toCheckoutFromCart,
 } from './converters.js';
