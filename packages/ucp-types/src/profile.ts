@@ -105,6 +105,18 @@ export interface UCPProfile {
 }
 
 /**
+ * Compare two UCP version strings.
+ * Returns negative if a < b, 0 if equal, positive if a > b.
+ * 'draft' is treated as lower than any dated version.
+ */
+export function compareVersions(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a === 'draft') return -1;
+  if (b === 'draft') return 1;
+  return a < b ? -1 : 1;
+}
+
+/**
  * Compute the intersection of capabilities supported by both business and platform.
  *
  * For each capability name present in both profiles, the lower version is selected
@@ -124,7 +136,9 @@ export function negotiateCapabilities(
 
     // Select the lower version (earlier date) for compatibility
     const selectedVersion =
-      platformCap.version <= businessCap.version ? platformCap.version : businessCap.version;
+      compareVersions(platformCap.version, businessCap.version) <= 0
+        ? platformCap.version
+        : businessCap.version;
 
     negotiated.push({
       name: platformCap.name,
@@ -145,6 +159,6 @@ export function profileSupportsCapability(
   capability: UCPCapabilityDescriptor
 ): boolean {
   return profile.capabilities.some(
-    (c) => c.name === capability.name && c.version >= capability.version
+    (c) => c.name === capability.name && compareVersions(c.version, capability.version) >= 0
   );
 }

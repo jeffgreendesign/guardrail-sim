@@ -44,18 +44,23 @@ export interface CartResponse {
 }
 
 /**
+ * Input line item for cart create/update requests
+ */
+export interface CartLineItemInput {
+  /** Item or item reference */
+  item: Item | ItemReference;
+  /** Quantity */
+  quantity: number;
+}
+
+/**
  * Request to create a cart
  */
 export interface CreateCartRequest {
   /** Currency for the cart (ISO 4217) */
   currency: CurrencyCode;
   /** Initial line items */
-  line_items: Array<{
-    /** Item or item reference */
-    item: Item | ItemReference;
-    /** Quantity */
-    quantity: number;
-  }>;
+  line_items: CartLineItemInput[];
 }
 
 /**
@@ -63,10 +68,5 @@ export interface CreateCartRequest {
  */
 export interface UpdateCartRequest {
   /** Updated line items (replaces existing) */
-  line_items?: Array<{
-    /** Item or item reference */
-    item: Item | ItemReference;
-    /** Quantity */
-    quantity: number;
-  }>;
+  line_items?: CartLineItemInput[];
 }

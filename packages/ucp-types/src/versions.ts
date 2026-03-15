@@ -18,20 +18,20 @@ export interface UCPCapabilityDescriptor {
 
 export const CHECKOUT_CAPABILITY = {
   name: 'dev.ucp.shopping.checkout',
-  version: '2026-01-11',
+  version: UCP_SPEC_VERSION,
   schema: 'https://ucp.dev/schemas/shopping/checkout.json',
 } as const satisfies UCPCapabilityDescriptor;
 
 export const DISCOUNT_EXTENSION = {
   name: 'dev.ucp.shopping.discount',
-  version: '2026-01-11',
+  version: UCP_SPEC_VERSION,
   extends: 'dev.ucp.shopping.checkout',
   schema: 'https://ucp.dev/schemas/shopping/discount.json',
 } as const satisfies UCPCapabilityDescriptor;
 
 export const ORDER_CAPABILITY = {
   name: 'dev.ucp.shopping.order',
-  version: '2026-01-11',
+  version: UCP_SPEC_VERSION,
   schema: 'https://ucp.dev/schemas/shopping/order.json',
 } as const satisfies UCPCapabilityDescriptor;
 
@@ -43,13 +43,13 @@ export const CART_CAPABILITY = {
 
 export const FULFILLMENT_EXTENSION = {
   name: 'dev.ucp.shopping.fulfillment',
-  version: '2026-01-11',
+  version: UCP_SPEC_VERSION,
   extends: 'dev.ucp.shopping.checkout',
   schema: 'https://ucp.dev/schemas/shopping/fulfillment.json',
 } as const satisfies UCPCapabilityDescriptor;
 
 export const IDENTITY_LINKING_CAPABILITY = {
   name: 'dev.ucp.identity_linking',
-  version: '2026-01-11',
+  version: UCP_SPEC_VERSION,
   schema: 'https://ucp.dev/schemas/identity-linking.json',
 } as const satisfies UCPCapabilityDescriptor;

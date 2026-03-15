@@ -34,11 +34,14 @@ const idempotencyKeys = new Map<string, string>();
  * Build line items from request format to response format
  */
 function buildLineItems(requestItems: LineItemRequest[]): LineItem[] {
-  return requestItems.map((ri, index) => {
-    const item: Item =
-      'title' in ri.item
-        ? (ri.item as Item)
-        : { id: (ri.item as { id: string }).id, title: `Item ${index + 1}`, price: 0 };
+  return requestItems.map((ri) => {
+    if (!('title' in ri.item) || !('price' in ri.item)) {
+      const itemId = (ri.item as { id: string }).id;
+      throw new Error(
+        `Line item "${itemId}" must include inline title and price. Item references without pricing are not supported.`
+      );
+    }
+    const item = ri.item as Item;
     const subtotal = item.price * ri.quantity;
     return {
       id: `li-${randomUUID().slice(0, 8)}`,
@@ -72,9 +75,15 @@ function determineStatus(session: Partial<CheckoutSession>): CheckoutStatus {
   return 'ready_for_complete';
 }
 
+/** Result of creating a checkout session */
+export interface CreateCheckoutResult {
+  session: CheckoutSession;
+  isNew: boolean;
+}
+
 /**
  * Create a new checkout session.
- * Returns existing session if idempotency key was previously used.
+ * Returns existing session (isNew: false) if idempotency key was previously used.
  */
 export function createCheckoutSession(params: {
   currency: string;
@@ -82,13 +91,13 @@ export function createCheckoutSession(params: {
   buyer?: Buyer;
   shipping_address?: PostalAddress;
   idempotency_key?: string;
-}): CheckoutSession {
+}): CreateCheckoutResult {
   // Check idempotency
   if (params.idempotency_key) {
     const existingId = idempotencyKeys.get(params.idempotency_key);
     if (existingId) {
       const existing = sessions.get(existingId);
-      if (existing) return existing;
+      if (existing) return { session: existing, isNew: false };
     }
   }
 
@@ -116,7 +125,7 @@ export function createCheckoutSession(params: {
     idempotencyKeys.set(params.idempotency_key, id);
   }
 
-  return session;
+  return { session, isNew: true };
 }
 
 /**
@@ -151,7 +160,7 @@ export function updateCheckoutSession(
     session.buyer = { ...session.buyer, ...updates.buyer };
   }
   if (updates.shipping_address) {
-    session.shipping_address = updates.shipping_address;
+    session.shipping_address = { ...session.shipping_address, ...updates.shipping_address };
   }
 
   session.status = determineStatus(session);

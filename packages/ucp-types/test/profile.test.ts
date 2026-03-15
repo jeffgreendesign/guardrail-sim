@@ -98,5 +98,66 @@ describe('UCP Profile', () => {
         false
       );
     });
+
+    it('returns true when profile has dated version and descriptor is draft', () => {
+      assert.equal(
+        profileSupportsCapability(businessProfile, {
+          name: 'dev.ucp.shopping.checkout',
+          version: 'draft',
+          schema: 'https://ucp.dev/schemas/shopping/checkout.json',
+        }),
+        true
+      );
+    });
+
+    it('returns false when profile has draft version and descriptor requires a date', () => {
+      const draftProfile: UCPProfile = {
+        name: 'draft-profile',
+        capabilities: [{ name: 'dev.ucp.shopping.cart', version: 'draft' }],
+        services: [],
+      };
+      assert.equal(
+        profileSupportsCapability(draftProfile, {
+          name: 'dev.ucp.shopping.cart',
+          version: '2026-01-11',
+          schema: 'https://ucp.dev/schemas/shopping/cart.json',
+        }),
+        false
+      );
+    });
+  });
+
+  describe('negotiateCapabilities with draft versions', () => {
+    it('selects draft as lower version when one side has draft', () => {
+      const draftBusiness: UCPProfile = {
+        name: 'draft-biz',
+        capabilities: [{ name: 'dev.ucp.shopping.cart', version: 'draft' }],
+        services: [],
+      };
+      const datedPlatform: UCPProfile = {
+        name: 'dated-platform',
+        capabilities: [{ name: 'dev.ucp.shopping.cart', version: '2026-01-11' }],
+        services: [],
+      };
+      const result = negotiateCapabilities(draftBusiness, datedPlatform);
+      assert.equal(result.length, 1);
+      assert.equal(result[0]!.version, 'draft');
+    });
+
+    it('selects draft when platform has draft and business has date', () => {
+      const datedBusiness: UCPProfile = {
+        name: 'dated-biz',
+        capabilities: [{ name: 'dev.ucp.shopping.cart', version: '2026-01-11' }],
+        services: [],
+      };
+      const draftPlatform: UCPProfile = {
+        name: 'draft-platform',
+        capabilities: [{ name: 'dev.ucp.shopping.cart', version: 'draft' }],
+        services: [],
+      };
+      const result = negotiateCapabilities(datedBusiness, draftPlatform);
+      assert.equal(result.length, 1);
+      assert.equal(result[0]!.version, 'draft');
+    });
   });
 });

@@ -587,6 +587,82 @@ describe('MCP Server', () => {
       assert.ok(parsed.checkout['dev.ucp.shopping.discount']);
       assert.deepStrictEqual(parsed.checkout['dev.ucp.shopping.discount'].codes, ['SAVE10']);
     });
+
+    it('should preserve original discount data on idempotency replay', async () => {
+      const { client } = await createTestClient();
+
+      const idempotencyKey = 'idem-discount-replay';
+
+      // First create with discount
+      const result1 = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 100 }],
+            buyer: { email: 'buyer@test.com' },
+            'dev.ucp.shopping.discount': { codes: ['SAVE10'] },
+          },
+          idempotency_key: idempotencyKey,
+        },
+      });
+      const parsed1 = JSON.parse((result1.content[0] as { type: 'text'; text: string }).text);
+      const originalDiscount = parsed1.checkout['dev.ucp.shopping.discount'];
+
+      // Replay with different discount codes — should return original unchanged
+      const result2 = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-2', title: 'Gadget', price: 9999 }, quantity: 50 }],
+            'dev.ucp.shopping.discount': { codes: ['DIFFERENT_CODE'] },
+          },
+          idempotency_key: idempotencyKey,
+        },
+      });
+      const parsed2 = JSON.parse((result2.content[0] as { type: 'text'; text: string }).text);
+
+      assert.strictEqual(parsed1.checkout.id, parsed2.checkout.id);
+      assert.deepStrictEqual(parsed2.checkout['dev.ucp.shopping.discount'], originalDiscount);
+    });
+
+    it('should re-evaluate existing discount when line_items change', async () => {
+      const { client } = await createTestClient();
+
+      // Create with discount
+      const createResult = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 100 }],
+            buyer: { email: 'buyer@test.com' },
+            'dev.ucp.shopping.discount': { codes: ['SAVE10'] },
+          },
+        },
+      });
+      const created = JSON.parse((createResult.content[0] as { type: 'text'; text: string }).text);
+      assert.ok(created.checkout['dev.ucp.shopping.discount']);
+
+      // Update line_items without resending discount codes
+      const updateResult = await client.callTool({
+        name: 'update_checkout',
+        arguments: {
+          id: created.checkout.id,
+          checkout: {
+            line_items: [
+              { item: { id: 'item-2', title: 'Expensive Widget', price: 50000 }, quantity: 10 },
+            ],
+          },
+        },
+      });
+      const updated = JSON.parse((updateResult.content[0] as { type: 'text'; text: string }).text);
+
+      // Discount should still be present and re-evaluated with original codes
+      assert.ok(updated.checkout['dev.ucp.shopping.discount']);
+      assert.deepStrictEqual(updated.checkout['dev.ucp.shopping.discount'].codes, ['SAVE10']);
+    });
   });
 
   describe('UCP Profile Resource', () => {

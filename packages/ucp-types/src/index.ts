@@ -23,7 +23,7 @@ export {
 export type { UCPCapabilityDescriptor } from './versions.js';
 
 // Profile / Discovery types
-export { negotiateCapabilities, profileSupportsCapability } from './profile.js';
+export { compareVersions, negotiateCapabilities, profileSupportsCapability } from './profile.js';
 export type {
   UCPTransportType,
   UCPServiceDeclaration,
@@ -37,6 +37,7 @@ export type {
 export type {
   CartStatus,
   CartLineItem,
+  CartLineItemInput,
   CartResponse,
   CreateCartRequest,
   UpdateCartRequest,

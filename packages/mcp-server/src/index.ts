@@ -870,6 +870,42 @@ async function handleAnalyzeSimulation(args: {
 }
 
 /**
+ * Validate checkout input fields for create/update operations
+ */
+function validateCheckoutInput(
+  checkout: Record<string, unknown>,
+  requireLineItems: boolean
+): string | null {
+  if (requireLineItems) {
+    if (!checkout.currency || typeof checkout.currency !== 'string') {
+      return 'currency is required and must be a string';
+    }
+    if (!Array.isArray(checkout.line_items) || checkout.line_items.length === 0) {
+      return 'line_items must be a non-empty array';
+    }
+  }
+  if (Array.isArray(checkout.line_items)) {
+    for (const li of checkout.line_items as Array<Record<string, unknown>>) {
+      if (!li.item || typeof li.item !== 'object') return 'each line item must have an item object';
+      if (typeof li.quantity !== 'number' || li.quantity < 1 || !Number.isInteger(li.quantity)) {
+        return 'each line item quantity must be a positive integer';
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Return a tool error response
+ */
+function toolError(code: string, message: string) {
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify({ error: true, code, message }) }],
+    isError: true,
+  };
+}
+
+/**
  * Create and configure the MCP server
  */
 export function createServer(): Server {
@@ -1019,7 +1055,17 @@ export function createServer(): Server {
             idempotency_key?: string;
             _meta?: { ucp?: { profile?: string } };
           };
-          const session = createCheckoutSession({
+
+          // Validate input
+          const createValidationError = validateCheckoutInput(
+            typedArgs.checkout as unknown as Record<string, unknown>,
+            true
+          );
+          if (createValidationError) {
+            return toolError('VALIDATION_ERROR', createValidationError);
+          }
+
+          const { session, isNew } = createCheckoutSession({
             currency: typedArgs.checkout.currency,
             line_items: typedArgs.checkout.line_items,
             buyer: typedArgs.checkout.buyer,
@@ -1027,17 +1073,19 @@ export function createServer(): Server {
             idempotency_key: typedArgs.idempotency_key,
           });
 
-          // Evaluate discounts if provided
-          const discountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
-          if (discountExt?.codes?.length) {
-            const order = fromUCPLineItems(session.line_items);
-            const evaluation = await policyEngine.evaluate(order, 0.1); // default 10% for code validation
-            const discountResponse = buildDiscountExtensionResponse(
-              discountExt.codes,
-              evaluation,
-              Math.round(order.order_value * 0.1 * 100)
-            );
-            session['dev.ucp.shopping.discount'] = discountResponse;
+          // Only evaluate discounts on new sessions (preserve idempotency)
+          if (isNew) {
+            const discountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
+            if (discountExt?.codes?.length) {
+              const order = fromUCPLineItems(session.line_items);
+              const evaluation = await policyEngine.evaluate(order, 0.1);
+              const discountResponse = buildDiscountExtensionResponse(
+                discountExt.codes,
+                evaluation,
+                Math.round(order.order_value * 0.1 * 100)
+              );
+              session['dev.ucp.shopping.discount'] = discountResponse;
+            }
           }
 
           return {
@@ -1049,21 +1097,12 @@ export function createServer(): Server {
 
         case 'get_checkout': {
           const typedArgs = args as { id: string };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
           const session = getCheckoutSession(typedArgs.id);
           if (!session) {
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: JSON.stringify({
-                    error: true,
-                    code: 'NOT_FOUND',
-                    message: `Checkout session not found: ${typedArgs.id}`,
-                  }),
-                },
-              ],
-              isError: true,
-            };
+            return toolError('NOT_FOUND', `Checkout session not found: ${typedArgs.id}`);
           }
           return {
             content: [
@@ -1083,15 +1122,32 @@ export function createServer(): Server {
             };
             _meta?: { ucp?: { profile?: string } };
           };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
+
+          // Validate line_items if provided
+          const updateValidationError = validateCheckoutInput(
+            typedArgs.checkout as unknown as Record<string, unknown>,
+            false
+          );
+          if (updateValidationError) {
+            return toolError('VALIDATION_ERROR', updateValidationError);
+          }
+
           const session = updateCheckoutSession(typedArgs.id, {
             line_items: typedArgs.checkout.line_items,
             buyer: typedArgs.checkout.buyer,
             shipping_address: typedArgs.checkout.shipping_address,
           });
 
-          // Re-evaluate discounts if provided
+          // Re-evaluate discounts: caller-provided codes take priority,
+          // but also re-evaluate existing codes when line_items change
           const updateDiscountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
-          if (updateDiscountExt?.codes) {
+          const existingDiscount = session['dev.ucp.shopping.discount'];
+
+          if (updateDiscountExt?.codes !== undefined) {
+            // Explicit codes from caller: empty = delete, non-empty = re-evaluate
             if (updateDiscountExt.codes.length === 0) {
               delete session['dev.ucp.shopping.discount'];
             } else {
@@ -1103,6 +1159,15 @@ export function createServer(): Server {
                 Math.round(order.order_value * 0.1 * 100)
               );
             }
+          } else if (existingDiscount && typedArgs.checkout.line_items) {
+            // Line items changed but codes weren't resent — re-evaluate with existing codes
+            const order = fromUCPLineItems(session.line_items);
+            const evaluation = await policyEngine.evaluate(order, 0.1);
+            session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
+              existingDiscount.codes,
+              evaluation,
+              Math.round(order.order_value * 0.1 * 100)
+            );
           }
 
           return {
@@ -1114,6 +1179,9 @@ export function createServer(): Server {
 
         case 'complete_checkout': {
           const typedArgs = args as { id: string; idempotency_key?: string };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
           const session = completeCheckoutSession(typedArgs.id, typedArgs.idempotency_key);
           return {
             content: [
@@ -1124,6 +1192,9 @@ export function createServer(): Server {
 
         case 'cancel_checkout': {
           const typedArgs = args as { id: string; idempotency_key?: string };
+          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
+            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
+          }
           const session = cancelCheckoutSession(typedArgs.id, typedArgs.idempotency_key);
           return {
             content: [
