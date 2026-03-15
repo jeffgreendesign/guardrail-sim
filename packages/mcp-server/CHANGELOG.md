@@ -1,5 +1,21 @@
 # @guardrail-sim/mcp-server
 
+## 0.4.0
+
+### Minor Changes
+
+- [#76](https://github.com/jeffgreendesign/guardrail-sim/pull/76) [`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Add 5 standard UCP MCP checkout tools (create_checkout, get_checkout, update_checkout, complete_checkout, cancel_checkout) with \_meta.ucp.profile support, idempotency keys, and UCP profile resource
+
+### Patch Changes
+
+- [#76](https://github.com/jeffgreendesign/guardrail-sim/pull/76) [`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Update @modelcontextprotocol/sdk to ^1.27.1 and @modelcontextprotocol/ext-apps to ^1.2.2 for security fix (GHSA-345p-7cg4-v4c7) and conformance improvements
+
+- Updated dependencies [[`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249), [`4178e8d`](https://github.com/jeffgreendesign/guardrail-sim/commit/4178e8dd7c38098d9f22a8ff02510f6e42ca0919), [`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249)]:
+  - @guardrail-sim/policy-engine@0.2.2
+  - @guardrail-sim/ucp-types@1.1.0
+  - @guardrail-sim/insights@0.2.2
+  - @guardrail-sim/simulation@0.2.2
+
 ## 0.3.0
 
 ### Minor Changes

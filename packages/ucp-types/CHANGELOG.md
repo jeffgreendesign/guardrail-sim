@@ -1,5 +1,18 @@
 # @guardrail-sim/ucp-types
 
+## 1.1.0
+
+### Minor Changes
+
+- [#76](https://github.com/jeffgreendesign/guardrail-sim/pull/76) [`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Add UCP Discovery/Profile types, Cart capability types, schema version constants, and fulfillment extension namespace (P0/P1 gaps from ADR 003)
+
+### Patch Changes
+
+- [#76](https://github.com/jeffgreendesign/guardrail-sim/pull/76) [`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Centralize violation-to-UCP error code mapping in policy-engine, removing duplicate map from ucp-types converters
+
+- Updated dependencies [[`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249), [`4178e8d`](https://github.com/jeffgreendesign/guardrail-sim/commit/4178e8dd7c38098d9f22a8ff02510f6e42ca0919)]:
+  - @guardrail-sim/policy-engine@0.2.2
+
 ## 1.0.0
 
 ### Major Changes

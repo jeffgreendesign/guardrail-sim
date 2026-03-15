@@ -1,5 +1,13 @@
 # @guardrail-sim/policy-engine
 
+## 0.2.2
+
+### Patch Changes
+
+- [#76](https://github.com/jeffgreendesign/guardrail-sim/pull/76) [`6bdef77`](https://github.com/jeffgreendesign/guardrail-sim/commit/6bdef777f6cb1fb201a940ff59717b206a35b249) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Centralize violation-to-UCP error code mapping in policy-engine, removing duplicate map from ucp-types converters
+
+- [#72](https://github.com/jeffgreendesign/guardrail-sim/pull/72) [`4178e8d`](https://github.com/jeffgreendesign/guardrail-sim/commit/4178e8dd7c38098d9f22a8ff02510f6e42ca0919) Thanks [@jeffgreendesign](https://github.com/jeffgreendesign)! - Add AI-agent safety patterns: destructive op prevention, workspace boundary tests, source-level security scanning, and session automation
+
 ## 0.2.1
 
 ### Patch Changes
