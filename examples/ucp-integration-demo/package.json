@@ -1,6 +1,6 @@
 {
   "name": "ucp-integration-demo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Demo showing UCP integration with guardrail-sim",
   "type": "module",
   "scripts": {
