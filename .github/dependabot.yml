@@ -4,19 +4,34 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'weekly'
+      interval: 'monthly'
       day: 'monday'
-    open-pull-requests-limit: 10
+      time: '09:00'
+      timezone: 'America/New_York'
+    open-pull-requests-limit: 2
+    cooldown:
+      default-days: 14
+      semver-major-days: 45
+      semver-minor-days: 21
+      semver-patch-days: 7
+      include:
+        - '*'
     groups:
-      dev-dependencies:
+      npm-production:
+        dependency-type: 'production'
+        update-types:
+          - 'minor'
+          - 'patch'
+      npm-development:
+        dependency-type: 'development'
+        update-types:
+          - 'minor'
+          - 'patch'
+      npm-major:
         patterns:
-          - '@eslint/*'
-          - 'eslint*'
-          - 'prettier'
-          - 'typescript*'
-          - 'husky'
-          - 'lint-staged'
-          - 'c8'
+          - '*'
+        update-types:
+          - 'major'
     commit-message:
       prefix: 'chore(deps)'
     labels:
@@ -26,8 +41,19 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
+      interval: 'monthly'
       day: 'monday'
+      time: '09:30'
+      timezone: 'America/New_York'
+    open-pull-requests-limit: 2
+    cooldown:
+      default-days: 14
+      include:
+        - '*'
+    groups:
+      github-actions:
+        patterns:
+          - '*'
     commit-message:
       prefix: 'chore(deps)'
     labels:
