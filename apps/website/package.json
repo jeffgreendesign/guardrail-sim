@@ -15,7 +15,7 @@
     "@vercel/analytics": "^1.6.1",
     "@xyflow/react": "^12.10.2",
     "fumadocs-core": "15.2.5",
-    "fumadocs-mdx": "14.3.2",
+    "fumadocs-mdx": "14.2.6",
     "fumadocs-ui": "15.2.5",
     "lucide-react": "0.562.0",
     "next": "15.4.10",
