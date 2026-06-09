@@ -1401,9 +1401,11 @@ async function main(): Promise<void> {
 // Run only when executed directly (not when imported as a library)
 // Use realpathSync to resolve symlinks (needed for npx which uses symlinks)
 const scriptPath = fileURLToPath(import.meta.url);
+const invokedPath = process.argv[1];
 const isMainModule =
-  realpathSync(process.argv[1]) === scriptPath ||
-  realpathSync(process.argv[1]) === realpathSync(scriptPath);
+  invokedPath !== undefined &&
+  (realpathSync(invokedPath) === scriptPath ||
+    realpathSync(invokedPath) === realpathSync(scriptPath));
 
 if (isMainModule) {
   main().catch((error) => {
