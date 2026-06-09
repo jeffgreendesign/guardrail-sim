@@ -76,9 +76,15 @@
         font-weight: 700;
       }
 
-      .metric-card .value.green { color: #4ade80; }
-      .metric-card .value.yellow { color: #facc15; }
-      .metric-card .value.red { color: #f87171; }
+      .metric-card .value.green {
+        color: #4ade80;
+      }
+      .metric-card .value.yellow {
+        color: #facc15;
+      }
+      .metric-card .value.red {
+        color: #f87171;
+      }
 
       .section {
         background: rgba(255, 255, 255, 0.03);
@@ -104,7 +110,9 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       }
 
-      .persona-row:last-child { border-bottom: none; }
+      .persona-row:last-child {
+        border-bottom: none;
+      }
 
       .persona-name {
         font-size: 0.85rem;
@@ -123,8 +131,12 @@
         min-width: 2px;
       }
 
-      .bar-accepted { background: #4ade80; }
-      .bar-rejected { background: #f87171; }
+      .bar-accepted {
+        background: #4ade80;
+      }
+      .bar-rejected {
+        background: #f87171;
+      }
 
       .persona-stats {
         font-size: 0.75rem;
@@ -140,8 +152,12 @@
         font-size: 0.85rem;
       }
 
-      .violation-rule { color: #fbbf24; }
-      .violation-count { color: #a1a1aa; }
+      .violation-rule {
+        color: #fbbf24;
+      }
+      .violation-count {
+        color: #a1a1aa;
+      }
 
       .edge-case {
         padding: 8px 10px;
@@ -180,8 +196,14 @@
         const avgDiscount = (data.averageDiscountApproved * 100).toFixed(1);
         const avgMargin = (data.averageMarginAfterDiscount * 100).toFixed(1);
 
-        const approvalColor = data.approvalRate > 0.7 ? 'green' : data.approvalRate > 0.4 ? 'yellow' : 'red';
-        const marginColor = data.averageMarginAfterDiscount > 0.2 ? 'green' : data.averageMarginAfterDiscount > 0.15 ? 'yellow' : 'red';
+        const approvalColor =
+          data.approvalRate > 0.7 ? 'green' : data.approvalRate > 0.4 ? 'yellow' : 'red';
+        const marginColor =
+          data.averageMarginAfterDiscount > 0.2
+            ? 'green'
+            : data.averageMarginAfterDiscount > 0.15
+              ? 'yellow'
+              : 'red';
 
         let html = `
           <div class="header">
@@ -251,7 +273,8 @@
       window.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'tool_result') {
           try {
-            const data = typeof event.data.data === 'string' ? JSON.parse(event.data.data) : event.data.data;
+            const data =
+              typeof event.data.data === 'string' ? JSON.parse(event.data.data) : event.data.data;
             render(data);
           } catch (e) {
             console.error('Failed to parse simulation results:', e);
