@@ -34,13 +34,13 @@ console.log(`Edge cases found: ${results.metrics.edgeCasesFound.length}`);
 
 Five built-in personas cover the full spectrum of buyer behavior:
 
-| Persona | Strategy | Behavior |
-|---------|----------|----------|
-| Budget Buyer | Cooperative | Requests modest discounts (3-8%), backs off quickly |
-| Strategic Buyer | Strategic | Starts mid-high, negotiates down incrementally |
-| Margin Hunter | Adversarial | Probes the margin floor with low-margin orders |
-| Volume Gamer | Adversarial | Games volume tier boundaries (orders near qty 100) |
-| Code Stacker | Adversarial | Attempts maximum discounts (20-30%), barely concedes |
+| Persona         | Strategy    | Behavior                                             |
+| --------------- | ----------- | ---------------------------------------------------- |
+| Budget Buyer    | Cooperative | Requests modest discounts (3-8%), backs off quickly  |
+| Strategic Buyer | Strategic   | Starts mid-high, negotiates down incrementally       |
+| Margin Hunter   | Adversarial | Probes the margin floor with low-margin orders       |
+| Volume Gamer    | Adversarial | Games volume tier boundaries (orders near qty 100)   |
+| Code Stacker    | Adversarial | Attempts maximum discounts (20-30%), barely concedes |
 
 ### Custom Personas
 
@@ -51,9 +51,9 @@ const enterpriseBuyer: BuyerPersona = {
   id: 'enterprise-buyer',
   name: 'Enterprise Buyer',
   strategy: 'strategic',
-  discountRange: { min: 0.10, max: 0.20 },
+  discountRange: { min: 0.1, max: 0.2 },
   volumeRange: { min: 200, max: 1000 },
-  marginRange: { min: 0.30, max: 0.50 },
+  marginRange: { min: 0.3, max: 0.5 },
   maxRounds: 5,
   adaptationRate: 0.25,
 };
@@ -70,6 +70,7 @@ Each session follows this flow:
 5. If all rounds exhausted: session ends with rejection
 
 The `adaptationRate` controls how much a persona concedes after rejection:
+
 - **Cooperative** (0.5): Large concessions, quick resolution
 - **Strategic** (0.3): Moderate concessions, gradual negotiation
 - **Adversarial** (0.1-0.15): Minimal concessions, boundary probing
