@@ -4,12 +4,8 @@
  * Enforces the monorepo dependency graph by scanning source files for
  * cross-package imports that violate allowed boundaries.
  *
- * Dependency graph (package.json "dependencies" with workspace:*):
- *   policy-engine  → (none — foundation package)
- *   ucp-types      → policy-engine
- *   insights       → policy-engine
- *   mcp-server     → policy-engine, ucp-types
- *   simulation     → policy-engine, ucp-types
+ * Dependency graph is read from each package.json "dependencies" entry
+ * with a workspace:* version.
  *
  * Any import not in this graph is a violation.
  */
@@ -24,16 +20,23 @@ const PACKAGES_DIR = path.resolve(import.meta.dirname, '..', 'packages');
 const ALL_PACKAGES = ['policy-engine', 'ucp-types', 'mcp-server', 'insights', 'simulation'];
 
 /**
- * Allowed workspace imports per package.
- * Any @guardrail-sim/* import NOT in this list is a violation.
+ * Read allowed workspace imports from each package's package.json.
+ *
+ * The package manifests are the source of truth for the dependency graph;
+ * this test verifies source imports stay within that declared graph.
  */
-const ALLOWED_IMPORTS: Record<string, string[]> = {
-  'policy-engine': [],
-  'ucp-types': ['policy-engine'],
-  insights: ['policy-engine'],
-  'mcp-server': ['policy-engine', 'ucp-types'],
-  simulation: ['policy-engine', 'ucp-types'],
-};
+function readAllowedImports(pkg: string): string[] {
+  const manifestPath = path.join(PACKAGES_DIR, pkg, 'package.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as {
+    dependencies?: Record<string, string>;
+  };
+
+  return Object.entries(manifest.dependencies ?? {})
+    .filter(
+      ([name, version]) => name.startsWith('@guardrail-sim/') && version.startsWith('workspace:')
+    )
+    .map(([name]) => name.replace('@guardrail-sim/', ''));
+}
 
 interface Violation {
   file: string;
@@ -92,7 +95,7 @@ describe('Workspace Boundaries', () => {
     const srcDir = path.join(PACKAGES_DIR, pkg, 'src');
     if (!fs.existsSync(srcDir)) continue;
 
-    const allowed = ALLOWED_IMPORTS[pkg] ?? [];
+    const allowed = readAllowedImports(pkg);
     const denied = ALL_PACKAGES.filter((p) => p !== pkg && !allowed.includes(p));
 
     it(`${pkg}: only imports from allowed packages [${allowed.join(', ') || 'none'}]`, () => {
