@@ -54,7 +54,7 @@
     "@guardrail-sim/ucp-types": "workspace:*",
     "@guardrail-sim/simulation": "workspace:*",
     "@guardrail-sim/insights": "workspace:*",
-    "@modelcontextprotocol/ext-apps": "^1.7.2",
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {
