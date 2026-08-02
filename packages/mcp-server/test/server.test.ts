@@ -163,8 +163,18 @@ describe('MCP Server', () => {
 
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
       assert.strictEqual(parsed.policy_id, 'default');
-      assert.ok(parsed.summary.includes('Margin Floor'));
       assert.ok(parsed.rules.length === 3);
+
+      // The summary is generated from the policy's own thresholds rather than
+      // hardcoded prose, so it must name the policy's rules and its real numbers.
+      assert.ok(parsed.summary.includes('margin_floor'));
+      assert.ok(parsed.summary.includes('15%'), 'should cite the policy margin floor');
+      assert.ok(parsed.summary.includes('25%'), 'should cite the policy discount cap');
+
+      const marginRule = parsed.rules.find((r: { name: string }) => r.name === 'margin_floor') as {
+        description: string;
+      };
+      assert.ok(marginRule.description.includes('15%'));
     });
   });
 

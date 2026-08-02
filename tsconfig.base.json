@@ -3,6 +3,9 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // TypeScript 6 no longer picks @types/node up automatically through pnpm's
+    // symlinked node_modules, so declare it. Every workspace package targets Node.
+    "types": ["node"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

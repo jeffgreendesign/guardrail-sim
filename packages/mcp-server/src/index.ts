@@ -595,36 +595,64 @@ function handleGetPolicySummary(): {
   }>;
   summary: string;
 } {
+  // Descriptions and the summary are generated from the policy's own thresholds.
+  // They were previously hardcoded to the default policy's 15%/25%/100-unit numbers,
+  // so any custom policy was described with limits it does not have.
+  const { marginFloor, maxDiscount, volumeTiers } = extractPolicyThresholds(currentPolicy);
+  const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
+
   const ruleDescriptions = currentPolicy.rules.map((rule) => {
-    let description = '';
+    let description: string;
     switch (rule.name) {
       case 'margin_floor':
-        description = 'Ensures minimum margin of 15% is maintained after discount';
+        description =
+          marginFloor !== undefined
+            ? `Ensures minimum margin of ${pct(marginFloor)} is maintained after discount`
+            : 'Enforces a minimum margin after discount';
         break;
       case 'max_discount':
-        description = 'Maximum discount cap of 25% regardless of other factors';
+        description =
+          maxDiscount !== undefined
+            ? `Maximum discount cap of ${pct(maxDiscount)} regardless of other factors`
+            : 'Caps the absolute discount regardless of other factors';
         break;
-      case 'volume_tier':
-        description = 'Orders with quantity < 100 are limited to 10% discount';
+      case 'volume_tier': {
+        const base = volumeTiers.find((t) => t.minQuantity === 0);
+        const stepped = volumeTiers.filter((t) => t.minQuantity > 0);
+        description = stepped.length
+          ? `Orders below ${stepped[0].minQuantity} units are limited to ${pct(base?.maxDiscount ?? 0)} discount`
+          : 'Limits discounts by order quantity';
         break;
+      }
       default:
         description = `Rule: ${rule.name}`;
     }
     return { name: rule.name, description };
   });
 
-  const summary = `
-Policy: ${currentPolicy.name}
-Rules:
-1. Margin Floor (15%): Discounts cannot reduce margin below 15%
-2. Max Discount (25%): No discount can exceed 25% regardless of other factors
-3. Volume Tier: Orders with 100+ units qualify for higher discounts (up to 15% vs 10% base)
+  const ruleLines = ruleDescriptions.map((r, i) => `${i + 1}. ${r.name}: ${r.description}`);
 
-To maximize discount approval:
-- Increase order quantity to 100+ units for volume tier benefits
-- Consider products with higher base margins
-- Stay within the 25% maximum cap
-`.trim();
+  const guidance: string[] = [];
+  for (const tier of volumeTiers.filter((t) => t.minQuantity > 0)) {
+    guidance.push(
+      `- Increase order quantity to ${tier.minQuantity}+ units for up to ${pct(tier.maxDiscount)}`
+    );
+  }
+  if (marginFloor !== undefined) {
+    guidance.push('- Consider products with higher base margins');
+  }
+  if (maxDiscount !== undefined) {
+    guidance.push(`- Stay within the ${pct(maxDiscount)} maximum cap`);
+  }
+
+  const summary = [
+    `Policy: ${currentPolicy.name}`,
+    'Rules:',
+    ...ruleLines,
+    ...(guidance.length ? ['', 'To maximize discount approval:', ...guidance] : []),
+  ]
+    .join('\n')
+    .trim();
 
   return {
     policy_id: currentPolicy.id,

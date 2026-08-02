@@ -65,7 +65,6 @@ export async function runSingleSession(
   const rounds: NegotiationRound[] = [];
   let previousDiscount: number | null = null;
   let previousResult: import('@guardrail-sim/policy-engine').EvaluationResult | null = null;
-  let lastOrder: import('@guardrail-sim/policy-engine').Order | null = null;
 
   // Generate a base order for this session (persona keeps same order across rounds)
   const request = provider.generateRequest({
@@ -76,7 +75,7 @@ export async function runSingleSession(
     order: { order_value: 0, quantity: 0, product_margin: 0 },
   });
 
-  lastOrder = request.order;
+  const lastOrder = request.order;
 
   for (let round = 1; round <= persona.maxRounds; round++) {
     // First round uses the initial request, subsequent rounds adapt
