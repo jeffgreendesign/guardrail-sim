@@ -7,6 +7,7 @@ import {
   PolicyEngine,
   defaultPolicy,
   calculateMaxDiscount,
+  extractPolicyThresholds,
   type Order,
   type EvaluationResult,
 } from '@guardrail-sim/policy-engine';
@@ -62,18 +63,25 @@ export function PolicyPlayground() {
   const handleGetMaxDiscount = () => {
     setIsLoading(true);
     try {
-      const { max_discount, limiting_factor } = calculateMaxDiscount(order);
+      // Thresholds are read from the policy itself rather than restated here, so the
+      // explanation can never drift from what the engine actually enforces.
+      const { max_discount, limiting_factor } = calculateMaxDiscount(order, defaultPolicy);
+      const { marginFloor, maxDiscount: cap, volumeTiers } = extractPolicyThresholds(defaultPolicy);
 
-      let details = '';
+      let details: string;
       if (limiting_factor === 'margin_floor') {
-        details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - 15% floor = ${((order.product_margin - 0.15) * 100).toFixed(0)}% max`;
+        details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - ${((marginFloor ?? 0) * 100).toFixed(0)}% floor = ${(max_discount * 100).toFixed(0)}% max`;
       } else if (limiting_factor === 'max_discount') {
-        details = 'Limited by absolute discount cap of 25%';
+        details = `Limited by absolute discount cap of ${((cap ?? 0) * 100).toFixed(0)}%`;
+      } else if (limiting_factor === 'volume_tier') {
+        const tier = [...volumeTiers]
+          .filter((t) => order.quantity >= t.minQuantity)
+          .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+        details = tier
+          ? `Volume tier (${tier.minQuantity}+ units) allows up to ${(tier.maxDiscount * 100).toFixed(0)}%`
+          : `Volume tier limits this order to ${(max_discount * 100).toFixed(0)}%`;
       } else {
-        details =
-          order.quantity >= 100
-            ? 'Volume tier (100+ units) allows up to 15%'
-            : 'Base tier (< 100 units) limited to 10%';
+        details = 'This policy states no recognizable discount limit.';
       }
 
       setMaxDiscount({

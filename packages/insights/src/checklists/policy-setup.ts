@@ -240,6 +240,7 @@ const testCoverageItem: ChecklistItem = {
   description: 'Run simulations to verify policy behavior before deployment.',
   category: 'simulation-analysis',
   required: true,
+  isComplete: (ctx: CheckContext) => ctx.simulationResults !== undefined,
   guidance: `
 ## Simulation testing
 
@@ -278,6 +279,8 @@ const documentationItem: ChecklistItem = {
   description: 'Record the business reasoning behind each constraint.',
   category: 'compliance',
   required: false,
+  // Documentation state is not observable from a CheckContext.
+  manual: true,
   guidance: `
 ## Policy documentation
 

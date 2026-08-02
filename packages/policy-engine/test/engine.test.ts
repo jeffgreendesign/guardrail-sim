@@ -5,9 +5,11 @@ import {
   defaultPolicy,
   calculateAllocations,
   calculateMaxDiscount,
+  extractPolicyThresholds,
   getUCPErrorCode,
+  volumeTierLimit,
 } from '../dist/index.js';
-import type { Order, LineItem } from '../dist/index.js';
+import type { Order, LineItem, Policy } from '../dist/index.js';
 
 describe('PolicyEngine', () => {
   describe('with default policy', () => {
@@ -285,7 +287,7 @@ describe('calculateMaxDiscount', () => {
       product_margin: 0.4,
     };
 
-    const result = calculateMaxDiscount(order);
+    const result = calculateMaxDiscount(order, defaultPolicy);
 
     assert.strictEqual(result.max_discount, 0.15);
     assert.strictEqual(result.limiting_factor, 'volume_tier');
@@ -298,7 +300,7 @@ describe('calculateMaxDiscount', () => {
       product_margin: 0.2,
     };
 
-    const result = calculateMaxDiscount(order);
+    const result = calculateMaxDiscount(order, defaultPolicy);
 
     // 20% margin - 15% floor = 5% max discount
     assert.ok(Math.abs(result.max_discount - 0.05) < 0.0001);
@@ -312,7 +314,7 @@ describe('calculateMaxDiscount', () => {
       product_margin: 0.5,
     };
 
-    const result = calculateMaxDiscount(order);
+    const result = calculateMaxDiscount(order, defaultPolicy);
 
     assert.strictEqual(result.max_discount, 0.1);
     assert.strictEqual(result.limiting_factor, 'volume_tier');
@@ -330,5 +332,103 @@ describe('calculateMaxDiscount', () => {
     // 25% margin - 20% floor = 5% max discount
     assert.ok(Math.abs(result.max_discount - 0.05) < 0.0001);
     assert.strictEqual(result.limiting_factor, 'margin_floor');
+  });
+
+  it('honours a custom policy instead of default-policy thresholds', async () => {
+    // Stricter than the default on every axis, and with no volume tier at all.
+    const strictPolicy: Policy = {
+      id: 'strict',
+      name: 'Strict Policy',
+      rules: [
+        {
+          name: 'margin_floor',
+          conditions: {
+            all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.3 }],
+          },
+          event: { type: 'violation', params: { rule: 'margin_floor', message: 'below floor' } },
+          priority: 10,
+        },
+        {
+          name: 'max_discount',
+          conditions: {
+            all: [{ fact: 'proposed_discount', operator: 'greaterThan', value: 0.08 }],
+          },
+          event: { type: 'violation', params: { rule: 'max_discount', message: 'over cap' } },
+          priority: 10,
+        },
+      ],
+    };
+
+    const order: Order = { order_value: 50000, quantity: 500, product_margin: 0.4 };
+    const result = calculateMaxDiscount(order, strictPolicy);
+
+    // The 8% cap binds before the margin floor (40% - 30% = 10%), and the
+    // default policy's 15% volume tier must not leak in.
+    assert.strictEqual(result.max_discount, 0.08);
+    assert.strictEqual(result.limiting_factor, 'max_discount');
+
+    // The reported ceiling must actually be approved by the engine, and one step
+    // above it must not be. This is the invariant the old implementation broke.
+    const engine = new PolicyEngine(strictPolicy);
+    const atCeiling = await engine.evaluate(order, result.max_discount);
+    const aboveCeiling = await engine.evaluate(order, result.max_discount + 0.01);
+
+    assert.strictEqual(atCeiling.approved, true);
+    assert.strictEqual(aboveCeiling.approved, false);
+  });
+
+  it('reports undetermined rather than guessing when a policy states no limits', () => {
+    const emptyPolicy: Policy = { id: 'empty', name: 'No Rules', rules: [] };
+    const order: Order = { order_value: 5000, quantity: 100, product_margin: 0.4 };
+
+    const result = calculateMaxDiscount(order, emptyPolicy);
+
+    assert.strictEqual(result.max_discount, 0);
+    assert.strictEqual(result.limiting_factor, 'undetermined');
+  });
+});
+
+describe('extractPolicyThresholds', () => {
+  it('recovers the default policy thresholds from its rule conditions', () => {
+    const thresholds = extractPolicyThresholds(defaultPolicy);
+
+    assert.strictEqual(thresholds.marginFloor, 0.15);
+    assert.strictEqual(thresholds.maxDiscount, 0.25);
+    assert.deepStrictEqual(thresholds.volumeTiers, [
+      { minQuantity: 0, maxDiscount: 0.1 },
+      { minQuantity: 100, maxDiscount: 0.15 },
+    ]);
+  });
+
+  it('leaves thresholds undefined when the policy does not constrain them', () => {
+    const marginOnly: Policy = {
+      id: 'margin-only',
+      name: 'Margin Only',
+      rules: [
+        {
+          name: 'margin_floor',
+          conditions: {
+            all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.22 }],
+          },
+          event: { type: 'violation', params: { rule: 'margin_floor', message: 'below floor' } },
+        },
+      ],
+    };
+
+    const thresholds = extractPolicyThresholds(marginOnly);
+
+    assert.strictEqual(thresholds.marginFloor, 0.22);
+    assert.strictEqual(thresholds.maxDiscount, undefined);
+    assert.deepStrictEqual(thresholds.volumeTiers, []);
+  });
+
+  it('resolves the volume tier applicable to a quantity', () => {
+    const { volumeTiers } = extractPolicyThresholds(defaultPolicy);
+
+    assert.strictEqual(volumeTierLimit(volumeTiers, 10), 0.1);
+    assert.strictEqual(volumeTierLimit(volumeTiers, 99), 0.1);
+    assert.strictEqual(volumeTierLimit(volumeTiers, 100), 0.15);
+    assert.strictEqual(volumeTierLimit(volumeTiers, 5000), 0.15);
+    assert.strictEqual(volumeTierLimit([], 100), undefined);
   });
 });

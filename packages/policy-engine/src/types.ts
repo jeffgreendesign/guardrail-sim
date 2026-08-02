@@ -125,8 +125,19 @@ export interface Violation {
  * Result of evaluating an order against a policy
  */
 export interface EvaluationResult {
+  /** True when no rule of type `violation` fired. */
   approved: boolean;
+  /** Rules of type `violation` that fired. Non-empty means the order was rejected. */
   violations: Violation[];
+  /**
+   * Rules that fired with a non-`violation` event type. Advisory only — these never
+   * affect `approved`, so a policy can flag notable orders without blocking them.
+   */
+  notices?: Violation[];
+  /**
+   * Every rule the engine reached a verdict on, fired or not. Use `violations` to see
+   * which ones actually failed.
+   */
   applied_rules: string[];
   calculated_margin: number;
 }

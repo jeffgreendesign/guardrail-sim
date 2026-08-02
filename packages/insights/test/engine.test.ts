@@ -4,6 +4,12 @@ import {
   createRecommendationEngine,
   analyzePolicy,
   RecommendationEngine,
+  marginProtectionChecks,
+  marginProtectionInsights,
+  policyHealthChecks,
+  policyHealthInsights,
+  simulationAnalysisChecks,
+  simulationAnalysisInsights,
   type CheckContext,
   type PolicySummary,
   type SimulationSummary,
@@ -251,6 +257,183 @@ describe('analyzePolicy', () => {
 
     assert.ok(report.insights.length > 0);
     assert.ok(report.summary.critical > 0);
+  });
+});
+
+describe('regression: each insight is emitted at most once', () => {
+  it('does not emit margin-001 twice when approval rate is very high', async () => {
+    const engine = createRecommendationEngine();
+    const report = await engine.analyze({
+      simulationResults: createSimulationSummary({ approvalRate: 0.98 }),
+    });
+
+    // checkApprovalRate used to be registered under BOTH margin-001 and margin-002
+    // and returned an array covering both, so the engine pushed each finding twice.
+    const highApproval = report.insights.filter((r) => r.insight.id === 'margin-001');
+    assert.strictEqual(highApproval.length, 1);
+    assert.strictEqual(report.insights.filter((r) => r.insight.id === 'margin-002').length, 0);
+  });
+
+  it('does not emit margin-002 twice when approval rate is very low', async () => {
+    const engine = createRecommendationEngine();
+    const report = await engine.analyze({
+      simulationResults: createSimulationSummary({ approvalRate: 0.2 }),
+    });
+
+    assert.strictEqual(report.insights.filter((r) => r.insight.id === 'margin-002').length, 1);
+  });
+
+  it('does not emit policy-health-006 twice for a high margin floor', async () => {
+    const engine = createRecommendationEngine();
+    const report = await engine.analyze({
+      policy: createPolicySummary({ marginFloorValue: 0.4 }),
+    });
+
+    assert.strictEqual(
+      report.insights.filter((r) => r.insight.id === 'policy-health-006').length,
+      1
+    );
+  });
+
+  it('reports a summary total matching the number of distinct findings', async () => {
+    const engine = createRecommendationEngine();
+    const report = await engine.analyze({
+      simulationResults: createSimulationSummary({ approvalRate: 0.98 }),
+    });
+
+    const ids = report.insights.map((r) => r.insight.id);
+    assert.strictEqual(new Set(ids).size, ids.length, `duplicate ids: ${ids.join(', ')}`);
+    assert.strictEqual(report.summary.total, report.insights.length);
+  });
+});
+
+describe('regression: rates never exceed 100%', () => {
+  it('divides per-evaluation violation counts by the evaluation count', async () => {
+    const engine = createRecommendationEngine();
+    // 69 margin_floor violations across 50 orders is legitimate: buyers negotiate over
+    // several rounds. Dividing by totalOrders reported "138.0% of evaluations".
+    const report = await engine.analyze({
+      simulationResults: createSimulationSummary({
+        totalOrders: 50,
+        totalEvaluations: 120,
+        violationsByRule: { margin_floor: 69 },
+      }),
+    });
+
+    const result = report.insights.find((r) => r.insight.id === 'margin-003');
+    assert.ok(result, 'margin-003 should fire at 69/120');
+    const frequency = (result.data as { frequency: number }).frequency;
+    assert.ok(frequency <= 1, `frequency ${frequency} must not exceed 1`);
+    assert.ok(Math.abs(frequency - 69 / 120) < 1e-9);
+  });
+
+  it('falls back to totalOrders when a producer omits totalEvaluations', async () => {
+    const engine = createRecommendationEngine();
+    const report = await engine.analyze({
+      simulationResults: createSimulationSummary({
+        totalOrders: 100,
+        violationsByRule: { margin_floor: 40 },
+      }),
+    });
+
+    const result = report.insights.find((r) => r.insight.id === 'margin-003');
+    assert.ok(result);
+    assert.ok(Math.abs((result.data as { frequency: number }).frequency - 0.4) < 1e-9);
+  });
+});
+
+describe('regression: every declared simulation insight is reachable', () => {
+  it('registers a check for all 8 sim-* insights', () => {
+    // sim-004 through sim-007 were exported as insights but never registered,
+    // so four of the eight could never fire. Compare the declared insights against
+    // the registration map directly — runCheck returns null for BOTH an unregistered
+    // id and a registered-but-untriggered check, so it cannot tell them apart.
+    const declared = simulationAnalysisInsights.map((i) => i.id).sort();
+    const registered = [...simulationAnalysisChecks.keys()].sort();
+
+    assert.deepStrictEqual(registered, declared);
+  });
+
+  it('registers exactly one check per insight id across every pack', () => {
+    const packs = [policyHealthChecks, marginProtectionChecks, simulationAnalysisChecks];
+    const insights = [
+      ...policyHealthInsights,
+      ...marginProtectionInsights,
+      ...simulationAnalysisInsights,
+    ];
+
+    for (const pack of packs) {
+      for (const [id, check] of pack.entries()) {
+        // A check registered under two ids emits its findings once per id.
+        const idsSharingCheck = [...pack.entries()].filter(([, c]) => c === check).map(([i]) => i);
+        assert.deepStrictEqual(
+          idsSharingCheck,
+          [id],
+          `check for ${id} is also registered as ${idsSharingCheck.filter((i) => i !== id).join(', ')}`
+        );
+      }
+    }
+
+    // And every registered id must correspond to a declared insight.
+    const declaredIds = new Set(insights.map((i) => i.id));
+    for (const pack of packs) {
+      for (const id of pack.keys()) {
+        assert.ok(declaredIds.has(id), `${id} is registered but not declared`);
+      }
+    }
+  });
+
+  it('fires sim-007 when large orders are rejected disproportionately', async () => {
+    const engine = createRecommendationEngine();
+    const report = await engine.analyze({
+      simulationResults: createSimulationSummary({
+        approvedOrderValues: [500, 800, 1200, 900, 1500, 2000],
+        rejectedOrderValues: [50000, 42000, 38000, 61000, 55000, 47000],
+      }),
+    });
+
+    assert.ok(report.insights.some((r) => r.insight.id === 'sim-007'));
+  });
+});
+
+describe('regression: checklists report real progress', () => {
+  it('scores policy-review above zero once a policy and simulation exist', () => {
+    const engine = createRecommendationEngine();
+    const progress = engine.evaluateChecklist('policy-review', {
+      policy: createPolicySummary({ hasSegmentRules: true }),
+      simulationResults: createSimulationSummary({ totalOrders: 500 }),
+    });
+
+    assert.ok(progress);
+    // Previously always 0: not one item defined isComplete.
+    assert.ok(progress.percentComplete > 0, 'policy-review should report real progress');
+    assert.ok(progress.verifiableItems > 0);
+    assert.ok(progress.manualItems.length > 0, 'manual items should be surfaced, not scored');
+    assert.strictEqual(progress.verifiableItems + progress.manualItems.length, progress.totalItems);
+  });
+
+  it('scores pre-deployment above zero once a simulation has run', () => {
+    const engine = createRecommendationEngine();
+    const progress = engine.evaluateChecklist('pre-deployment', {
+      policy: createPolicySummary(),
+      simulationResults: createSimulationSummary({ totalOrders: 500, edgeCaseCount: 12 }),
+    });
+
+    assert.ok(progress);
+    assert.ok(progress.percentComplete > 0, 'pre-deployment should report real progress');
+  });
+
+  it('never exceeds 100% and excludes manual items from the denominator', () => {
+    const engine = createRecommendationEngine();
+    for (const id of ['policy-setup', 'policy-review', 'pre-deployment']) {
+      const progress = engine.evaluateChecklist(id, {
+        policy: createPolicySummary({ hasSegmentRules: true }),
+        simulationResults: createSimulationSummary({ totalOrders: 500, edgeCaseCount: 3 }),
+      });
+      assert.ok(progress, `${id} should exist`);
+      assert.ok(progress.percentComplete <= 100, `${id} reported ${progress.percentComplete}%`);
+      assert.ok(progress.percentComplete >= 0);
+    }
   });
 });
 

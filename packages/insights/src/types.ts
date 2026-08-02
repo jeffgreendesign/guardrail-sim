@@ -91,7 +91,15 @@ export interface ChecklistItem {
   /** Whether the item is required or optional */
   required: boolean;
 
-  /** Function to check if item is complete */
+  /**
+   * Marks work that cannot be verified from a CheckContext — notifying stakeholders,
+   * writing a rollback plan, checking prices against costs. Manual items are excluded
+   * from the completion percentage instead of counting as permanently incomplete,
+   * and are reported separately so they stay visible.
+   */
+  manual?: boolean;
+
+  /** Function to check if item is complete. Required unless the item is `manual`. */
   isComplete?: (context: CheckContext) => boolean;
 
   /** Detailed guidance for completing the item */
@@ -174,7 +182,19 @@ export interface PolicyRuleSummary {
  * Summary of simulation results for insight analysis
  */
 export interface SimulationSummary {
+  /** Number of orders simulated. One order = one buyer negotiation. */
   totalOrders: number;
+
+  /**
+   * Number of individual policy evaluations, one per negotiation round. Always
+   * >= totalOrders, since a rejected buyer may come back with a lower ask.
+   *
+   * `violationsByRule` and `limitingFactors` are counted per evaluation, so this
+   * is their correct denominator — dividing them by `totalOrders` yields rates
+   * above 100%. Falls back to `totalOrders` when a producer does not supply it.
+   */
+  totalEvaluations?: number;
+
   approvalRate: number;
 
   /** Average discount when approved */
@@ -186,14 +206,34 @@ export interface SimulationSummary {
   /** Average margin after approved discounts */
   averageMarginAfterDiscount: number;
 
-  /** Violation breakdown by rule */
+  /** Violation breakdown by rule, counted per evaluation */
   violationsByRule: Record<string, number>;
 
   /** Orders by customer segment */
   ordersBySegment?: Record<string, number>;
 
-  /** Limiting factor frequency */
+  /** Limiting factor frequency, counted per evaluation */
   limitingFactors: Record<string, number>;
+
+  /** Session outcomes per buyer persona, when the producer tracks personas */
+  outcomesByPersona?: Record<string, { accepted: number; rejected: number; abandoned: number }>;
+
+  /** Order values that were rejected, used to spot high-value rejections */
+  rejectedOrderValues?: number[];
+
+  /** Order values that were approved */
+  approvedOrderValues?: number[];
+
+  /** Count of edge cases the simulation flagged */
+  edgeCaseCount?: number;
+}
+
+/**
+ * The denominator for any rate derived from per-evaluation counts
+ * (`violationsByRule`, `limitingFactors`).
+ */
+export function evaluationCount(summary: SimulationSummary): number {
+  return summary.totalEvaluations ?? summary.totalOrders;
 }
 
 /**

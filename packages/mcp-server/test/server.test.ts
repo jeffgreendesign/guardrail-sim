@@ -1,5 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer, VERSION } from '../dist/index.js';
@@ -18,8 +19,13 @@ describe('MCP Server', () => {
   }
 
   describe('Server Info', () => {
-    it('should have correct version', () => {
-      assert.strictEqual(VERSION, '0.0.1');
+    it('advertises the version from package.json', () => {
+      // Asserting against the manifest rather than a literal keeps the advertised
+      // version from drifting away from the published one, as it previously had.
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+        version: string;
+      };
+      assert.strictEqual(VERSION, pkg.version);
     });
   });
 

@@ -13,6 +13,7 @@ const validationTestingItem: ChecklistItem = {
   description: 'Execute a full simulation with 1,000+ orders across all scenarios.',
   category: 'simulation-analysis',
   required: true,
+  isComplete: (ctx) => (ctx.simulationResults?.totalOrders ?? 0) >= 100,
   guidance: `
 ## Pre-deployment simulation
 
@@ -51,6 +52,7 @@ const edgeCaseTestingItem: ChecklistItem = {
   description: 'Verify behavior at boundary conditions and unusual inputs.',
   category: 'simulation-analysis',
   required: true,
+  isComplete: (ctx) => (ctx.simulationResults?.edgeCaseCount ?? 0) > 0,
   guidance: `
 ## Edge case testing
 
@@ -93,6 +95,8 @@ const rollbackPlanItem: ChecklistItem = {
   description: 'Document how to revert to the previous policy if issues arise.',
   category: 'compliance',
   required: true,
+  // A rollback plan is a human artefact.
+  manual: true,
   guidance: `
 ## Rollback preparation
 
@@ -139,6 +143,8 @@ const stakeholderNotificationItem: ChecklistItem = {
   description: 'Inform sales, finance, and support teams of policy changes.',
   category: 'compliance',
   required: false,
+  // Stakeholder comms happen outside the tool.
+  manual: true,
   guidance: `
 ## Stakeholder communication
 
@@ -181,6 +187,8 @@ const monitoringSetupItem: ChecklistItem = {
   description: 'Set up dashboards and alerts to track policy performance post-deployment.',
   category: 'performance',
   required: true,
+  // Monitoring lives in external infrastructure.
+  manual: true,
   guidance: `
 ## Monitoring configuration
 
@@ -227,6 +235,8 @@ const gradualRolloutItem: ChecklistItem = {
   description: 'Consider phased deployment to limit risk.',
   category: 'performance',
   required: false,
+  // Rollout scheduling is a human decision.
+  manual: true,
   guidance: `
 ## Gradual rollout strategy
 
@@ -275,6 +285,8 @@ const documentationFinalItem: ChecklistItem = {
   description: 'Complete all documentation before deployment.',
   category: 'compliance',
   required: true,
+  // Documentation state is not observable from a CheckContext.
+  manual: true,
   guidance: `
 ## Documentation finalization
 

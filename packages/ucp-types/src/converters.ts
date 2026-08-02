@@ -65,10 +65,14 @@ export function toUCPMessage(violation: Violation): DiscountMessage {
  */
 export function toDiscountValidationResult(
   evaluation: EvaluationResult,
-  _code?: string
+  code?: string
 ): DiscountValidationResult {
+  // The code is echoed back on the result so callers do not have to re-attach it.
+  const withCode = code !== undefined ? { code } : {};
+
   if (evaluation.approved) {
     return {
+      ...withCode,
       valid: true,
       message: 'Discount approved by policy',
     };
@@ -78,6 +82,7 @@ export function toDiscountValidationResult(
   const primaryViolation = evaluation.violations[0];
   if (!primaryViolation) {
     return {
+      ...withCode,
       valid: false,
       error_code: 'discount_code_invalid',
       message: 'Discount rejected by policy',
@@ -85,6 +90,7 @@ export function toDiscountValidationResult(
   }
 
   return {
+    ...withCode,
     valid: false,
     error_code: toUCPErrorCode(primaryViolation),
     message: primaryViolation.message,

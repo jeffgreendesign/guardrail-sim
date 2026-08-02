@@ -19,7 +19,12 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+import {
+  PolicyEngine,
+  calculateMaxDiscount,
+  defaultPolicy,
+  extractPolicyThresholds,
+} from '@guardrail-sim/policy-engine';
 import type { Order, Policy, EvaluationResult } from '@guardrail-sim/policy-engine';
 import {
   toDiscountValidationResult,
@@ -46,7 +51,7 @@ import { runSimulation, defaultPersonas, toSimulationSummary } from '@guardrail-
 import type { SimulationMetrics } from '@guardrail-sim/simulation';
 import { analyzePolicy } from '@guardrail-sim/insights';
 
-export const VERSION = '0.0.1';
+export const VERSION = '0.3.0';
 
 // Path to UI resources
 const __filename = fileURLToPath(import.meta.url);
@@ -640,46 +645,40 @@ async function handleGetMaxDiscount(args: { order: Order }): Promise<{
 }> {
   const { order } = args;
 
-  // Calculate constraints
-  const marginFloor = 0.15;
-  const maxDiscountCap = 0.25;
-  const volumeThreshold = 100;
-  const baseDiscountLimit = 0.1;
-  const volumeDiscountLimit = 0.15;
+  // Thresholds come from the active policy, never from constants duplicated here —
+  // otherwise a custom policy gets answered with the default policy's numbers.
+  const policy = policyEngine.getPolicy();
+  const { max_discount, limiting_factor } = calculateMaxDiscount(order, policy);
+  const { marginFloor, maxDiscount, volumeTiers } = extractPolicyThresholds(policy);
 
-  // Maximum discount based on margin floor
-  const marginBasedMax = order.product_margin - marginFloor;
-
-  // Maximum based on volume tier
-  const volumeBasedMax =
-    order.quantity >= volumeThreshold ? volumeDiscountLimit : baseDiscountLimit;
-
-  // Take the minimum of all constraints
-  const constraints = [
-    { name: 'margin_floor', value: marginBasedMax },
-    { name: 'max_discount_cap', value: maxDiscountCap },
-    { name: 'volume_tier', value: volumeBasedMax },
-  ];
-
-  const minConstraint = constraints.reduce((min, c) => (c.value < min.value ? c : min));
-  const maxDiscount = Math.max(0, Math.min(...constraints.map((c) => c.value)));
-
-  let details = '';
-  if (minConstraint.name === 'margin_floor') {
-    details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - 15% floor = ${(marginBasedMax * 100).toFixed(0)}% max discount`;
-  } else if (minConstraint.name === 'max_discount_cap') {
-    details = 'Limited by absolute discount cap of 25%';
-  } else {
-    details =
-      order.quantity >= volumeThreshold
-        ? 'Volume tier (100+ units) allows up to 15% discount'
-        : 'Base tier (< 100 units) limited to 10% discount';
+  let details: string;
+  switch (limiting_factor) {
+    case 'margin_floor':
+      details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - ${((marginFloor ?? 0) * 100).toFixed(0)}% floor = ${(max_discount * 100).toFixed(0)}% max discount`;
+      break;
+    case 'max_discount':
+      details = `Limited by absolute discount cap of ${((maxDiscount ?? 0) * 100).toFixed(0)}%`;
+      break;
+    case 'volume_tier': {
+      const tier = [...volumeTiers]
+        .filter((t) => order.quantity >= t.minQuantity)
+        .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+      details = tier
+        ? `Volume tier (${tier.minQuantity}+ units) allows up to ${(tier.maxDiscount * 100).toFixed(0)}% discount`
+        : `Volume tier limits this order to ${(max_discount * 100).toFixed(0)}%`;
+      break;
+    }
+    default:
+      details =
+        'Policy "' +
+        policy.name +
+        '" states no recognizable discount limit, so no headroom can be confirmed.';
   }
 
   return {
-    max_discount: maxDiscount,
-    max_discount_pct: `${(maxDiscount * 100).toFixed(1)}%`,
-    limiting_factor: minConstraint.name,
+    max_discount,
+    max_discount_pct: `${(max_discount * 100).toFixed(1)}%`,
+    limiting_factor,
     details,
   };
 }

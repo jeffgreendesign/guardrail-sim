@@ -125,7 +125,15 @@ export interface EdgeCase {
  * Aggregated metrics from a simulation run
  */
 export interface SimulationMetrics {
+  /** Number of negotiation sessions run. One session = one buyer/order. */
   totalSessions: number;
+  /**
+   * Number of individual policy evaluations across all sessions — one per negotiation
+   * round, so always >= totalSessions. This is the correct denominator for anything
+   * derived from `violationsByRule` or `limitingFactors`, which are also counted
+   * per round; dividing those by `totalSessions` produces rates above 100%.
+   */
+  totalEvaluations: number;
   approvalRate: number;
   averageDiscountApproved: number;
   averageDiscountRequested: number;

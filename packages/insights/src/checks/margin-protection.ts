@@ -1,4 +1,5 @@
 import type { Insight, InsightCheck, InsightResult, CheckContext } from '../types.js';
+import { evaluationCount } from '../types.js';
 
 /**
  * Margin Protection Insights
@@ -275,31 +276,38 @@ or if you should build in small buffers (e.g., reject at 24.5% instead of 25%).
 // CHECK IMPLEMENTATIONS
 // ============================================================================
 
-export const checkApprovalRate: InsightCheck = (context: CheckContext): InsightResult[] => {
-  if (!context.simulationResults) return [];
+export const checkHighApprovalRate: InsightCheck = (
+  context: CheckContext
+): InsightResult | null => {
+  if (!context.simulationResults) return null;
 
-  const results: InsightResult[] = [];
   const { approvalRate } = context.simulationResults;
-
-  if (approvalRate > 0.95) {
-    results.push({
-      insight: highApprovalRateInsight,
-      triggered: true,
-      data: { approvalRate },
-      message: `${(approvalRate * 100).toFixed(1)}% of discount requests were approved. Consider stress-testing with more aggressive scenarios.`,
-    });
+  if (approvalRate <= 0.95) {
+    return { insight: highApprovalRateInsight, triggered: false };
   }
 
-  if (approvalRate < 0.5) {
-    results.push({
-      insight: lowApprovalRateInsight,
-      triggered: true,
-      data: { approvalRate },
-      message: `Only ${(approvalRate * 100).toFixed(1)}% of discount requests were approved. This may impact sales effectiveness.`,
-    });
+  return {
+    insight: highApprovalRateInsight,
+    triggered: true,
+    data: { approvalRate },
+    message: `${(approvalRate * 100).toFixed(1)}% of discount requests were approved. Consider stress-testing with more aggressive scenarios.`,
+  };
+};
+
+export const checkLowApprovalRate: InsightCheck = (context: CheckContext): InsightResult | null => {
+  if (!context.simulationResults) return null;
+
+  const { approvalRate } = context.simulationResults;
+  if (approvalRate >= 0.5) {
+    return { insight: lowApprovalRateInsight, triggered: false };
   }
 
-  return results;
+  return {
+    insight: lowApprovalRateInsight,
+    triggered: true,
+    data: { approvalRate },
+    message: `Only ${(approvalRate * 100).toFixed(1)}% of discount requests were approved. This may impact sales effectiveness.`,
+  };
 };
 
 export const checkMarginFloorFrequency: InsightCheck = (
@@ -307,11 +315,15 @@ export const checkMarginFloorFrequency: InsightCheck = (
 ): InsightResult | null => {
   if (!context.simulationResults) return null;
 
-  const { violationsByRule, totalOrders } = context.simulationResults;
-  if (totalOrders === 0) return null;
+  const { violationsByRule } = context.simulationResults;
+
+  // Violations are counted per evaluation, so the denominator must be too —
+  // using totalOrders here reports frequencies above 100% for multi-round buyers.
+  const totalEvaluations = evaluationCount(context.simulationResults);
+  if (totalEvaluations === 0) return null;
 
   const marginFloorViolations = violationsByRule['margin_floor'] ?? 0;
-  const frequency = marginFloorViolations / totalOrders;
+  const frequency = marginFloorViolations / totalEvaluations;
 
   if (frequency > 0.2) {
     return {
@@ -320,9 +332,9 @@ export const checkMarginFloorFrequency: InsightCheck = (
       data: {
         frequency,
         violations: marginFloorViolations,
-        totalOrders,
+        totalEvaluations,
       },
-      message: `Margin floor triggered in ${(frequency * 100).toFixed(1)}% of evaluations (${marginFloorViolations} of ${totalOrders}).`,
+      message: `Margin floor triggered in ${(frequency * 100).toFixed(1)}% of evaluations (${marginFloorViolations} of ${totalEvaluations}).`,
     };
   }
 
@@ -424,9 +436,11 @@ export const marginProtectionInsights: Insight[] = [
   // TODO: Implement when detailed evaluation results are tracked
 ];
 
+// One check per insight id. Registering a single multi-result check under two ids
+// makes the engine emit each of its findings once per id — the duplicate-emission bug.
 export const marginProtectionChecks: Map<string, InsightCheck> = new Map([
-  ['margin-001', checkApprovalRate],
-  ['margin-002', checkApprovalRate],
+  ['margin-001', checkHighApprovalRate],
+  ['margin-002', checkLowApprovalRate],
   ['margin-003', checkMarginFloorFrequency],
   ['margin-004', checkAverageMarginBuffer],
   ['margin-005', checkSingleRuleDominance],

@@ -71,7 +71,15 @@ export interface ChecklistProgress {
   totalItems: number;
   requiredItems: number;
   completedRequired: number;
+  /**
+   * Percentage of automatically verifiable items completed. Items flagged `manual`
+   * are excluded from both numerator and denominator — see `manualItems`.
+   */
   percentComplete: number;
+  /** Items needing human sign-off, which no context can verify. */
+  manualItems: string[];
+  /** Items that can be verified automatically, i.e. the denominator of percentComplete. */
+  verifiableItems: number;
 }
 
 const SEVERITY_ORDER: Record<InsightSeverity, number> = {
@@ -266,15 +274,23 @@ export class RecommendationEngine {
     if (!checklist) return null;
 
     const completedItems: string[] = [];
+    const manualItems: string[] = [];
 
     for (const item of checklist.items) {
-      if (item.isComplete && item.isComplete(context)) {
+      if (item.manual || !item.isComplete) {
+        // Nothing in a CheckContext can settle this one; surface it instead of
+        // silently scoring it as incomplete forever.
+        manualItems.push(item.id);
+        continue;
+      }
+      if (item.isComplete(context)) {
         completedItems.push(item.id);
       }
     }
 
     const requiredItems = checklist.items.filter((i) => i.required);
     const completedRequired = requiredItems.filter((i) => completedItems.includes(i.id)).length;
+    const verifiableItems = checklist.items.length - manualItems.length;
 
     return {
       checklist,
@@ -283,9 +299,9 @@ export class RecommendationEngine {
       requiredItems: requiredItems.length,
       completedRequired,
       percentComplete:
-        checklist.items.length > 0
-          ? Math.round((completedItems.length / checklist.items.length) * 100)
-          : 100,
+        verifiableItems > 0 ? Math.round((completedItems.length / verifiableItems) * 100) : 100,
+      manualItems,
+      verifiableItems,
     };
   }
 
