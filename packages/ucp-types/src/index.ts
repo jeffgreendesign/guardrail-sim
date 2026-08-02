@@ -21,6 +21,7 @@ export {
   IDENTITY_LINKING_CAPABILITY,
 } from './versions.js';
 export type { UCPCapabilityDescriptor } from './versions.js';
+export { GUARDRAIL_UCP_PROFILE, serializeProfile } from './profile-fixture.js';
 
 // Profile / Discovery types
 export { compareVersions, negotiateCapabilities, profileSupportsCapability } from './profile.js';

@@ -1,10 +1,11 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client } from '@modelcontextprotocol/client';
+import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createServer, VERSION } from '../dist/index.js';
 import { clearSessions } from '../dist/checkout-store.js';
+import { GUARDRAIL_UCP_PROFILE } from '@guardrail-sim/ucp-types';
 
 describe('MCP Server', () => {
   async function createTestClient() {
@@ -243,15 +244,11 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listResources();
 
-      assert.strictEqual(result.resources.length, 5);
+      assert.strictEqual(result.resources.length, 2);
 
       const uris = result.resources.map((r) => r.uri);
       assert.ok(uris.includes('guardrail://policies/active'));
       assert.ok(uris.includes('guardrail://profile/well-known-ucp'));
-      // MCP Apps UI resources
-      assert.ok(uris.includes('ui://guardrail-sim/evaluation-result'));
-      assert.ok(uris.includes('ui://guardrail-sim/policy-dashboard'));
-      assert.ok(uris.includes('ui://guardrail-sim/simulation-results'));
     });
 
     it('should read active policy resource', async () => {
@@ -264,21 +261,18 @@ describe('MCP Server', () => {
       assert.strictEqual(policy.rules.length, 3);
     });
 
-    it('should read UI resources', async () => {
+    it('should serve the UCP profile from the ucp-types constants', async () => {
       const { client } = await createTestClient();
 
-      // Test evaluation result UI
-      const evalResult = await client.readResource({ uri: 'ui://guardrail-sim/evaluation-result' });
-      assert.strictEqual(evalResult.contents.length, 1);
-      assert.strictEqual(evalResult.contents[0].mimeType, 'text/html');
-      assert.ok((evalResult.contents[0].text as string).includes('<!doctype html>'));
-      assert.ok((evalResult.contents[0].text as string).includes('@modelcontextprotocol/ext-apps'));
+      const result = await client.readResource({ uri: 'guardrail://profile/well-known-ucp' });
+      assert.strictEqual(result.contents.length, 1);
+      assert.strictEqual(result.contents[0].mimeType, 'application/json');
 
-      // Test policy dashboard UI
-      const dashResult = await client.readResource({ uri: 'ui://guardrail-sim/policy-dashboard' });
-      assert.strictEqual(dashResult.contents.length, 1);
-      assert.strictEqual(dashResult.contents[0].mimeType, 'text/html');
-      assert.ok((dashResult.contents[0].text as string).includes('<!doctype html>'));
+      // Serialized from GUARDRAIL_UCP_PROFILE rather than read from disk, so a
+      // published tarball cannot lose the fixture and no inline fallback can drift.
+      const profile = JSON.parse(result.contents[0].text as string);
+      assert.deepStrictEqual(profile, GUARDRAIL_UCP_PROFILE);
+      assert.strictEqual(profile.capabilities.length, 3);
     });
   });
 
@@ -318,19 +312,31 @@ describe('MCP Server', () => {
       assert.strictEqual(parsed.seed, 123);
     });
 
-    it('should cap orders_per_persona at 50', async () => {
+    it('rejects orders_per_persona above the declared maximum', async () => {
+      const { client } = await createTestClient();
+
+      // The tool's inputSchema declares max 50 and the SDK enforces it, so an
+      // out-of-range request is refused rather than silently clamped. The bound
+      // is discoverable by the caller in tools/list.
+      const result = await client.callTool({
+        name: 'run_simulation',
+        arguments: { personas: ['budget-buyer'], orders_per_persona: 100 },
+      });
+
+      assert.ok(result.isError, 'out-of-range input should be an error result');
+      assert.match((result.content[0] as { type: 'text'; text: string }).text, /validation/i);
+    });
+
+    it('accepts orders_per_persona at the maximum', async () => {
       const { client } = await createTestClient();
 
       const result = await client.callTool({
         name: 'run_simulation',
-        arguments: {
-          personas: ['budget-buyer'],
-          orders_per_persona: 100,
-        },
+        arguments: { personas: ['budget-buyer'], orders_per_persona: 50 },
       });
 
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
-      assert.strictEqual(parsed.totalSessions, 50); // capped at 50
+      assert.strictEqual(parsed.totalSessions, 50);
     });
   });
 
@@ -697,17 +703,81 @@ describe('MCP Server', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle unknown tool gracefully', async () => {
+    it('rejects an unknown tool with a JSON-RPC error', async () => {
       const { client } = await createTestClient();
 
+      // Previously an isError result carrying a custom "UNKNOWN_TOOL" string.
+      // The SDK now answers with InvalidParams (-32602), which is what ADR 003
+      // asked for when it flagged the custom error codes as a gap.
+      await assert.rejects(
+        client.callTool({ name: 'unknown_tool', arguments: {} }),
+        (error: unknown) => {
+          assert.strictEqual((error as { code: number }).code, -32602);
+          return true;
+        }
+      );
+    });
+
+    it('reports a handler failure as an isError result', async () => {
+      const { client } = await createTestClient();
+
+      // Tool-level failures stay in-band so the model can read and react to them.
       const result = await client.callTool({
-        name: 'unknown_tool',
-        arguments: {},
+        name: 'get_checkout',
+        arguments: { id: 'does-not-exist' },
       });
 
       assert.ok(result.isError);
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
-      assert.strictEqual(parsed.code, 'UNKNOWN_TOOL');
+      assert.strictEqual(parsed.code, 'NOT_FOUND');
     });
+  });
+});
+
+describe('MCP 2026-07-28 conformance', () => {
+  async function connect() {
+    const server = createServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    return client;
+  }
+
+  it('declares an outputSchema on every tool', async () => {
+    const client = await connect();
+    const { tools } = await client.listTools();
+
+    assert.strictEqual(tools.length, 12);
+    for (const tool of tools) {
+      assert.ok(tool.outputSchema, `${tool.name} is missing an outputSchema`);
+      assert.ok(tool.inputSchema, `${tool.name} is missing an inputSchema`);
+    }
+  });
+
+  it('returns structuredContent alongside the text block', async () => {
+    const client = await connect();
+
+    const result = await client.callTool({
+      name: 'evaluate_policy',
+      arguments: {
+        order: { order_value: 50000, quantity: 120, product_margin: 0.4 },
+        proposed_discount: 0.12,
+      },
+    });
+
+    // The text block is kept for 2025-era clients that only read `content`.
+    const fromText = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+    assert.ok(result.structuredContent, 'structuredContent must be present');
+    assert.deepStrictEqual(result.structuredContent, fromText);
+    assert.strictEqual((result.structuredContent as { approved: boolean }).approved, true);
+  });
+
+  it('lists tools in a stable order across connections', async () => {
+    // The revision asks for a deterministic tools/list so clients can cache it.
+    const first = (await (await connect()).listTools()).tools.map((t) => t.name);
+    const second = (await (await connect()).listTools()).tools.map((t) => t.name);
+
+    assert.deepStrictEqual(first, second);
+    assert.strictEqual(first[0], 'evaluate_policy');
   });
 });

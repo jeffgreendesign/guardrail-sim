@@ -33,6 +33,10 @@
     "./cart": {
       "types": "./dist/cart.d.ts",
       "import": "./dist/cart.js"
+    },
+    "./profile-fixture": {
+      "types": "./dist/profile-fixture.d.ts",
+      "import": "./dist/profile-fixture.js"
     }
   },
   "files": [

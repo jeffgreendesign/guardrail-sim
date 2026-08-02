@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-sim/mcp-server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server exposing evaluate_policy tool for AI agents",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,7 +42,7 @@
   ],
   "license": "MIT",
   "scripts": {
-    "build": "tsc -b && cp -r src/ui dist/",
+    "build": "tsc -b",
     "dev": "tsc -b --watch",
     "start": "node dist/index.js",
     "test": "node --test test/*.test.ts",
@@ -50,14 +50,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@guardrail-sim/policy-engine": "workspace:*",
-    "@guardrail-sim/ucp-types": "workspace:*",
-    "@guardrail-sim/simulation": "workspace:*",
     "@guardrail-sim/insights": "workspace:*",
-    "@modelcontextprotocol/ext-apps": "^1.7.2",
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@guardrail-sim/policy-engine": "workspace:*",
+    "@guardrail-sim/simulation": "workspace:*",
+    "@guardrail-sim/ucp-types": "workspace:*",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^24.10.1",
     "c8": "^12.0.0",
     "typescript": "^6.0.3"

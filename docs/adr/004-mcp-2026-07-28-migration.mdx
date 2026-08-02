@@ -1,0 +1,121 @@
+---
+title: 'ADR 004: MCP 2026-07-28 migration and SDK v2'
+description: Adopting the 2026-07-28 protocol revision, and why the MCP Apps UI was dropped to get there
+---
+
+# ADR 004: MCP 2026-07-28 migration and SDK v2
+
+**Status:** Accepted
+**Date:** August 2, 2026
+**Supersedes:** the MCP portions of [ADR 003](/docs/adr/003-ucp-spec-review-jan-2026)
+
+## Context
+
+The [2026-07-28 revision](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
+is the largest change to MCP since launch. It landed five days before this work.
+
+The parts that matter for a stdio tool server like this one:
+
+- **The protocol is stateless.** The `initialize` / `notifications/initialized` handshake is
+  gone. Every request carries its protocol version and client capabilities in `_meta`.
+- **`server/discover`** is a required RPC advertising supported versions, capabilities and identity.
+- **All results carry `resultType`** — `"complete"` for ordinary results, `"input_required"` for
+  multi-round-trip interim results.
+- **`CacheableResult`**: `tools/list`, `resources/list`, `resources/read` and `server/discover`
+  now carry `ttlMs` and `cacheScope`.
+- **Multi Round-Trip Requests (MRTR)** replace server-initiated `roots/list`,
+  `sampling/createMessage` and `elicitation/create`.
+- **Roots, Sampling and Logging are deprecated**, with a minimum twelve-month window.
+- Error codes were repartitioned: `-32000`–`-32019` implementation-defined, `-32020`–`-32099`
+  reserved for the spec. Resource-not-found moved from `-32002` to `-32602`.
+
+SDK support arrived in a new package family — `@modelcontextprotocol/server`,
+`/client`, `/core` at 2.0.0 — replacing the monolithic `@modelcontextprotocol/sdk` v1.
+
+## Decision
+
+Migrate to the v2 SDK now and serve 2026-07-28, and **remove the MCP Apps UI** to do it.
+
+### Why the UI had to go
+
+`@modelcontextprotocol/ext-apps@1.7.5` peer-depends on `@modelcontextprotocol/sdk ^1.29.0`.
+There is no v2-compatible release — the package publishes only a `latest` tag with no beta
+line. Keeping the three `ui://` panels would have meant staying on SDK v1 and therefore on
+the 2025-era protocol.
+
+The panels were also **already non-functional**. Both `evaluation-result.html` and
+`policy-dashboard.html` did `import { App } from '@modelcontextprotocol/ext-apps'` inside a
+`<script type="module">` with no import map anywhere in the file, and the build step was a
+plain `cp -r src/ui dist/` that rewrote nothing. A browser cannot resolve a bare module
+specifier, so those modules threw on load. The only test covering them asserted that the
+string `@modelcontextprotocol/ext-apps` appeared in the HTML — not that it resolved.
+`simulation-results.html` did not use ext-apps at all; it listened for raw `postMessage`
+events and built `innerHTML` from unescaped rule names and persona ids.
+
+So this removes a feature that did not work, not a working one.
+
+**Revisiting:** if ext-apps ships a release whose peer range admits
+`@modelcontextprotocol/server@2`, the panels can return. They would need an import map (or a
+bundling build step) and `simulation-results.html` would need rewriting to use
+`textContent`/`replaceChildren` like the other two files did.
+
+### What the migration changed
+
+- `Server` + `setRequestHandler` became `McpServer` + `registerTool` / `registerResource`.
+- The 12 tools' hand-written JSON Schemas became Zod schemas in `src/schemas.ts`. v2 requires
+  Zod 4; Zod 3 is not supported.
+- **Every tool now declares an `outputSchema` and returns `structuredContent`.** Previously no
+  tool declared one and every handler stringified JSON into a single text block, so agents got
+  no machine-readable payload. The text block is still emitted alongside, so 2025-era clients
+  that only read `content` keep working.
+- `serveStdio` replaces `server.connect(new StdioServerTransport())`. It owns era negotiation,
+  answers `server/discover`, and stamps `resultType` and cache fields.
+- Cache hints are declared per operation: one hour and `public` for the static tool and
+  resource lists, one minute and `private` for `resources/read`.
+- Tools are registered in a fixed order, which is what makes `tools/list` deterministic —
+  the revision asks for this so clients can cache the list and keep prompt-cache hits.
+- Unknown tools now produce a JSON-RPC `-32602` instead of an `isError` result carrying a
+  custom `UNKNOWN_TOOL` string. This closes the gap ADR 003 flagged in its MCP review. Tool-level failures
+  (validation, not-found) stay in-band as `isError` results so the model can read and react.
+- The `/.well-known/ucp` profile resource is now serialized from the `ucp-types` constants
+  instead of being read from a JSON fixture at runtime with a hand-copied inline fallback.
+  The two had already drifted — the fallback listed two capabilities where the fixture listed
+  three — and a published tarball does not contain the fixture at all.
+
+### `legacy: 'serve'` is set explicitly
+
+`serveStdio` accepts `legacy: 'serve' | 'reject'`. This server sets `'serve'` explicitly rather
+than relying on the default, because every MCP client in the wild today opens with a 2025-era
+`initialize`. Rejecting those would break `npx @guardrail-sim/mcp-server` for every existing
+user on the day this ships. Verified both ways over real stdio:
+
+| Client opening                                        | Result                                                                                               |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `initialize` (2025-06-18)                             | Served. 12 tools, `structuredContent` present, resources listed.                                     |
+| `tools/list` with `_meta` protocol version 2026-07-28 | Served. `resultType: complete`, `ttlMs: 3600000`, `cacheScope: public`.                              |
+| `server/discover` **without** `_meta`                 | `-32601`. Correct: a claim-less opening is classified as 2025-era, where that method does not exist. |
+
+### What this server does not need
+
+- **MRTR.** Nothing here uses elicitation, sampling or roots, so there is no migration debt.
+- **Subscriptions.** The tool and resource lists are static for the process lifetime.
+- **Stateless-core rework.** `checkout-store` state was already threaded through explicit tool
+  arguments (`id`), which is exactly what the stateless core requires. Sessions remain
+  in-memory and process-scoped, as recorded in `checkout-store.ts`.
+
+## Consequences
+
+- `@guardrail-sim/mcp-server` goes to **0.4.0** with a breaking change: the three `ui://`
+  resources are gone, so `resources/list` returns 2 entries instead of 5.
+- The dependency tree shrank considerably. SDK v1 pulled `hono`, `express`, `ajv`, `cors`,
+  `jose` and more; v2's server package depends on `zod` and `@modelcontextprotocol/core` only.
+  `hono` left the tree entirely, so the `hono` and `@hono/node-server` `pnpm.overrides` entries
+  were deleted. The `fast-uri` override stays — commitlint still reaches it through `ajv`.
+  Repo-wide the audit went from 3 low / 3 moderate to 1 low / 0 moderate / 0 high.
+- Out-of-range tool inputs are now rejected by the SDK against the declared schema rather than
+  silently clamped by a handler. `run_simulation` declares `orders_per_persona` max 50; asking
+  for 100 returns an error result instead of quietly returning 50. The bound is discoverable
+  by the caller in `tools/list`.
+- Roots, Sampling and Logging are deprecated upstream with removal no earlier than twelve
+  months out. This server uses none of them, so there is nothing to migrate — but new work
+  should not adopt them.
