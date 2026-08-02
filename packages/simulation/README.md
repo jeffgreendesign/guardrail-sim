@@ -7,16 +7,23 @@ Spawn LLM buyer personas that try to game your pricing policies. See what breaks
 
 Part of [guardrail-sim](https://github.com/jeffgreendesign/guardrail-sim).
 
-## Status
+## What's here
 
-> **This package is not yet implemented.** The API surface will change.
+- **Buyer personas** — five built-in personas spanning cooperative, strategic and adversarial
+  negotiation styles (`budgetBuyer`, `strategicBuyer`, `marginHunter`, `volumeGamer`, `codeStacker`)
+- **Negotiation loops** — multi-round discount negotiations against your policy engine, with
+  buyers conceding between rounds and walking away when no deal is reachable
+- **Edge-case probes** — volume-tier boundaries, margin-floor probes, max-discount probes
+- **Metrics and insights** — approval rates, margin impact, limiting factors, and a bridge to
+  `@guardrail-sim/insights` for policy health analysis
 
-## What's Planned
+Runs offline with zero API keys. Output is deterministic given a seed: the same seed always
+produces the same sessions.
 
-- **Buyer personas** — cooperative, strategic, and adversarial negotiation styles via OpenAI Batch API
-- **Negotiation loops** — multi-round discount negotiations against your policy engine
-- **Attack library** — volume gaming, code stacking, boundary probing, segment spoofing
-- **Batch runs** — simulate thousands of interactions and aggregate the results
+## Not yet
+
+- **LLM-backed personas.** `PersonaProvider` is the extension point; the built-in provider is
+  deterministic and seeded. An LLM-backed implementation would sit behind that interface.
 
 ## License
 

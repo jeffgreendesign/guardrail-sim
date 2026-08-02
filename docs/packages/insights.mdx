@@ -224,26 +224,33 @@ import type { PolicySummary, SimulationSummary } from '@guardrail-sim/insights';
 
 // Prepare your data
 const policy: PolicySummary = {
-  id: 'default-b2b-policy',
-  name: 'Default B2B Pricing Policy',
+  id: 'my-policy',
+  name: 'My Pricing Policy',
+  ruleCount: 3,
   rules: [
-    { name: 'margin_floor', triggerCount: 45, rejectionCount: 45 },
-    { name: 'max_discount', triggerCount: 12, rejectionCount: 12 },
-    { name: 'volume_tier', triggerCount: 28, rejectionCount: 28 },
+    { name: 'margin_floor', priority: 10, conditionCount: 1, eventType: 'violation' },
+    { name: 'max_discount', priority: 10, conditionCount: 1, eventType: 'violation' },
+    { name: 'volume_tier', priority: 5, conditionCount: 2, eventType: 'violation' },
   ],
+  hasMarginFloor: true,
+  marginFloorValue: 0.15,
+  hasMaxDiscountCap: true,
+  maxDiscountCapValue: 0.25,
+  hasVolumeTiers: true,
+  volumeTierThresholds: [100],
+  hasSegmentRules: false,
 };
 
 const simulation: SimulationSummary = {
-  totalScenarios: 500,
-  approved: 415,
-  rejected: 85,
-  averageMargin: 0.22,
-  marginDistribution: { min: 0.15, max: 0.38, median: 0.21 },
-  segmentBreakdown: {
-    new: { count: 100, approved: 70 },
-    gold: { count: 200, approved: 185 },
-    platinum: { count: 200, approved: 160 },
-  },
+  totalOrders: 500, // one per buyer
+  totalEvaluations: 1180, // one per negotiation round
+  approvalRate: 0.83,
+  averageDiscountApproved: 0.12,
+  averageDiscountRequested: 0.18,
+  averageMarginAfterDiscount: 0.22,
+  violationsByRule: { margin_floor: 320, max_discount: 60, volume_tier: 145 },
+  limitingFactors: { margin_floor: 100, max_discount: 40, volume_tier: 85 },
+  ordersBySegment: { new: 100, gold: 200, platinum: 200 },
 };
 
 // Analyze

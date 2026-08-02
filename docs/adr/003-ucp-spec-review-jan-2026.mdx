@@ -5,9 +5,29 @@ description: Gap analysis between guardrail-sim's UCP integration and the curren
 
 # ADR 003: UCP Specification Review — January 2026
 
-**Status:** Accepted
+**Status:** Superseded
 
 **Date:** January 30, 2026 (Updated: March 14, 2026)
+
+**Superseded by:** [ADR 004](/docs/adr/004-mcp-2026-07-28-migration) (MCP) and the
+2026-04-08 UCP upgrade (August 2, 2026)
+
+<Callout type="warn" title="Historical record — several statements below are now out of date">
+This ADR is kept as written. What has changed since:
+
+- The spec version it analyses, **2026-01-11**, is three revisions behind. The project now
+  targets **2026-04-08**.
+- It cites `@guardrail-sim/ucp-types` **v0.2.0** and **2 custom MCP tools**. The package is
+  at 1.0.0 and the server exposes **12** tools.
+- Its capability matrix marks Cart, Discovery/Profiles and the standard MCP checkout tools
+  as not implemented. **All three shipped**, in the P0/P1 work this ADR recommended.
+- The fuzzy substring matching it flags as fragile was replaced: `converters.ts` delegates
+  to `getUCPErrorCode` in `policy-engine`, which is now the single mapping table.
+- Its "custom error codes rather than JSON-RPC codes" gap was closed by ADR 004.
+- Its deferral of P2/P3 items was conditioned on the simulation package being inactive.
+  That package is complete, so the condition has expired.
+
+</Callout>
 
 ## Context
 

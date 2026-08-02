@@ -9,19 +9,76 @@ All notable changes to this project are documented below.
 
 ## Unreleased
 
+### Fixed — policy guardrails
+
+- `calculateMaxDiscount` now reads the policy it is asked about. It previously ignored the
+  policy entirely and answered from hardcoded default-policy thresholds: against a policy with
+  a 30% margin floor and an 8% cap it reported 15% with limiting factor `volume_tier`, naming a
+  rule that policy does not contain. New `extractPolicyThresholds` recovers a policy's limits
+  from its own rule conditions and is now the single source of truth, replacing four separate
+  copies of those constants.
+- A policy stating no recognizable limit now reports `max_discount: 0` with
+  `limiting_factor: 'undetermined'` rather than guessing.
+- Insight checks registered under two ids each emitted every finding twice and double-counted
+  `summary.total`. Each id now maps to exactly one check.
+- `sim-004` through `sim-007` were exported as insights but never registered, so four of the
+  eight simulation insights could never fire. All eight are wired up.
+- Frequency checks divided per-round violation counts by the per-session order count, reporting
+  impossible figures like "Margin floor triggered in 138.0% of evaluations (69 of 50)". Metrics
+  now carry `totalEvaluations` as the matching denominator.
+- The `policy-review` and `pre-deployment` checklists defined no `isComplete` handlers and
+  always reported 0%. Verifiable items are now scored; the rest are surfaced as `manual`.
+- `detectEdgeCases` hardcoded default-policy boundaries; it now reads the policy under test.
+- `evaluate()` treated every fired rule as a violation, so a policy could not express an
+  advisory rule. Only `type: 'violation'` blocks approval now, other events land in a new
+  `notices` field, and `applied_rules` means "rules evaluated" rather than duplicating
+  the violations.
+- The `abandoned` session outcome is now produced: a buyer walks away once even its own floor
+  cannot clear the policy. `marginImpact` reports revenue conceded, not the discount rate.
+
+### Added
+
+- MCP **2026-07-28** protocol support on SDK v2. Every tool declares an `outputSchema` and
+  returns `structuredContent`; none did before. 2025-era clients are still served.
+- UCP **2026-04-08**: `CATALOG_CAPABILITY`, `SUPPORTED_UCP_VERSIONS`, `DEFAULT_PRODUCT_MARGIN`,
+  and `GUARDRAIL_UCP_PROFILE`.
+- `run_simulation`, `analyze_simulation`, and the five UCP checkout tools are now documented.
+- Rule Flow tab in the playground, wiring up a diagram component that shipped unused.
+- ADR-004: MCP 2026-07-28 migration and SDK v2.
+
+### Changed
+
+- **Breaking:** the three `ui://` MCP Apps resources are removed — `ext-apps` has no
+  SDK v2-compatible release, and the panels were already non-functional. See ADR-004.
+- **Breaking:** UCP discount entries in `totals[]` are now negative per 2026-04-08, and the
+  checkout store emits them at all — a discounted checkout previously reported
+  `total === subtotal`. `extends` widens to `string | string[]`; identity linking is renamed
+  to `dev.ucp.common.identity_linking`.
+- MCP server now exposes 12 tools (was 1 at v0.0.1).
+- Unknown tools return JSON-RPC `-32602` instead of a custom `UNKNOWN_TOOL` string.
+- Toolchain moved to TypeScript 6, ESLint 10, Node 24 LTS, Next 16 and Fumadocs 16.
+- Documentation corrected against the running server: tool counts, `applied_rules` (was
+  `triggeredRules`), `policy_id` (`default`, not `default-b2b-policy`), and the
+  `simulate_checkout_discount` response shape, which documented a `rejected[]` array that
+  does not exist.
+
+### Security
+
+- `pnpm audit --audit-level=high` went from **17 high** advisories to **zero**. Dropping MCP
+  SDK v1 removed the `hono`/`ajv`/`express` tree outright; the rest are pinned via overrides.
+
+## v0.2.1 / v1.0.0 (ucp-types) — earlier 2026
+
 ### Added
 
 - UCP alignment with Universal Commerce Protocol
 - `@guardrail-sim/ucp-types` package with discount and checkout types
 - `@guardrail-sim/insights` package with policy health checks
+- `@guardrail-sim/simulation` package with adversarial buyer personas
 - UCP-aligned MCP tools: `validate_discount_code`, `simulate_checkout_discount`
+- Standard UCP checkout tools and `/.well-known/ucp` profile discovery
 - Interactive policy playground in documentation site
-- ADR-002: UCP Protocol Alignment
-
-### Changed
-
-- MCP server now exposes 5 tools (was 1)
-- Updated documentation to match actual API
+- ADR-002: UCP Protocol Alignment; ADR-003: UCP Specification Review
 
 ## v0.0.1 (December 2025)
 
@@ -44,4 +101,4 @@ All notable changes to this project are documented below.
 - ESLint + Prettier configuration
 - Husky pre-commit hooks
 - Conventional commits with commitlint
-- 76 passing tests across all packages
+- 76 passing tests across all packages (177 as of the current Unreleased entry)

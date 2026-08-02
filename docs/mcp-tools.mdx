@@ -5,7 +5,7 @@ description: Complete reference for guardrail-sim's MCP tools
 
 # MCP Tools Reference
 
-guardrail-sim exposes 5 tools through the Model Context Protocol for AI agent integration.
+guardrail-sim exposes 12 tools through the Model Context Protocol for AI agent integration.
 
 ## Setup
 
@@ -79,10 +79,10 @@ Evaluate a proposed discount against the active pricing policy.
 {
   "approved": true,
   "violations": [],
-  "triggeredRules": ["margin_floor", "max_discount", "volume_tier"],
+  "applied_rules": ["margin_floor", "max_discount", "volume_tier"],
   "calculated_margin": 0.28,
-  "policy_id": "default-b2b-policy",
-  "policy_name": "Default B2B Pricing Policy"
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy"
 }
 ```
 
@@ -94,13 +94,19 @@ Evaluate a proposed discount against the active pricing policy.
   "violations": [
     {
       "rule": "margin_floor",
-      "message": "Calculated margin (12%) falls below 15% floor"
+      "message": "Calculated margin falls below 15% floor",
+      "ucp_error_code": "discount_code_invalid"
+    },
+    {
+      "rule": "max_discount",
+      "message": "Discount exceeds maximum allowed 25%",
+      "ucp_error_code": "discount_code_invalid"
     }
   ],
-  "triggeredRules": ["margin_floor"],
+  "applied_rules": ["margin_floor", "max_discount", "volume_tier"],
   "calculated_margin": 0.12,
-  "policy_id": "default-b2b-policy",
-  "policy_name": "Default B2B Pricing Policy"
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy"
 }
 ```
 
@@ -131,8 +137,8 @@ Get a human-readable summary of the active policy rules.
 
 ```json
 {
-  "policy_id": "default-b2b-policy",
-  "policy_name": "Default B2B Pricing Policy",
+  "policy_id": "default",
+  "policy_name": "Default Pricing Policy",
   "rules": [
     {
       "name": "margin_floor",
@@ -331,45 +337,110 @@ Simulate a UCP checkout with discount codes applied.
 
 ```json
 {
+  "codes": ["SUMMER20"],
   "applied": [
     {
       "code": "SUMMER20",
-      "title": "Discount SUMMER20",
-      "amount": { "amount": 75000, "currency": "USD" },
+      "title": "10% Discount",
+      "amount": 7500000,
       "method": "across",
       "priority": 1,
       "allocations": [
-        { "target": "$.line_items[0]", "amount": { "amount": 50000, "currency": "USD" } },
-        { "target": "$.line_items[1]", "amount": { "amount": 25000, "currency": "USD" } }
+        { "target": "$.line_items[0]", "amount": 5000000 },
+        { "target": "$.line_items[1]", "amount": 2500000 }
       ]
     }
   ],
-  "rejected": [],
-  "messages": []
+  "currency": "USD",
+  "allocations": [
+    { "target": "$.line_items[0]", "amount": 5000000 },
+    { "target": "$.line_items[1]", "amount": 2500000 }
+  ]
 }
 ```
+
+<Callout title="Amounts are plain integers in minor units">
+  `amount` is a number of cents, not a `Money` object. And per UCP 2026-04-08 the amount in
+  `applied` is **positive** — it states the discount's value. Only the corresponding entry in a
+  checkout's `totals[]` is negative, because that reflects the effect on the receipt.
+</Callout>
 
 **Response (rejected):**
 
 ```json
 {
+  "codes": ["SUMMER20"],
   "applied": [],
-  "rejected": [
-    {
-      "code": "SUMMER20",
-      "error_code": "discount_code_invalid",
-      "message": "Calculated margin falls below 15% floor"
-    }
-  ],
   "messages": [
     {
       "type": "warning",
       "code": "discount_code_invalid",
-      "message": "Calculated margin falls below 15% floor"
+      "message": "Calculated margin falls below 15% floor",
+      "field": "dev.ucp.shopping.discount.codes"
+    },
+    {
+      "type": "warning",
+      "code": "discount_code_user_ineligible",
+      "message": "Discount exceeds tier limit (10% base, 15% for qty >= 100)",
+      "field": "dev.ucp.shopping.discount.codes"
     }
-  ]
+  ],
+  "currency": "USD"
 }
 ```
+
+<Callout type="warn" title="There is no `rejected` array">
+  Rejections are reported through `messages[]` with `type: "warning"`, which is what UCP specifies
+  so they surface to the user rather than being handled silently.
+</Callout>
+
+---
+
+## Simulation Tools
+
+### run_simulation
+
+Runs the adversarial buyer personas against the active policy. Deterministic: the same
+`seed` always produces the same sessions.
+
+| Parameter            | Type        | Notes                                           |
+| -------------------- | ----------- | ----------------------------------------------- |
+| `orders_per_persona` | `number?`   | 1-50, default 10. Values above 50 are rejected. |
+| `personas`           | `string[]?` | Persona ids; defaults to all five built-ins.    |
+| `seed`               | `number?`   | Default 42.                                     |
+
+Returns `SimulationMetrics` plus `seed` and `persona_count`. Note `totalEvaluations`
+(one per negotiation round) alongside `totalSessions` (one per buyer) — rates derived from
+`violationsByRule` must divide by the former.
+
+### analyze_simulation
+
+Runs a simulation and analyzes the results, returning `{ metrics, insights }` where
+`insights` carries `total`, `critical`, `warnings` and the individual `items`.
+
+---
+
+## UCP Checkout Tools
+
+These five tools implement the UCP checkout capability. Sessions live in memory for the
+server process lifetime — there is no persistence and no auth.
+
+| Tool                | Required input   | Returns                                    |
+| ------------------- | ---------------- | ------------------------------------------ |
+| `create_checkout`   | `checkout`       | `{ checkout }` — a new session             |
+| `get_checkout`      | `id`             | `{ checkout }`, or a `NOT_FOUND` error     |
+| `update_checkout`   | `id`, `checkout` | `{ checkout }` with discounts re-evaluated |
+| `complete_checkout` | `id`             | `{ checkout }` carrying an order reference |
+| `cancel_checkout`   | `id`             | `{ checkout }` with status `canceled`      |
+
+`create_checkout`, `complete_checkout` and `cancel_checkout` accept an optional
+`idempotency_key`; replaying a key returns the original session rather than acting twice.
+
+Line items must carry an inline `title` and `price` — bare item references are rejected,
+since the policy engine cannot price them.
+
+Applying discount codes updates `totals[]`: the discount appears as a **negative** entry and
+reduces `total`, per UCP 2026-04-08.
 
 ---
 

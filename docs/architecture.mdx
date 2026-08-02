@@ -13,7 +13,7 @@ Guardrail-Sim is a two-layer system:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   SIMULATION ENGINE (Node.js)          [PLANNED]
+│                   SIMULATION ENGINE (Node.js)
 │  Synthetic Orders │ Buyer Personas │ Negotiation Loop        │
 │  LLM-as-Adversary │ Result Logging │ Margin Calculation      │
 └─────────────────────────────────────────────────────────────┘
@@ -24,7 +24,7 @@ Guardrail-Sim is a two-layer system:
 │  json-rules-engine │ Margin Floors │ Volume Tiers            │
 │  Escalation Triggers │ Customer Segment Rules                │
 │                                                              │
-│  Exposed via MCP Server: 5 tools for AI agent integration   │
+│  Exposed via MCP Server: 12 tools for AI agent integration  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -47,12 +47,12 @@ For detailed architectural decisions, see the ADR section:
 
 ## Stack
 
-| Layer                 | Technology                             | Rationale                                                          |
-| --------------------- | -------------------------------------- | ------------------------------------------------------------------ |
-| **Policy Engine**     | Node.js + json-rules-engine            | Battle-tested rules engine; JS ecosystem consistency               |
-| **UCP Types**         | TypeScript                             | Type-safe UCP integration for agentic commerce                     |
-| **Insights**          | TypeScript                             | Policy health checks and recommendations                           |
-| **MCP Server**        | TypeScript + @modelcontextprotocol/sdk | 5 tools for AI agent integration                                   |
-| **Simulation Runner** | Node.js + OpenAI API                   | LLM for buyer persona simulation; Batch API for cost efficiency    |
-| **Database**          | PostgreSQL (Supabase)                  | Relational for structured simulation results; free tier sufficient |
-| **Documentation**     | Next.js 15 + Fumadocs                  | Interactive docs site with policy playground                       |
+| Layer                 | Technology                                         | Rationale                                                          |
+| --------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
+| **Policy Engine**     | Node.js + json-rules-engine                        | Battle-tested rules engine; JS ecosystem consistency               |
+| **UCP Types**         | TypeScript                                         | Type-safe UCP integration for agentic commerce                     |
+| **Insights**          | TypeScript                                         | Policy health checks and recommendations                           |
+| **MCP Server**        | TypeScript + @modelcontextprotocol/server (SDK v2) | 12 tools for AI agent integration                                  |
+| **Simulation Runner** | Node.js + OpenAI API                               | LLM for buyer persona simulation; Batch API for cost efficiency    |
+| **Database**          | PostgreSQL (Supabase)                              | Relational for structured simulation results; free tier sufficient |
+| **Documentation**     | Next.js 15 + Fumadocs                              | Interactive docs site with policy playground                       |
