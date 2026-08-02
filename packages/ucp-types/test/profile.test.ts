@@ -2,19 +2,20 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { negotiateCapabilities, profileSupportsCapability } from '../dist/profile.js';
 import type { UCPProfile } from '../dist/profile.js';
-import { CHECKOUT_CAPABILITY, DISCOUNT_EXTENSION } from '../dist/versions.js';
+import { CHECKOUT_CAPABILITY, DISCOUNT_EXTENSION, UCP_SPEC_VERSION } from '../dist/versions.js';
 
 describe('UCP Profile', () => {
   const businessProfile: UCPProfile = {
     name: 'test-business',
     capabilities: [
-      { name: 'dev.ucp.shopping.checkout', version: '2026-01-11' },
+      { name: 'dev.ucp.shopping.checkout', version: UCP_SPEC_VERSION },
       {
         name: 'dev.ucp.shopping.discount',
-        version: '2026-01-11',
-        extends: 'dev.ucp.shopping.checkout',
+        version: UCP_SPEC_VERSION,
+        // 2026-04-08 lets the discount extension name several parents.
+        extends: ['dev.ucp.shopping.checkout', 'dev.ucp.shopping.cart'],
       },
-      { name: 'dev.ucp.shopping.order', version: '2026-01-11' },
+      { name: 'dev.ucp.shopping.order', version: UCP_SPEC_VERSION },
     ],
     services: [{ transport: 'mcp', endpoint: 'stdio://test' }],
   };

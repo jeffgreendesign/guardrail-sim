@@ -142,10 +142,19 @@ export function createRejectedDiscount(code: string, violation: Violation): Reje
 }
 
 /**
- * Convert UCP line items to a guardrail-sim order
+ * The margin assumed when a caller supplies none.
  *
- * This is a simplified conversion - real implementations would
- * need more context about margins and customer segments.
+ * A UCP line item carries price but not cost, so margin cannot be derived from
+ * the cart alone. This is an assumption, not a measurement — exported so callers
+ * can see the number they are inheriting and override it deliberately.
+ */
+export const DEFAULT_PRODUCT_MARGIN = 0.3;
+
+/**
+ * Convert UCP line items to a guardrail-sim order.
+ *
+ * Margin is not present in UCP line items; pass `productMargin` whenever you know
+ * it, or the order is evaluated against {@link DEFAULT_PRODUCT_MARGIN}.
  */
 export function fromUCPLineItems(
   lineItems: (LineItem | LineItemRequest)[],
@@ -166,7 +175,7 @@ export function fromUCPLineItems(
     order_value: orderValue,
     quantity,
     customer_segment: options.customerSegment,
-    product_margin: options.productMargin ?? 0.3, // Default 30% margin
+    product_margin: options.productMargin ?? DEFAULT_PRODUCT_MARGIN,
   };
 }
 

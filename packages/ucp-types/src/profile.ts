@@ -38,8 +38,13 @@ export interface UCPCapabilityDeclaration {
   version: string;
   /** JSON Schema URL for this capability */
   schema?: string;
-  /** Parent capability this extends */
-  extends?: string;
+  /**
+   * Parent capability or capabilities this extends.
+   *
+   * 2026-04-08 allows multiple parents — the discount extension declares both
+   * `dev.ucp.shopping.checkout` and `dev.ucp.shopping.cart`.
+   */
+  extends?: string | readonly string[];
 }
 
 /**

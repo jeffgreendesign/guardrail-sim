@@ -781,3 +781,115 @@ describe('MCP 2026-07-28 conformance', () => {
     assert.strictEqual(first[0], 'evaluate_policy');
   });
 });
+
+describe('UCP 2026-04-08 totals sign convention', () => {
+  beforeEach(() => clearSessions());
+
+  async function connectClient() {
+    const server = createServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    return client;
+  }
+
+  function totalsOf(result: unknown): { type: string; amount: number }[] {
+    const parsed = JSON.parse(
+      ((result as { content: { text: string }[] }).content[0] as { text: string }).text
+    ) as { checkout: { totals: { type: string; amount: number }[] } };
+    return parsed.checkout.totals;
+  }
+
+  it('records a discount as a negative entry that reduces the total', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+          buyer: { email: 'buyer@example.com' },
+          'dev.ucp.shopping.discount': { codes: ['SAVE10'] },
+        },
+      },
+    });
+
+    const totals = totalsOf(result);
+    const subtotal = totals.find((t) => t.type === 'subtotal');
+    const discount = totals.find((t) => t.type === 'discount');
+    const total = totals.find((t) => t.type === 'total');
+
+    assert.ok(subtotal, 'subtotal entry missing');
+    assert.ok(discount, 'discount entry missing from totals[]');
+    assert.ok(total, 'total entry missing');
+
+    // 2026-04-08: the totals[] discount entry is negative, reflecting its
+    // effect on the receipt. Totals previously ignored discounts entirely,
+    // so total always equalled subtotal.
+    assert.ok(discount.amount < 0, `discount total should be negative, got ${discount.amount}`);
+    assert.equal(total.amount, subtotal.amount + discount.amount);
+    assert.ok(total.amount < subtotal.amount);
+  });
+
+  it('leaves totals unreduced when no discount applies', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+          buyer: { email: 'buyer@example.com' },
+        },
+      },
+    });
+
+    const totals = totalsOf(result);
+    assert.equal(
+      totals.find((t) => t.type === 'discount'),
+      undefined
+    );
+    assert.equal(
+      totals.find((t) => t.type === 'total')?.amount,
+      totals.find((t) => t.type === 'subtotal')?.amount
+    );
+  });
+
+  it('restores the total when discount codes are removed', async () => {
+    const client = await connectClient();
+
+    const created = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+          buyer: { email: 'buyer@example.com' },
+          'dev.ucp.shopping.discount': { codes: ['SAVE10'] },
+        },
+      },
+    });
+    const id = (
+      JSON.parse((created.content[0] as { type: 'text'; text: string }).text) as {
+        checkout: { id: string };
+      }
+    ).checkout.id;
+
+    const updated = await client.callTool({
+      name: 'update_checkout',
+      arguments: { id, checkout: { 'dev.ucp.shopping.discount': { codes: [] } } },
+    });
+
+    const totals = totalsOf(updated);
+    assert.equal(
+      totals.find((t) => t.type === 'discount'),
+      undefined
+    );
+    assert.equal(
+      totals.find((t) => t.type === 'total')?.amount,
+      totals.find((t) => t.type === 'subtotal')?.amount
+    );
+  });
+});

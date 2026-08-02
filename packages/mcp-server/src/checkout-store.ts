@@ -53,17 +53,44 @@ function buildLineItems(requestItems: LineItemRequest[]): LineItem[] {
 }
 
 /**
- * Compute totals from line items
+ * Compute totals from line items and any applied discount.
+ *
+ * UCP 2026-04-08 fixes the sign convention: a discount entry in `totals[]` (and
+ * in `line_items[].totals[]`) is NEGATIVE, reflecting its effect on the receipt.
+ * `discounts.applied[].amount` stays positive — it states the discount's value,
+ * not its effect. The two are deliberately opposite signs.
+ *
+ * @param discountAmount - Discount value in minor units, as a positive number
  */
-function computeTotals(lineItems: LineItem[]): Total[] {
+function computeTotals(lineItems: LineItem[], discountAmount = 0): Total[] {
   const subtotal = lineItems.reduce((sum, li) => {
     const sub = li.totals.find((t) => t.type === 'subtotal');
     return sum + (sub?.amount ?? 0);
   }, 0);
-  return [
-    { type: 'subtotal' as const, amount: subtotal },
-    { type: 'total' as const, amount: subtotal },
-  ];
+
+  const totals: Total[] = [{ type: 'subtotal' as const, amount: subtotal }];
+
+  if (discountAmount > 0) {
+    totals.push({ type: 'discount' as const, amount: -discountAmount });
+  }
+
+  // The discount is already negative, so this is a sum, not a subtraction.
+  totals.push({ type: 'total' as const, amount: subtotal - discountAmount });
+  return totals;
+}
+
+/** The positive discount value currently applied to a session, if any. */
+function appliedDiscountAmount(session: CheckoutSession): number {
+  const applied = session['dev.ucp.shopping.discount']?.applied ?? [];
+  return applied.reduce((sum, d) => sum + d.amount, 0);
+}
+
+/**
+ * Recompute a session's totals from its line items and applied discounts.
+ * Call after either changes.
+ */
+export function recomputeSessionTotals(session: CheckoutSession): void {
+  session.totals = computeTotals(session.line_items, appliedDiscountAmount(session));
 }
 
 /**
@@ -154,7 +181,7 @@ export function updateCheckoutSession(
 
   if (updates.line_items) {
     session.line_items = buildLineItems(updates.line_items);
-    session.totals = computeTotals(session.line_items);
+    recomputeSessionTotals(session);
   }
   if (updates.buyer) {
     session.buyer = { ...session.buyer, ...updates.buyer };

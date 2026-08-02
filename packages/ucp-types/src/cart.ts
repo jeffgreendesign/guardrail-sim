@@ -1,8 +1,9 @@
 /**
  * UCP Cart Capability Types
  *
- * Based on the Universal Commerce Protocol specification (draft).
- * See: https://ucp.dev/specification/cart
+ * Based on the Universal Commerce Protocol specification v2026-04-08, in which
+ * Cart graduated from draft to a dated revision.
+ * See: https://ucp.dev/2026-04-08/specification/cart
  *
  * The Cart capability provides a lightweight CRUD interface for
  * item collection before purchase intent is established.

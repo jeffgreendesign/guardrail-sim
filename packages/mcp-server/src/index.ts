@@ -41,6 +41,7 @@ import {
   updateCheckoutSession,
   completeCheckoutSession,
   cancelCheckoutSession,
+  recomputeSessionTotals,
 } from './checkout-store.js';
 import { runSimulation, defaultPersonas, toSimulationSummary } from '@guardrail-sim/simulation';
 import type { SimulationMetrics } from '@guardrail-sim/simulation';
@@ -439,6 +440,9 @@ async function applyDiscountCodes(
     evaluation,
     Math.round(order.order_value * 0.1 * 100)
   );
+  // A discount changes the receipt, so totals must follow. Under 2026-04-08 the
+  // discount lands in totals[] as a negative entry and reduces `total`.
+  recomputeSessionTotals(session);
 }
 
 async function handleCreateCheckout(args: {
@@ -509,6 +513,7 @@ async function handleUpdateCheckout(args: {
   if (requested?.codes !== undefined) {
     if (requested.codes.length === 0) {
       delete session['dev.ucp.shopping.discount'];
+      recomputeSessionTotals(session);
     } else {
       await applyDiscountCodes(session, requested.codes);
     }
