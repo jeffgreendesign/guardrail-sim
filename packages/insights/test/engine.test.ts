@@ -321,7 +321,7 @@ describe('regression: rates never exceed 100%', () => {
     });
 
     const result = report.insights.find((r) => r.insight.id === 'margin-003');
-    assert.ok(result, 'margin-003 should fire at 69/120');
+    assert.notStrictEqual(result, undefined, 'margin-003 should fire at 69/120');
     const frequency = (result.data as { frequency: number }).frequency;
     assert.ok(frequency <= 1, `frequency ${frequency} must not exceed 1`);
     assert.ok(Math.abs(frequency - 69 / 120) < 1e-9);
@@ -337,7 +337,7 @@ describe('regression: rates never exceed 100%', () => {
     });
 
     const result = report.insights.find((r) => r.insight.id === 'margin-003');
-    assert.ok(result);
+    assert.notStrictEqual(result, undefined);
     assert.ok(Math.abs((result.data as { frequency: number }).frequency - 0.4) < 1e-9);
   });
 });
@@ -404,7 +404,7 @@ describe('regression: checklists report real progress', () => {
       simulationResults: createSimulationSummary({ totalOrders: 500 }),
     });
 
-    assert.ok(progress);
+    assert.notStrictEqual(progress, undefined);
     // Previously always 0: not one item defined isComplete.
     assert.ok(progress.percentComplete > 0, 'policy-review should report real progress');
     assert.ok(progress.verifiableItems > 0);
@@ -419,8 +419,12 @@ describe('regression: checklists report real progress', () => {
       simulationResults: createSimulationSummary({ totalOrders: 500, edgeCaseCount: 12 }),
     });
 
-    assert.ok(progress);
-    assert.ok(progress.percentComplete > 0, 'pre-deployment should report real progress');
+    assert.notStrictEqual(progress, undefined);
+    assert.strictEqual(
+      (progress?.percentComplete ?? 0) > 0,
+      true,
+      'pre-deployment should report real progress'
+    );
   });
 
   it('never exceeds 100% and excludes manual items from the denominator', () => {
@@ -430,7 +434,7 @@ describe('regression: checklists report real progress', () => {
         policy: createPolicySummary({ hasSegmentRules: true }),
         simulationResults: createSimulationSummary({ totalOrders: 500, edgeCaseCount: 3 }),
       });
-      assert.ok(progress, `${id} should exist`);
+      assert.notStrictEqual(progress, undefined, `${id} should exist`);
       assert.ok(progress.percentComplete <= 100, `${id} reported ${progress.percentComplete}%`);
       assert.ok(progress.percentComplete >= 0);
     }

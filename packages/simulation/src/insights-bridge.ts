@@ -30,9 +30,12 @@ export function toSimulationSummary(results: SimulationResults): SimulationSumma
     const segment = firstRound.order.customer_segment ?? 'unknown';
     ordersBySegment[segment] = (ordersBySegment[segment] ?? 0) + 1;
 
+    // Only genuine rejections. An abandoned session is a buyer walking away, not the
+    // policy turning an order down, and counting it as a rejection skews the
+    // high-value-rejection insight.
     if (session.outcome === 'accepted') {
       approvedOrderValues.push(firstRound.order.order_value);
-    } else {
+    } else if (session.outcome === 'rejected') {
       rejectedOrderValues.push(firstRound.order.order_value);
     }
   }

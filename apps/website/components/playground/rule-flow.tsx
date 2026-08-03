@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { defaultPolicy, extractPolicyThresholds, type Policy } from '@guardrail-sim/policy-engine';
 import {
   ReactFlow,
   Node,
@@ -70,9 +71,22 @@ interface RuleFlowProps {
     approved: boolean;
     violations: { rule: string }[];
   };
+  /** The policy to describe. Defaults to the playground's policy. */
+  policy?: Policy;
 }
 
-export function RuleFlow({ evaluationResult }: RuleFlowProps) {
+export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowProps) {
+  // Read the thresholds off the policy rather than restating them, so the diagram can
+  // never show limits that differ from what evaluation actually enforces.
+  const { marginFloor, maxDiscount, volumeTiers } = useMemo(
+    () => extractPolicyThresholds(policy),
+    [policy]
+  );
+
+  const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
+  const steppedTier = volumeTiers.find((t) => t.minQuantity > 0);
+  const baseTier = volumeTiers.find((t) => t.minQuantity === 0);
+
   const getNodeStatus = useCallback(
     (ruleName: string) => {
       if (!evaluationResult) return 'default';
@@ -98,7 +112,8 @@ export function RuleFlow({ evaluationResult }: RuleFlowProps) {
       position: { x: 0, y: 100 },
       data: {
         label: 'Margin Floor',
-        description: 'Margin >= 15%',
+        description:
+          marginFloor !== undefined ? `Margin >= ${pct(marginFloor)}` : 'Minimum margin enforced',
         status: getNodeStatus('margin_floor'),
       },
     },
@@ -108,7 +123,8 @@ export function RuleFlow({ evaluationResult }: RuleFlowProps) {
       position: { x: 200, y: 100 },
       data: {
         label: 'Max Discount',
-        description: 'Discount <= 25%',
+        description:
+          maxDiscount !== undefined ? `Discount <= ${pct(maxDiscount)}` : 'Absolute discount cap',
         status: getNodeStatus('max_discount'),
       },
     },
@@ -118,7 +134,10 @@ export function RuleFlow({ evaluationResult }: RuleFlowProps) {
       position: { x: 400, y: 100 },
       data: {
         label: 'Volume Tier',
-        description: 'Qty-based limit',
+        description:
+          steppedTier && baseTier
+            ? `${pct(baseTier.maxDiscount)}, ${pct(steppedTier.maxDiscount)} at ${steppedTier.minQuantity}+`
+            : 'Qty-based limit',
         status: getNodeStatus('volume_tier'),
       },
     },

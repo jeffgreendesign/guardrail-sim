@@ -68,14 +68,18 @@ function computeTotals(lineItems: LineItem[], discountAmount = 0): Total[] {
     return sum + (sub?.amount ?? 0);
   }, 0);
 
+  // A discount can never take the order below zero, however many codes a session
+  // carries or how they were priced.
+  const applied = Math.min(Math.max(discountAmount, 0), subtotal);
+
   const totals: Total[] = [{ type: 'subtotal' as const, amount: subtotal }];
 
-  if (discountAmount > 0) {
-    totals.push({ type: 'discount' as const, amount: -discountAmount });
+  if (applied > 0) {
+    // Negated here, and only here: the totals[] entry states the effect on the receipt.
+    totals.push({ type: 'discount' as const, amount: -applied });
   }
 
-  // The discount is already negative, so this is a sum, not a subtraction.
-  totals.push({ type: 'total' as const, amount: subtotal - discountAmount });
+  totals.push({ type: 'total' as const, amount: subtotal - applied });
   return totals;
 }
 

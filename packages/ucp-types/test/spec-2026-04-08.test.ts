@@ -18,8 +18,8 @@ import {
 
 describe('UCP 2026-04-08', () => {
   it('targets the 2026-04-08 revision', () => {
-    assert.equal(UCP_SPEC_VERSION, '2026-04-08');
-    assert.equal(SUPPORTED_UCP_VERSIONS[0], UCP_SPEC_VERSION);
+    assert.strictEqual(UCP_SPEC_VERSION, '2026-04-08');
+    assert.strictEqual(SUPPORTED_UCP_VERSIONS[0], UCP_SPEC_VERSION);
   });
 
   it('versions every capability at the spec revision', () => {
@@ -32,34 +32,34 @@ describe('UCP 2026-04-08', () => {
       FULFILLMENT_EXTENSION,
       IDENTITY_LINKING_CAPABILITY,
     ]) {
-      assert.equal(capability.version, UCP_SPEC_VERSION, `${capability.name} is out of date`);
+      assert.strictEqual(capability.version, UCP_SPEC_VERSION, `${capability.name} is out of date`);
     }
   });
 
   it('extends both checkout and cart from the discount extension', () => {
     // 2026-04-08 allows multiple parents; this previously named checkout only.
-    assert.deepEqual(DISCOUNT_EXTENSION.extends, [
+    assert.deepStrictEqual(DISCOUNT_EXTENSION.extends, [
       'dev.ucp.shopping.checkout',
       'dev.ucp.shopping.cart',
     ]);
   });
 
   it('graduates cart out of draft', () => {
-    assert.notEqual(CART_CAPABILITY.version, 'draft');
+    assert.notStrictEqual(CART_CAPABILITY.version, 'draft');
   });
 
   it('namespaces identity linking under dev.ucp.common', () => {
-    assert.equal(IDENTITY_LINKING_CAPABILITY.name, 'dev.ucp.common.identity_linking');
+    assert.strictEqual(IDENTITY_LINKING_CAPABILITY.name, 'dev.ucp.common.identity_linking');
   });
 
   it('serializes a profile whose versions all match the constants', () => {
     const profile = JSON.parse(serializeProfile()) as typeof GUARDRAIL_UCP_PROFILE;
 
     for (const capability of profile.capabilities) {
-      assert.equal(capability.version, UCP_SPEC_VERSION);
+      assert.strictEqual(capability.version, UCP_SPEC_VERSION);
     }
     for (const service of profile.services) {
-      assert.equal(service.version, UCP_SPEC_VERSION);
+      assert.strictEqual(service.version, UCP_SPEC_VERSION);
     }
   });
 
@@ -70,8 +70,8 @@ describe('UCP 2026-04-08', () => {
       // deliberately opposite, and conflating them double-counts the discount.
       const applied = createAppliedDiscount('SAVE10', 1500, { title: '10% off' });
 
-      assert.equal(applied.amount, 1500);
-      assert.ok(applied.amount > 0, 'applied discount amount must be positive');
+      assert.strictEqual(applied.amount, 1500);
+      assert.strictEqual(applied.amount > 0, true, 'applied discount amount must be positive');
     });
   });
 });

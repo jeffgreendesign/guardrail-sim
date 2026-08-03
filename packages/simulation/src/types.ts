@@ -128,10 +128,13 @@ export interface SimulationMetrics {
   /** Number of negotiation sessions run. One session = one buyer/order. */
   totalSessions: number;
   /**
-   * Number of individual policy evaluations across all sessions — one per negotiation
-   * round, so always >= totalSessions. This is the correct denominator for anything
-   * derived from `violationsByRule` or `limitingFactors`, which are also counted
-   * per round; dividing those by `totalSessions` produces rates above 100%.
+   * Number of recorded negotiation rounds across all sessions, so always >= totalSessions.
+   * This is the correct denominator for anything derived from `violationsByRule` or
+   * `limitingFactors`, which are also counted per round; dividing those by
+   * `totalSessions` produces rates above 100%.
+   *
+   * Counts recorded ROUNDS, not every call to the policy engine — `runSingleSession`
+   * also probes the persona's floor after a rejection, and that probe is not a round.
    */
   totalEvaluations: number;
   approvalRate: number;

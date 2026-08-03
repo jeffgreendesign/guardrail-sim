@@ -180,6 +180,17 @@ export function fromUCPLineItems(
 }
 
 /**
+ * Split an integer amount into `count` parts that sum exactly to the original.
+ * The remainder goes to the first part, matching the `each` allocation convention.
+ */
+function splitEvenly(amount: number, count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(amount / count);
+  const remainder = amount - base * count;
+  return Array.from({ length: count }, (_, i) => (i === 0 ? base + remainder : base));
+}
+
+/**
  * Build a complete UCP discount extension response
  * from a policy evaluation
  */
@@ -190,11 +201,15 @@ export function buildDiscountExtensionResponse(
   discountTitle: string = 'Discount'
 ): DiscountExtensionResponse {
   if (evaluation.approved) {
-    // Discount was approved
+    // `proposedDiscount` is the total for the basket, so it is SPLIT across the codes
+    // rather than granted to each one. Giving every code the full amount meant N codes
+    // produced N times the discount; the sum is what lands in the checkout's totals[],
+    // so eleven codes could drive the order total below zero.
+    const perCode = splitEvenly(proposedDiscount, codes.length);
     return {
       codes,
       applied: codes.map((code, index) =>
-        createAppliedDiscount(code, proposedDiscount, discountTitle, {
+        createAppliedDiscount(code, perCode[index] ?? 0, discountTitle, {
           priority: index + 1,
         })
       ),

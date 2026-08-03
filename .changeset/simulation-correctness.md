@@ -18,5 +18,8 @@ Make metrics policy-aware and reachable.
   approved/rejected order values and edge-case count so the insight checks that need
   more than headline rates can fire.
 - `runSingleSession` no longer takes a `policy` parameter; the `PolicyEngine` it is
-  handed already carries the policy. **Breaking for direct callers of that function.**
+  handed already carries the policy. **Breaking for direct callers of that function**, as is
+  the `marginImpact` unit change above. Both are released as `minor` because this package is
+  pre-1.0, where semver permits breaking changes in a minor bump; it will move to `major`
+  bumps for breaking changes once it reaches 1.0.
 - Added a `test:coverage` script; the package was omitted from the root coverage run.

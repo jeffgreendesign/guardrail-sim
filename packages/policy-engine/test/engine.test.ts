@@ -432,3 +432,38 @@ describe('extractPolicyThresholds', () => {
     assert.strictEqual(volumeTierLimit([], 100), undefined);
   });
 });
+
+describe('regression: threshold extraction is order-independent', () => {
+  it('finds the base allowance when the nested any block is declared first', () => {
+    // Same semantics as defaultPolicy's volume_tier rule, with the conditions in the
+    // opposite order. Flattening the tree before picking the base made this bind to the
+    // tier discount (0.15) instead of the base (0.10), overstating the allowance.
+    const reordered: Policy = {
+      id: 'reordered',
+      name: 'Reordered Volume Tier',
+      rules: [
+        {
+          name: 'volume_tier',
+          conditions: {
+            all: [
+              {
+                any: [
+                  { fact: 'quantity', operator: 'lessThan', value: 100 },
+                  { fact: 'proposed_discount', operator: 'greaterThan', value: 0.15 },
+                ],
+              },
+              { fact: 'proposed_discount', operator: 'greaterThan', value: 0.1 },
+            ],
+          },
+          event: { type: 'violation', params: { rule: 'volume_tier', message: 'tier' } },
+          priority: 5,
+        },
+      ],
+    };
+
+    assert.deepStrictEqual(extractPolicyThresholds(reordered).volumeTiers, [
+      { minQuantity: 0, maxDiscount: 0.1 },
+      { minQuantity: 100, maxDiscount: 0.15 },
+    ]);
+  });
+});

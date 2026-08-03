@@ -51,21 +51,32 @@ const lineItemRequestSchema = z.object({
   quantity: z.number().int().positive(),
 });
 
+/**
+ * Field names mirror the `Buyer` and `PostalAddress` types in ucp-types exactly.
+ *
+ * These schemas previously used invented names (`name`, `line_one`, `city`, `state`,
+ * `country`), and because `z.object` strips unknown keys, a client sending spec-correct
+ * UCP address fields had every one of them silently dropped before the session was stored.
+ */
 const buyerSchema = z.object({
+  email: z.string().optional(),
   first_name: z.string().optional(),
   last_name: z.string().optional(),
-  email: z.string().optional(),
-  phone_number: z.string().optional(),
+  full_name: z.string().optional(),
+  phone_number: z.string().describe('E.164 format').optional(),
 });
 
 const postalAddressSchema = z.object({
-  name: z.string().optional(),
-  line_one: z.string().optional(),
-  line_two: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
+  street_address: z.string().optional(),
+  extended_address: z.string().describe('Apt, suite, etc.').optional(),
+  address_locality: z.string().describe('City/locality').optional(),
+  address_region: z.string().describe('State/province/region').optional(),
+  address_country: z.string().describe('ISO 3166-1 alpha-2 country code').optional(),
   postal_code: z.string().optional(),
-  country: z.string().optional(),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  full_name: z.string().optional(),
+  phone_number: z.string().describe('E.164 format').optional(),
 });
 
 const discountExtensionInput = z

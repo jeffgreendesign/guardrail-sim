@@ -454,9 +454,12 @@ describe('regression: metrics denominators and policy awareness', () => {
     const marginCases = results.metrics.edgeCasesFound.filter((e) =>
       e.description.includes('floor')
     );
+    // Without this the loop below passes vacuously and proves nothing.
+    assert.notStrictEqual(marginCases.length, 0, 'expected at least one margin-floor edge case');
     for (const edgeCase of marginCases) {
-      assert.ok(
+      assert.strictEqual(
         edgeCase.description.includes('30% floor'),
+        true,
         `edge case cites the wrong policy: ${edgeCase.description}`
       );
     }

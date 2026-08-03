@@ -255,8 +255,11 @@ async function handleSimulateCheckoutDiscount(args: {
   // Evaluate against policy
   const evaluation = await policyEngine.evaluate(order, args.discount_percentage);
 
-  // Calculate discount amount in minor units
-  const discountAmount = Math.round(order.order_value * args.discount_percentage * 100);
+  // `fromUCPLineItems` sums line-item subtotals, which UCP states in MINOR units, so
+  // order_value is already cents here. Multiplying by 100 again inflated every discount
+  // by 100x. Contrast handleValidateDiscountCode, whose `order` argument is documented in
+  // dollars and therefore does need the conversion.
+  const discountAmount = Math.round(order.order_value * args.discount_percentage);
 
   // Build UCP-compatible response
   const response = buildDiscountExtensionResponse(
@@ -428,17 +431,25 @@ class ToolFailure extends Error {
   }
 }
 
+/**
+ * The flat rate this MVP grants for any recognized code. Real implementations resolve a
+ * rate per code; this is deliberately a single rate for the whole basket, which is why the
+ * amount below is computed once and then split across the codes rather than per code.
+ */
+const CHECKOUT_DISCOUNT_RATE = 0.1;
+
 /** Apply discount codes to a session, replacing any previously stored response. */
 async function applyDiscountCodes(
   session: Awaited<ReturnType<typeof getCheckoutSession>> & object,
   codes: string[]
 ): Promise<void> {
   const order = fromUCPLineItems(session.line_items);
-  const evaluation = await policyEngine.evaluate(order, 0.1);
+  const evaluation = await policyEngine.evaluate(order, CHECKOUT_DISCOUNT_RATE);
+  // order_value comes from line-item subtotals and is already in minor units.
   session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
     codes,
     evaluation,
-    Math.round(order.order_value * 0.1 * 100)
+    Math.round(order.order_value * CHECKOUT_DISCOUNT_RATE)
   );
   // A discount changes the receipt, so totals must follow. Under 2026-04-08 the
   // discount lands in totals[] as a negative entry and reduces `total`.

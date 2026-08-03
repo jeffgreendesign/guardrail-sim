@@ -71,7 +71,12 @@ function numericValue(condition: FactCondition): number | undefined {
  * below THRESHOLD units and TIER applies at or above it.
  */
 function extractVolumeTiers(rule: PolicyRule): VolumeTier[] {
-  const topLevel = collectFacts(rule.conditions.all).filter((c) => !('any' in c));
+  // Only the rule's OWN top-level leaves, not a flattened tree. `collectFacts` recurses
+  // into nested any/all blocks and returns leaves, which never carry an `any` key — so
+  // filtering its output for that key removed nothing, and `base` could bind to the tier
+  // discount inside the nested block whenever that block was declared first. That would
+  // report the tier ceiling as the base allowance, i.e. more headroom than the policy grants.
+  const topLevel = (rule.conditions.all ?? []).filter(isFactCondition);
   const base = topLevel.find(
     (c) => c.fact === 'proposed_discount' && ABOVE_OPERATORS.has(c.operator)
   );

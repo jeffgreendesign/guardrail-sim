@@ -277,9 +277,10 @@ export class RecommendationEngine {
     const manualItems: string[] = [];
 
     for (const item of checklist.items) {
-      if (item.manual || !item.isComplete) {
+      if (item.manual) {
         // Nothing in a CheckContext can settle this one; surface it instead of
-        // silently scoring it as incomplete forever.
+        // silently scoring it as incomplete forever. The ChecklistItem union
+        // guarantees every other item supplies `isComplete`.
         manualItems.push(item.id);
         continue;
       }

@@ -181,8 +181,8 @@ const rulePerformanceItem: ChecklistItem = {
   category: 'simulation-analysis',
   required: true,
   isComplete: (ctx) =>
-    ctx.simulationResults !== undefined &&
-    Object.keys(ctx.simulationResults.violationsByRule).length > 0,
+    // A key with a zero count is not a recorded trigger, so require a positive one.
+    Object.values(ctx.simulationResults?.violationsByRule ?? {}).some((count) => count > 0),
   guidance: `
 ## Rule effectiveness analysis
 

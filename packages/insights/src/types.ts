@@ -82,7 +82,7 @@ export interface InsightResult {
 /**
  * A checklist item for guided setup or review
  */
-export interface ChecklistItem {
+interface ChecklistItemBase {
   id: string;
   title: string;
   description: string;
@@ -91,23 +91,38 @@ export interface ChecklistItem {
   /** Whether the item is required or optional */
   required: boolean;
 
-  /**
-   * Marks work that cannot be verified from a CheckContext — notifying stakeholders,
-   * writing a rollback plan, checking prices against costs. Manual items are excluded
-   * from the completion percentage instead of counting as permanently incomplete,
-   * and are reported separately so they stay visible.
-   */
-  manual?: boolean;
-
-  /** Function to check if item is complete. Required unless the item is `manual`. */
-  isComplete?: (context: CheckContext) => boolean;
-
   /** Detailed guidance for completing the item */
   guidance?: string;
 
   /** Estimated time to complete (e.g., "5 minutes") */
   estimatedTime?: string;
 }
+
+/** An item whose completion can be decided from a {@link CheckContext}. */
+export interface AutomatedChecklistItem extends ChecklistItemBase {
+  manual?: false;
+  isComplete: (context: CheckContext) => boolean;
+}
+
+/**
+ * Work that cannot be verified from a CheckContext — notifying stakeholders, writing a
+ * rollback plan, checking prices against costs. Manual items are excluded from the
+ * completion percentage instead of counting as permanently incomplete, and are reported
+ * separately so they stay visible.
+ */
+export interface ManualChecklistItem extends ChecklistItemBase {
+  manual: true;
+  isComplete?: never;
+}
+
+/**
+ * A checklist item. The union makes the invariant unrepresentable: an item is either
+ * automated and MUST supply `isComplete`, or explicitly `manual`. Previously
+ * `isComplete` was optional on a single interface, so an item that simply forgot it
+ * compiled fine and then silently scored zero forever — which is exactly how the
+ * policy-review and pre-deployment checklists came to report 0% complete.
+ */
+export type ChecklistItem = AutomatedChecklistItem | ManualChecklistItem;
 
 /**
  * A complete checklist for a specific workflow
@@ -186,12 +201,15 @@ export interface SimulationSummary {
   totalOrders: number;
 
   /**
-   * Number of individual policy evaluations, one per negotiation round. Always
-   * >= totalOrders, since a rejected buyer may come back with a lower ask.
+   * Number of recorded negotiation rounds. Always >= totalOrders, since a rejected
+   * buyer may come back with a lower ask.
    *
-   * `violationsByRule` and `limitingFactors` are counted per evaluation, so this
-   * is their correct denominator — dividing them by `totalOrders` yields rates
-   * above 100%. Falls back to `totalOrders` when a producer does not supply it.
+   * This is the correct denominator for `violationsByRule` and `limitingFactors`,
+   * which are also counted per recorded round — dividing them by `totalOrders`
+   * yields rates above 100%. Falls back to `totalOrders` when a producer omits it.
+   *
+   * Note this counts ROUNDS, not every call to the policy engine: a producer may
+   * evaluate speculatively without recording a round.
    */
   totalEvaluations?: number;
 

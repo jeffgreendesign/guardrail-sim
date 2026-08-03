@@ -172,10 +172,13 @@ describe('MCP Server', () => {
       assert.ok(parsed.summary.includes('15%'), 'should cite the policy margin floor');
       assert.ok(parsed.summary.includes('25%'), 'should cite the policy discount cap');
 
-      const marginRule = parsed.rules.find((r: { name: string }) => r.name === 'margin_floor') as {
-        description: string;
-      };
-      assert.ok(marginRule.description.includes('15%'));
+      const marginRule = (parsed.rules as { name: string; description: string }[]).find(
+        (r) => r.name === 'margin_floor'
+      );
+      // Without this, a missing rule fails with "cannot read properties of undefined"
+      // rather than naming the actual problem.
+      assert.notStrictEqual(marginRule, undefined, 'policy summary omitted margin_floor');
+      assert.strictEqual(marginRule?.description.includes('15%'), true);
     });
   });
 
@@ -891,5 +894,161 @@ describe('UCP 2026-04-08 totals sign convention', () => {
       totals.find((t) => t.type === 'total')?.amount,
       totals.find((t) => t.type === 'subtotal')?.amount
     );
+  });
+});
+
+describe('regression: discount amounts and multi-code checkouts', () => {
+  beforeEach(() => clearSessions());
+
+  async function connectClient() {
+    const server = createServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    return client;
+  }
+
+  function parse(result: unknown): Record<string, never> {
+    return JSON.parse(
+      ((result as { content: { text: string }[] }).content[0] as { text: string }).text
+    ) as Record<string, never>;
+  }
+
+  it('states the discount in the same minor units as the line items', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'simulate_checkout_discount',
+      arguments: {
+        codes: ['SUMMER20'],
+        line_items: [
+          {
+            item: { id: 'a', title: 'A', price: 500000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 500000 }],
+          },
+          {
+            item: { id: 'b', title: 'B', price: 250000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 250000 }],
+          },
+        ],
+        currency: 'USD',
+        discount_percentage: 0.1,
+        product_margin: 0.4,
+      },
+    });
+
+    // fromUCPLineItems sums line-item subtotals, which UCP states in minor units, so
+    // order_value is already cents. A second dollars->cents conversion inflated every
+    // discount by 100x: 10% of 750000 was reported as 7500000.
+    const parsed = parse(result) as unknown as {
+      applied: { amount: number }[];
+      allocations: { amount: number }[];
+    };
+    assert.strictEqual(parsed.applied[0].amount, 75000);
+    assert.deepStrictEqual(
+      parsed.allocations.map((a) => a.amount),
+      [50000, 25000]
+    );
+  });
+
+  it('splits one discount across codes instead of granting each the full amount', async () => {
+    for (const codeCount of [1, 3, 11]) {
+      clearSessions();
+      const client = await connectClient();
+      const codes = Array.from({ length: codeCount }, (_, i) => `CODE${i}`);
+
+      const created = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'a', title: 'A', price: 100000 }, quantity: 1 }],
+            buyer: { email: 'buyer@example.com' },
+            'dev.ucp.shopping.discount': { codes },
+          },
+        },
+      });
+
+      const checkout = (
+        parse(created) as unknown as {
+          checkout: {
+            totals: { type: string; amount: number }[];
+            'dev.ucp.shopping.discount': { applied: { amount: number }[] };
+          };
+        }
+      ).checkout;
+
+      const applied = checkout['dev.ucp.shopping.discount'].applied;
+      const sum = applied.reduce((acc, a) => acc + a.amount, 0);
+      const total = checkout.totals.find((t) => t.type === 'total')?.amount;
+
+      // Every code used to carry the FULL basket discount, so N codes granted N times
+      // the discount. Eleven codes drove the order total below zero.
+      assert.strictEqual(sum, 10000, `${codeCount} codes should still total one 10% discount`);
+      assert.strictEqual(total, 90000, `${codeCount} codes should leave the same total`);
+    }
+  });
+
+  it('never lets a discount drive the total below zero', async () => {
+    const client = await connectClient();
+    const codes = Array.from({ length: 50 }, (_, i) => `C${i}`);
+
+    const created = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'a', title: 'A', price: 1000 }, quantity: 1 }],
+          buyer: { email: 'buyer@example.com' },
+          'dev.ucp.shopping.discount': { codes },
+        },
+      },
+    });
+
+    const totals = (
+      parse(created) as unknown as { checkout: { totals: { type: string; amount: number }[] } }
+    ).checkout.totals;
+    const total = totals.find((t) => t.type === 'total')?.amount ?? -1;
+    assert.strictEqual(total >= 0, true, `total went negative: ${total}`);
+  });
+
+  it('preserves spec-named UCP address fields instead of stripping them', async () => {
+    const client = await connectClient();
+
+    const created = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'a', title: 'A', price: 1000 }, quantity: 1 }],
+          buyer: { email: 'buyer@example.com', full_name: 'Ada Lovelace' },
+          shipping_address: {
+            street_address: '1 Main St',
+            address_locality: 'Springfield',
+            address_region: 'IL',
+            address_country: 'US',
+            postal_code: '62701',
+          },
+        },
+      },
+    });
+
+    // The schema used invented field names, and z.object strips unknown keys, so a
+    // client sending spec-correct UCP address fields lost every one of them.
+    const checkout = (
+      parse(created) as unknown as {
+        checkout: {
+          shipping_address?: Record<string, string>;
+          buyer?: Record<string, string>;
+        };
+      }
+    ).checkout;
+
+    assert.strictEqual(checkout.shipping_address?.street_address, '1 Main St');
+    assert.strictEqual(checkout.shipping_address?.address_locality, 'Springfield');
+    assert.strictEqual(checkout.shipping_address?.address_country, 'US');
+    assert.strictEqual(checkout.buyer?.full_name, 'Ada Lovelace');
   });
 });
