@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import {
   classifyPolicyRuleNames,
   defaultPolicy,
   extractPolicyThresholds,
-  type Policy,
 } from '@guardrail-sim/policy-engine';
+import type { Policy } from '@guardrail-sim/policy-engine';
 import {
   ReactFlow,
   Node,
