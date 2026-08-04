@@ -908,10 +908,10 @@ describe('regression: discount amounts and multi-code checkouts', () => {
     return client;
   }
 
-  function parse(result: unknown): Record<string, never> {
+  function parse<T>(result: unknown): T {
     return JSON.parse(
       ((result as { content: { text: string }[] }).content[0] as { text: string }).text
-    ) as Record<string, never>;
+    ) as T;
   }
 
   it('states the discount in the same minor units as the line items', async () => {
@@ -942,15 +942,66 @@ describe('regression: discount amounts and multi-code checkouts', () => {
     // fromUCPLineItems sums line-item subtotals, which UCP states in minor units, so
     // order_value is already cents. A second dollars->cents conversion inflated every
     // discount by 100x: 10% of 750000 was reported as 7500000.
-    const parsed = parse(result) as unknown as {
-      applied: { amount: number }[];
+    const parsed = parse<{
+      applied: { amount: number; allocations: { amount: number }[] }[];
       allocations: { amount: number }[];
-    };
+    }>(result);
     assert.strictEqual(parsed.applied[0].amount, 75000);
     assert.deepStrictEqual(
       parsed.allocations.map((a) => a.amount),
       [50000, 25000]
     );
+    // The single applied entry's own allocations must equal the top-level aggregate
+    // when there is exactly one code — the case that would hide a per-code drift.
+    assert.deepStrictEqual(
+      parsed.applied[0].allocations.map((a) => a.amount),
+      [50000, 25000]
+    );
+  });
+
+  it('gives each applied code its own allocations, not the aggregate', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'simulate_checkout_discount',
+      arguments: {
+        codes: ['A', 'B', 'C'],
+        line_items: [
+          {
+            item: { id: 'a', title: 'A', price: 500000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 500000 }],
+          },
+          {
+            item: { id: 'b', title: 'B', price: 250000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 250000 }],
+          },
+        ],
+        currency: 'USD',
+        discount_percentage: 0.1,
+        product_margin: 0.4,
+      },
+    });
+
+    const parsed = parse<{
+      applied: { amount: number; allocations: { amount: number }[] }[];
+    }>(result);
+
+    // Attaching the FULL aggregate to applied[0] made its allocations sum to more than
+    // its own amount whenever more than one code was supplied. Each entry's allocations
+    // must sum to exactly that entry's own amount.
+    for (const applied of parsed.applied) {
+      const allocationSum = applied.allocations.reduce((sum, a) => sum + a.amount, 0);
+      assert.strictEqual(
+        allocationSum,
+        applied.amount,
+        `code allocations (${allocationSum}) must equal its own amount (${applied.amount})`
+      );
+    }
+
+    const totalAcrossCodes = parsed.applied.reduce((sum, a) => sum + a.amount, 0);
+    assert.strictEqual(totalAcrossCodes, 75000);
   });
 
   it('splits one discount across codes instead of granting each the full amount', async () => {
@@ -971,14 +1022,12 @@ describe('regression: discount amounts and multi-code checkouts', () => {
         },
       });
 
-      const checkout = (
-        parse(created) as unknown as {
-          checkout: {
-            totals: { type: string; amount: number }[];
-            'dev.ucp.shopping.discount': { applied: { amount: number }[] };
-          };
-        }
-      ).checkout;
+      const checkout = parse<{
+        checkout: {
+          totals: { type: string; amount: number }[];
+          'dev.ucp.shopping.discount': { applied: { amount: number }[] };
+        };
+      }>(created).checkout;
 
       const applied = checkout['dev.ucp.shopping.discount'].applied;
       const sum = applied.reduce((acc, a) => acc + a.amount, 0);
@@ -1007,11 +1056,13 @@ describe('regression: discount amounts and multi-code checkouts', () => {
       },
     });
 
-    const totals = (
-      parse(created) as unknown as { checkout: { totals: { type: string; amount: number }[] } }
-    ).checkout.totals;
-    const total = totals.find((t) => t.type === 'total')?.amount ?? -1;
-    assert.strictEqual(total >= 0, true, `total went negative: ${total}`);
+    const totals = parse<{ checkout: { totals: { type: string; amount: number }[] } }>(created)
+      .checkout.totals;
+    const total = totals.find((t) => t.type === 'total')?.amount;
+    // 10% of a 1000-unit item, split across 50 codes and summed back, is deterministic:
+    // 1000 - round(1000 * CHECKOUT_DISCOUNT_RATE) = 900. A boolean >= 0 check would still
+    // pass if the split silently dropped the discount to zero.
+    assert.strictEqual(total, 900, 'one 10% discount split across 50 codes should leave 900');
   });
 
   it('preserves spec-named UCP address fields instead of stripping them', async () => {
@@ -1037,18 +1088,18 @@ describe('regression: discount amounts and multi-code checkouts', () => {
 
     // The schema used invented field names, and z.object strips unknown keys, so a
     // client sending spec-correct UCP address fields lost every one of them.
-    const checkout = (
-      parse(created) as unknown as {
-        checkout: {
-          shipping_address?: Record<string, string>;
-          buyer?: Record<string, string>;
-        };
-      }
-    ).checkout;
+    const checkout = parse<{
+      checkout: {
+        shipping_address?: Record<string, string>;
+        buyer?: Record<string, string>;
+      };
+    }>(created).checkout;
 
     assert.strictEqual(checkout.shipping_address?.street_address, '1 Main St');
     assert.strictEqual(checkout.shipping_address?.address_locality, 'Springfield');
+    assert.strictEqual(checkout.shipping_address?.address_region, 'IL');
     assert.strictEqual(checkout.shipping_address?.address_country, 'US');
+    assert.strictEqual(checkout.shipping_address?.postal_code, '62701');
     assert.strictEqual(checkout.buyer?.full_name, 'Ada Lovelace');
   });
 });

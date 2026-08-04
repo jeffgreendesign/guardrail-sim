@@ -1,7 +1,12 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { defaultPolicy, extractPolicyThresholds, type Policy } from '@guardrail-sim/policy-engine';
+import { useCallback, useMemo, type ReactNode } from 'react';
+import {
+  classifyPolicyRuleNames,
+  defaultPolicy,
+  extractPolicyThresholds,
+  type Policy,
+} from '@guardrail-sim/policy-engine';
 import {
   ReactFlow,
   Node,
@@ -75,7 +80,7 @@ interface RuleFlowProps {
   policy?: Policy;
 }
 
-export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowProps) {
+export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowProps): ReactNode {
   // Read the thresholds off the policy rather than restating them, so the diagram can
   // never show limits that differ from what evaluation actually enforces.
   const { marginFloor, maxDiscount, volumeTiers } = useMemo(
@@ -83,17 +88,24 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
     [policy]
   );
 
+  // A policy can name its rules anything; classify by the fact each rule reads (the
+  // same routing extractPolicyThresholds uses) rather than assuming a custom policy's
+  // margin rule is literally named "margin_floor". Without this, a renamed rule's
+  // violations never matched the node lookup and that node stayed "passed" when rejected.
+  const ruleNames = useMemo(() => classifyPolicyRuleNames(policy), [policy]);
+
   const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
   const steppedTier = volumeTiers.find((t) => t.minQuantity > 0);
   const baseTier = volumeTiers.find((t) => t.minQuantity === 0);
 
   const getNodeStatus = useCallback(
-    (ruleName: string) => {
+    (dimension: keyof typeof ruleNames) => {
       if (!evaluationResult) return 'default';
-      const isViolated = evaluationResult.violations.some((v) => v.rule === ruleName);
+      const names = ruleNames[dimension];
+      const isViolated = evaluationResult.violations.some((v) => names.includes(v.rule));
       return isViolated ? 'violated' : 'passed';
     },
-    [evaluationResult]
+    [evaluationResult, ruleNames]
   );
 
   const nodes: Node[] = [
@@ -114,7 +126,7 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
         label: 'Margin Floor',
         description:
           marginFloor !== undefined ? `Margin >= ${pct(marginFloor)}` : 'Minimum margin enforced',
-        status: getNodeStatus('margin_floor'),
+        status: getNodeStatus('marginFloor'),
       },
     },
     {
@@ -125,7 +137,7 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
         label: 'Max Discount',
         description:
           maxDiscount !== undefined ? `Discount <= ${pct(maxDiscount)}` : 'Absolute discount cap',
-        status: getNodeStatus('max_discount'),
+        status: getNodeStatus('maxDiscount'),
       },
     },
     {
@@ -138,7 +150,7 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
           steppedTier && baseTier
             ? `${pct(baseTier.maxDiscount)}, ${pct(steppedTier.maxDiscount)} at ${steppedTier.minQuantity}+`
             : 'Qty-based limit',
-        status: getNodeStatus('volume_tier'),
+        status: getNodeStatus('volumeTier'),
       },
     },
 
@@ -184,7 +196,7 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
       source: 'margin_floor',
       target: 'result',
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: getNodeStatus('margin_floor') === 'violated' ? '#ef4444' : '#22c55e' },
+      style: { stroke: getNodeStatus('marginFloor') === 'violated' ? '#ef4444' : '#22c55e' },
       animated: evaluationResult !== undefined,
     },
     {
@@ -192,7 +204,7 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
       source: 'max_discount',
       target: 'result',
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: getNodeStatus('max_discount') === 'violated' ? '#ef4444' : '#22c55e' },
+      style: { stroke: getNodeStatus('maxDiscount') === 'violated' ? '#ef4444' : '#22c55e' },
       animated: evaluationResult !== undefined,
     },
     {
@@ -200,7 +212,7 @@ export function RuleFlow({ evaluationResult, policy = defaultPolicy }: RuleFlowP
       source: 'volume_tier',
       target: 'result',
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: getNodeStatus('volume_tier') === 'violated' ? '#ef4444' : '#22c55e' },
+      style: { stroke: getNodeStatus('volumeTier') === 'violated' ? '#ef4444' : '#22c55e' },
       animated: evaluationResult !== undefined,
     },
   ];

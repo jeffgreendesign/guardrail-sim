@@ -24,6 +24,11 @@ negative regardless of how a session was priced.
 
 Together these produced a total of **-2,900,000** on a 100,000-cent cart with three codes.
 
+A related bug surfaced in review of the fix itself: the aggregate allocation breakdown was
+attached wholesale to the first applied code, so with N codes its `allocations` summed to the
+_entire_ discount while its own `amount` was only a 1/N share. Each applied entry's
+allocations are now computed from its own amount, so they always sum to that entry's amount.
+
 Also fixed:
 
 - `extractPolicyThresholds` picked the volume-tier base allowance from a flattened condition
@@ -40,3 +45,7 @@ Also fixed:
   `isComplete`, or explicitly `manual`. Previously an item that simply forgot `isComplete`
   compiled and then scored zero forever — exactly how two checklists came to report 0%.
 - The playground's Rule Flow diagram rendered fixed 15%/25% labels; it now reads the policy.
+- `RuleFlow` matched violations against the literal rule names `margin_floor`/`max_discount`/
+  `volume_tier`, so a custom policy naming its rules anything else never showed as rejected.
+  New `classifyPolicyRuleNames` in `policy-engine` classifies by which fact a rule reads — the
+  same routing `extractPolicyThresholds` already uses — so the two can't disagree.

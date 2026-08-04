@@ -178,3 +178,54 @@ export function volumeTierLimit(tiers: VolumeTier[], quantity: number): number |
 
   return applicable?.maxDiscount;
 }
+
+/**
+ * The violation rule names a policy uses for each guardrail dimension, grouped by the
+ * same fact-based classification {@link extractPolicyThresholds} uses. A rule can be
+ * named anything; what identifies its dimension is which fact it references.
+ *
+ * Consumers that need to recognize "this violation is the margin-floor one" for a
+ * caller-supplied policy — a UI that highlights the failing guardrail, for instance —
+ * should classify by these names rather than assuming the `defaultPolicy` literals
+ * `'margin_floor'` / `'max_discount'` / `'volume_tier'`. A policy is free to name its
+ * rules anything; only the facts it reads say what the rule is for.
+ */
+export interface PolicyRuleNames {
+  marginFloor: string[];
+  maxDiscount: string[];
+  volumeTier: string[];
+}
+
+/** The name a rule's violation carries: `event.params.rule` if set, else the rule's own name. */
+function violationRuleName(rule: PolicyRule): string {
+  const declared = rule.event.params?.rule;
+  return typeof declared === 'string' ? declared : rule.name;
+}
+
+/**
+ * Classify a policy's rules by guardrail dimension, keyed by the name their violations
+ * actually carry. Uses the identical fact-based routing as {@link extractPolicyThresholds}
+ * so the two can never disagree about which rule belongs to which dimension.
+ */
+export function classifyPolicyRuleNames(policy: Policy): PolicyRuleNames {
+  const names: PolicyRuleNames = { marginFloor: [], maxDiscount: [], volumeTier: [] };
+
+  for (const rule of policy.rules) {
+    const facts = ruleFacts(rule);
+    if (facts.length === 0) continue;
+
+    if (facts.some((c) => c.fact === 'quantity')) {
+      names.volumeTier.push(violationRuleName(rule));
+      continue;
+    }
+    if (facts.some((c) => c.fact === 'calculated_margin' && BELOW_OPERATORS.has(c.operator))) {
+      names.marginFloor.push(violationRuleName(rule));
+      continue;
+    }
+    if (facts.some((c) => c.fact === 'proposed_discount' && ABOVE_OPERATORS.has(c.operator))) {
+      names.maxDiscount.push(violationRuleName(rule));
+    }
+  }
+
+  return names;
+}

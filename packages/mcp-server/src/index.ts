@@ -272,11 +272,15 @@ async function handleSimulateCheckoutDiscount(args: {
   // Calculate allocations if approved
   let allocations: Array<{ target: string; amount: number }> | undefined;
   if (evaluation.approved && args.line_items.length > 0) {
+    // Top-level `allocations` is the aggregate breakdown across the whole discount.
     allocations = calculateAllocations(discountAmount, args.line_items, 'across');
 
-    // Update applied discounts with allocations
-    if (response.applied.length > 0) {
-      response.applied[0].allocations = allocations;
+    // Each applied entry's own `allocations` must sum to THAT entry's `amount`, not the
+    // aggregate. buildDiscountExtensionResponse splits discountAmount across codes, so
+    // attaching the full aggregate to applied[0] made its allocations overstate its
+    // amount whenever more than one code was supplied.
+    for (const applied of response.applied) {
+      applied.allocations = calculateAllocations(applied.amount, args.line_items, 'across');
     }
   }
 
