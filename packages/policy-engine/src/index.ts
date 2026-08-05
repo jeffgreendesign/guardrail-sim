@@ -6,7 +6,9 @@
  */
 
 export { PolicyEngine, calculateAllocations, calculateMaxDiscount } from './engine.js';
-export type { LineItem, Allocation } from './engine.js';
+export type { LineItem, Allocation, MaxDiscountOptions } from './engine.js';
+export { extractPolicyThresholds, volumeTierLimit, classifyPolicyRuleNames } from './thresholds.js';
+export type { PolicyThresholds, VolumeTier, PolicyRuleNames } from './thresholds.js';
 export { defaultPolicy } from './policies/default.js';
 export { getUCPErrorCode, VIOLATION_TO_UCP_ERROR } from './types.js';
 export type {

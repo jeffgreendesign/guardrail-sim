@@ -5,7 +5,6 @@
  */
 
 import { PolicyEngine } from '@guardrail-sim/policy-engine';
-import type { Policy } from '@guardrail-sim/policy-engine';
 import type {
   BuyerPersona,
   NegotiationSession,
@@ -36,7 +35,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
   for (const persona of config.personas) {
     for (let i = 0; i < config.ordersPerPersona; i++) {
-      const session = await runSingleSession(persona, config.policy, engine, provider, rng);
+      const session = await runSingleSession(persona, engine, provider, rng);
       sessions.push(session);
     }
   }
@@ -53,10 +52,12 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
 /**
  * Run a single negotiation session between a persona and the policy engine.
+ *
+ * The engine is passed pre-constructed; it already carries the policy, so the
+ * policy is not a separate parameter.
  */
 export async function runSingleSession(
   persona: BuyerPersona,
-  policy: Policy,
   engine: PolicyEngine,
   provider: PersonaProvider,
   rng: () => number
@@ -64,7 +65,6 @@ export async function runSingleSession(
   const rounds: NegotiationRound[] = [];
   let previousDiscount: number | null = null;
   let previousResult: import('@guardrail-sim/policy-engine').EvaluationResult | null = null;
-  let lastOrder: import('@guardrail-sim/policy-engine').Order | null = null;
 
   // Generate a base order for this session (persona keeps same order across rounds)
   const request = provider.generateRequest({
@@ -75,7 +75,7 @@ export async function runSingleSession(
     order: { order_value: 0, quantity: 0, product_margin: 0 },
   });
 
-  lastOrder = request.order;
+  const lastOrder = request.order;
 
   for (let round = 1; round <= persona.maxRounds; round++) {
     // First round uses the initial request, subsequent rounds adapt
@@ -109,6 +109,15 @@ export async function runSingleSession(
       return buildSession(persona, rounds, 'accepted', proposedDiscount, lastOrder, rng);
     }
 
+    // Rejected. Before conceding another round, check whether any deal exists at all:
+    // if even the smallest discount this persona would accept still breaks the policy,
+    // there is nothing to negotiate towards and the buyer walks away. Evaluation is
+    // pure, so this probe does not disturb the RNG stream or determinism.
+    const floorProbe = await engine.evaluate(lastOrder, persona.discountRange.min);
+    if (!floorProbe.approved) {
+      return buildSession(persona, rounds, 'abandoned', null, lastOrder, rng);
+    }
+
     previousDiscount = proposedDiscount;
     previousResult = evaluation;
   }
@@ -125,7 +134,9 @@ function buildSession(
   order: import('@guardrail-sim/policy-engine').Order,
   rng: () => number
 ): NegotiationSession {
-  const marginImpact = finalDiscount !== null ? finalDiscount : 0;
+  // Revenue actually conceded, in the order's currency units — not the discount
+  // rate, which is what this field previously (mis)reported.
+  const marginImpact = finalDiscount !== null ? order.order_value * finalDiscount : 0;
 
   return {
     id: generateSessionId(rng),

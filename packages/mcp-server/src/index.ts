@@ -4,28 +4,28 @@
  *
  * MCP server exposing policy evaluation tools for AI agents.
  * Provides deterministic policy evaluation through the evaluate_policy tool.
- * Supports MCP Apps for interactive UI visualization.
+ *
+ * Targets the 2026-07-28 protocol revision via the v2 SDK's `serveStdio` entry,
+ * which also serves 2025-era clients from the same registrations.
  */
 
+import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { PolicyEngine, defaultPolicy } from '@guardrail-sim/policy-engine';
+  PolicyEngine,
+  calculateMaxDiscount,
+  defaultPolicy,
+  extractPolicyThresholds,
+} from '@guardrail-sim/policy-engine';
 import type { Order, Policy, EvaluationResult } from '@guardrail-sim/policy-engine';
 import {
   toDiscountValidationResult,
   buildDiscountExtensionResponse,
   fromUCPLineItems,
   calculateAllocations,
+  serializeProfile,
 } from '@guardrail-sim/ucp-types';
 import type {
   DiscountValidationResult,
@@ -41,526 +41,20 @@ import {
   updateCheckoutSession,
   completeCheckoutSession,
   cancelCheckoutSession,
+  recomputeSessionTotals,
 } from './checkout-store.js';
 import { runSimulation, defaultPersonas, toSimulationSummary } from '@guardrail-sim/simulation';
 import type { SimulationMetrics } from '@guardrail-sim/simulation';
 import { analyzePolicy } from '@guardrail-sim/insights';
+import * as schema from './schemas.js';
 
-export const VERSION = '0.0.1';
+export const VERSION = '0.4.0';
 
-// Path to UI resources
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const UI_DIR = join(__dirname, 'ui');
 
 // Initialize policy engine with default policy
 const currentPolicy: Policy = defaultPolicy;
 const policyEngine = new PolicyEngine(currentPolicy);
-
-/**
- * Tool definitions for the MCP server
- */
-const TOOLS = [
-  {
-    name: 'evaluate_policy',
-    description: `Evaluate a proposed discount against the active pricing policy.
-
-Use this tool when:
-- A B2B buyer requests a discount
-- You need to check if a discount is allowed before committing
-- You want to understand the policy constraints for negotiation
-
-Returns: approval status, violations, applied rules, and calculated margin.`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        order: {
-          type: 'object' as const,
-          description: 'The order details for evaluation',
-          properties: {
-            order_value: {
-              type: 'number' as const,
-              description: 'Total order value in dollars',
-            },
-            quantity: {
-              type: 'number' as const,
-              description: 'Total units in the order',
-            },
-            customer_segment: {
-              type: 'string' as const,
-              description: 'Customer tier/segment (e.g., new, bronze, silver, gold, platinum)',
-            },
-            product_margin: {
-              type: 'number' as const,
-              description: 'Base margin as decimal (0.40 = 40%)',
-            },
-          },
-          required: ['order_value', 'quantity', 'product_margin'],
-        },
-        proposed_discount: {
-          type: 'number' as const,
-          description: 'Requested discount as decimal (0.15 = 15% off)',
-        },
-      },
-      required: ['order', 'proposed_discount'],
-    },
-    _meta: {
-      ui: {
-        resourceUri: 'ui://guardrail-sim/evaluation-result',
-      },
-    },
-  },
-  {
-    name: 'get_policy_summary',
-    description: `Get a human-readable summary of the active policy rules.
-
-Use this tool when:
-- You need to explain discount limits to a buyer
-- You want to understand what discounts are possible
-- Preparing for a negotiation`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {},
-    },
-    _meta: {
-      ui: {
-        resourceUri: 'ui://guardrail-sim/policy-dashboard',
-      },
-    },
-  },
-  {
-    name: 'get_max_discount',
-    description: `Calculate the maximum allowed discount for a given order.
-
-Use this tool when:
-- You want to know the ceiling for negotiation
-- A buyer asks "what's the best you can do?"`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        order: {
-          type: 'object' as const,
-          description: 'The order details',
-          properties: {
-            order_value: {
-              type: 'number' as const,
-              description: 'Total order value in dollars',
-            },
-            quantity: {
-              type: 'number' as const,
-              description: 'Total units in the order',
-            },
-            customer_segment: {
-              type: 'string' as const,
-              description: 'Customer tier/segment',
-            },
-            product_margin: {
-              type: 'number' as const,
-              description: 'Base margin as decimal (0.40 = 40%)',
-            },
-          },
-          required: ['order_value', 'quantity', 'product_margin'],
-        },
-      },
-      required: ['order'],
-    },
-  },
-  // UCP-aligned tools
-  {
-    name: 'validate_discount_code',
-    description: `Validate a discount code against the active policy before submitting to checkout.
-
-UCP-compatible tool that returns standard UCP error codes.
-
-Use this tool when:
-- An AI agent wants to pre-validate a discount before checkout
-- You need UCP-compliant error codes for discount rejection
-- Building UCP-compatible checkout flows`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        code: {
-          type: 'string' as const,
-          description: 'The discount code to validate',
-        },
-        discount_amount: {
-          type: 'number' as const,
-          description: 'The discount amount in minor currency units (cents)',
-        },
-        order: {
-          type: 'object' as const,
-          description: 'Order context for validation',
-          properties: {
-            order_value: {
-              type: 'number' as const,
-              description: 'Total order value in dollars',
-            },
-            quantity: {
-              type: 'number' as const,
-              description: 'Total units in the order',
-            },
-            customer_segment: {
-              type: 'string' as const,
-              description: 'Customer tier/segment',
-            },
-            product_margin: {
-              type: 'number' as const,
-              description: 'Base margin as decimal (0.40 = 40%)',
-            },
-          },
-          required: ['order_value', 'quantity', 'product_margin'],
-        },
-      },
-      required: ['code', 'discount_amount', 'order'],
-    },
-  },
-  {
-    name: 'simulate_checkout_discount',
-    description: `Simulate a UCP checkout with discount codes applied.
-
-Returns a UCP-compatible discount extension response with applied discounts,
-allocations, and any rejection messages.
-
-Use this tool when:
-- Testing how discounts would be applied in a UCP checkout
-- Simulating multi-code discount scenarios
-- Validating discount stacking behavior`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        codes: {
-          type: 'array' as const,
-          items: { type: 'string' as const },
-          description: 'Array of discount codes to apply',
-        },
-        line_items: {
-          type: 'array' as const,
-          description: 'UCP line items for the checkout',
-          items: {
-            type: 'object' as const,
-            properties: {
-              item: {
-                type: 'object' as const,
-                properties: {
-                  id: { type: 'string' as const },
-                },
-                required: ['id'],
-              },
-              quantity: { type: 'number' as const },
-              subtotal: {
-                type: 'object' as const,
-                properties: {
-                  amount: { type: 'number' as const, description: 'Amount in minor units (cents)' },
-                  currency: { type: 'string' as const },
-                },
-              },
-            },
-            required: ['item', 'quantity'],
-          },
-        },
-        currency: {
-          type: 'string' as const,
-          description: 'ISO 4217 currency code (e.g., USD)',
-        },
-        discount_percentage: {
-          type: 'number' as const,
-          description: 'Discount percentage to simulate (0.15 = 15%)',
-        },
-        product_margin: {
-          type: 'number' as const,
-          description: 'Base margin for policy evaluation (0.40 = 40%)',
-        },
-      },
-      required: ['codes', 'line_items', 'currency', 'discount_percentage'],
-    },
-  },
-  // Simulation tools
-  {
-    name: 'run_simulation',
-    description: `Run an adversarial simulation against the active pricing policy.
-
-Spawns deterministic buyer personas that attempt to extract maximum discounts
-through various strategies (cooperative, strategic, adversarial).
-
-Returns metrics including approval rate, margin erosion, violations by rule,
-outcomes by persona, and discovered edge cases.
-
-Use this tool when:
-- You want to stress-test a policy before deployment
-- You need to understand how different buyer types interact with the policy
-- You want to find edge cases or boundary vulnerabilities`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        orders_per_persona: {
-          type: 'number' as const,
-          description: 'Number of negotiation sessions per persona (default: 20, max: 50)',
-        },
-        personas: {
-          type: 'array' as const,
-          items: { type: 'string' as const },
-          description:
-            'Persona IDs to include (default: all). Options: budget-buyer, strategic-buyer, margin-hunter, volume-gamer, code-stacker',
-        },
-        seed: {
-          type: 'number' as const,
-          description: 'Random seed for reproducible results (default: 42)',
-        },
-      },
-    },
-    _meta: {
-      ui: {
-        resourceUri: 'ui://guardrail-sim/simulation-results',
-      },
-    },
-  },
-  {
-    name: 'analyze_simulation',
-    description: `Run a simulation and analyze the results with the insights engine.
-
-Combines the simulation runner with policy health checks to produce
-actionable recommendations for improving the policy.
-
-Returns both simulation metrics and insight recommendations.
-
-Use this tool when:
-- You want a complete policy assessment with recommendations
-- You need to identify specific policy improvements
-- You want to understand both what happened and what to do about it`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        orders_per_persona: {
-          type: 'number' as const,
-          description: 'Number of negotiation sessions per persona (default: 20, max: 50)',
-        },
-        seed: {
-          type: 'number' as const,
-          description: 'Random seed for reproducible results (default: 42)',
-        },
-      },
-    },
-  },
-  // Standard UCP Checkout Tools (MCP Binding)
-  {
-    name: 'create_checkout',
-    description: `Create a new UCP checkout session.
-
-Standard UCP MCP binding tool. Creates a checkout session with line items,
-optional buyer info, and optional discount codes. Returns the full checkout
-object with an assigned session ID.
-
-Accepts _meta.ucp.profile for platform capability negotiation.`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        checkout: {
-          type: 'object' as const,
-          description: 'Checkout data',
-          properties: {
-            currency: { type: 'string' as const, description: 'ISO 4217 currency code' },
-            line_items: {
-              type: 'array' as const,
-              description: 'Items to add to checkout',
-              items: {
-                type: 'object' as const,
-                properties: {
-                  item: {
-                    type: 'object' as const,
-                    properties: {
-                      id: { type: 'string' as const },
-                      title: { type: 'string' as const },
-                      price: {
-                        type: 'number' as const,
-                        description: 'Price in minor units (cents)',
-                      },
-                    },
-                    required: ['id'],
-                  },
-                  quantity: { type: 'number' as const },
-                },
-                required: ['item', 'quantity'],
-              },
-            },
-            buyer: {
-              type: 'object' as const,
-              properties: {
-                email: { type: 'string' as const },
-                first_name: { type: 'string' as const },
-                last_name: { type: 'string' as const },
-              },
-            },
-            shipping_address: { type: 'object' as const },
-            'dev.ucp.shopping.discount': {
-              type: 'object' as const,
-              properties: {
-                codes: { type: 'array' as const, items: { type: 'string' as const } },
-              },
-            },
-          },
-          required: ['currency', 'line_items'],
-        },
-        idempotency_key: { type: 'string' as const, description: 'UUID for idempotent requests' },
-        _meta: {
-          type: 'object' as const,
-          properties: {
-            ucp: {
-              type: 'object' as const,
-              properties: {
-                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
-              },
-            },
-          },
-        },
-      },
-      required: ['checkout'],
-    },
-  },
-  {
-    name: 'get_checkout',
-    description: `Retrieve a UCP checkout session by ID.
-
-Standard UCP MCP binding tool. Returns the full checkout object
-including current status, line items, totals, and any applied discounts.`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string' as const, description: 'Checkout session ID' },
-        _meta: {
-          type: 'object' as const,
-          properties: {
-            ucp: {
-              type: 'object' as const,
-              properties: {
-                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
-              },
-            },
-          },
-        },
-      },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'update_checkout',
-    description: `Update an existing UCP checkout session.
-
-Standard UCP MCP binding tool. Modify line items, buyer info,
-shipping address, or discount codes. Re-evaluates policy if
-discounts change. Returns the updated checkout object.`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string' as const, description: 'Checkout session ID' },
-        checkout: {
-          type: 'object' as const,
-          description: 'Fields to update',
-          properties: {
-            line_items: {
-              type: 'array' as const,
-              items: {
-                type: 'object' as const,
-                properties: {
-                  item: {
-                    type: 'object' as const,
-                    properties: {
-                      id: { type: 'string' as const },
-                      title: { type: 'string' as const },
-                      price: { type: 'number' as const },
-                    },
-                    required: ['id'],
-                  },
-                  quantity: { type: 'number' as const },
-                },
-                required: ['item', 'quantity'],
-              },
-            },
-            buyer: {
-              type: 'object' as const,
-              properties: {
-                email: { type: 'string' as const },
-                first_name: { type: 'string' as const },
-                last_name: { type: 'string' as const },
-              },
-            },
-            shipping_address: { type: 'object' as const },
-            'dev.ucp.shopping.discount': {
-              type: 'object' as const,
-              properties: {
-                codes: { type: 'array' as const, items: { type: 'string' as const } },
-              },
-            },
-          },
-        },
-        _meta: {
-          type: 'object' as const,
-          properties: {
-            ucp: {
-              type: 'object' as const,
-              properties: {
-                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
-              },
-            },
-          },
-        },
-      },
-      required: ['id', 'checkout'],
-    },
-  },
-  {
-    name: 'complete_checkout',
-    description: `Complete a UCP checkout session (place order).
-
-Standard UCP MCP binding tool. Transitions the session to "completed"
-status. Session must be in "ready_for_complete" status. Returns the
-checkout with an order reference.`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string' as const, description: 'Checkout session ID' },
-        idempotency_key: { type: 'string' as const, description: 'UUID for idempotent requests' },
-        _meta: {
-          type: 'object' as const,
-          properties: {
-            ucp: {
-              type: 'object' as const,
-              properties: {
-                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
-              },
-            },
-          },
-        },
-      },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'cancel_checkout',
-    description: `Cancel a UCP checkout session.
-
-Standard UCP MCP binding tool. Transitions the session to "canceled"
-status (terminal). Cannot cancel a completed session.`,
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string' as const, description: 'Checkout session ID' },
-        idempotency_key: { type: 'string' as const, description: 'UUID for idempotent requests' },
-        _meta: {
-          type: 'object' as const,
-          properties: {
-            ucp: {
-              type: 'object' as const,
-              properties: {
-                profile: { type: 'string' as const, description: 'Platform UCP profile URL' },
-              },
-            },
-          },
-        },
-      },
-      required: ['id'],
-    },
-  },
-];
 
 /**
  * Handle evaluate_policy tool call
@@ -590,36 +84,64 @@ function handleGetPolicySummary(): {
   }>;
   summary: string;
 } {
+  // Descriptions and the summary are generated from the policy's own thresholds.
+  // They were previously hardcoded to the default policy's 15%/25%/100-unit numbers,
+  // so any custom policy was described with limits it does not have.
+  const { marginFloor, maxDiscount, volumeTiers } = extractPolicyThresholds(currentPolicy);
+  const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
+
   const ruleDescriptions = currentPolicy.rules.map((rule) => {
-    let description = '';
+    let description: string;
     switch (rule.name) {
       case 'margin_floor':
-        description = 'Ensures minimum margin of 15% is maintained after discount';
+        description =
+          marginFloor !== undefined
+            ? `Ensures minimum margin of ${pct(marginFloor)} is maintained after discount`
+            : 'Enforces a minimum margin after discount';
         break;
       case 'max_discount':
-        description = 'Maximum discount cap of 25% regardless of other factors';
+        description =
+          maxDiscount !== undefined
+            ? `Maximum discount cap of ${pct(maxDiscount)} regardless of other factors`
+            : 'Caps the absolute discount regardless of other factors';
         break;
-      case 'volume_tier':
-        description = 'Orders with quantity < 100 are limited to 10% discount';
+      case 'volume_tier': {
+        const base = volumeTiers.find((t) => t.minQuantity === 0);
+        const stepped = volumeTiers.filter((t) => t.minQuantity > 0);
+        description = stepped.length
+          ? `Orders below ${stepped[0].minQuantity} units are limited to ${pct(base?.maxDiscount ?? 0)} discount`
+          : 'Limits discounts by order quantity';
         break;
+      }
       default:
         description = `Rule: ${rule.name}`;
     }
     return { name: rule.name, description };
   });
 
-  const summary = `
-Policy: ${currentPolicy.name}
-Rules:
-1. Margin Floor (15%): Discounts cannot reduce margin below 15%
-2. Max Discount (25%): No discount can exceed 25% regardless of other factors
-3. Volume Tier: Orders with 100+ units qualify for higher discounts (up to 15% vs 10% base)
+  const ruleLines = ruleDescriptions.map((r, i) => `${i + 1}. ${r.name}: ${r.description}`);
 
-To maximize discount approval:
-- Increase order quantity to 100+ units for volume tier benefits
-- Consider products with higher base margins
-- Stay within the 25% maximum cap
-`.trim();
+  const guidance: string[] = [];
+  for (const tier of volumeTiers.filter((t) => t.minQuantity > 0)) {
+    guidance.push(
+      `- Increase order quantity to ${tier.minQuantity}+ units for up to ${pct(tier.maxDiscount)}`
+    );
+  }
+  if (marginFloor !== undefined) {
+    guidance.push('- Consider products with higher base margins');
+  }
+  if (maxDiscount !== undefined) {
+    guidance.push(`- Stay within the ${pct(maxDiscount)} maximum cap`);
+  }
+
+  const summary = [
+    `Policy: ${currentPolicy.name}`,
+    'Rules:',
+    ...ruleLines,
+    ...(guidance.length ? ['', 'To maximize discount approval:', ...guidance] : []),
+  ]
+    .join('\n')
+    .trim();
 
   return {
     policy_id: currentPolicy.id,
@@ -640,46 +162,40 @@ async function handleGetMaxDiscount(args: { order: Order }): Promise<{
 }> {
   const { order } = args;
 
-  // Calculate constraints
-  const marginFloor = 0.15;
-  const maxDiscountCap = 0.25;
-  const volumeThreshold = 100;
-  const baseDiscountLimit = 0.1;
-  const volumeDiscountLimit = 0.15;
+  // Thresholds come from the active policy, never from constants duplicated here —
+  // otherwise a custom policy gets answered with the default policy's numbers.
+  const policy = policyEngine.getPolicy();
+  const { max_discount, limiting_factor } = calculateMaxDiscount(order, policy);
+  const { marginFloor, maxDiscount, volumeTiers } = extractPolicyThresholds(policy);
 
-  // Maximum discount based on margin floor
-  const marginBasedMax = order.product_margin - marginFloor;
-
-  // Maximum based on volume tier
-  const volumeBasedMax =
-    order.quantity >= volumeThreshold ? volumeDiscountLimit : baseDiscountLimit;
-
-  // Take the minimum of all constraints
-  const constraints = [
-    { name: 'margin_floor', value: marginBasedMax },
-    { name: 'max_discount_cap', value: maxDiscountCap },
-    { name: 'volume_tier', value: volumeBasedMax },
-  ];
-
-  const minConstraint = constraints.reduce((min, c) => (c.value < min.value ? c : min));
-  const maxDiscount = Math.max(0, Math.min(...constraints.map((c) => c.value)));
-
-  let details = '';
-  if (minConstraint.name === 'margin_floor') {
-    details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - 15% floor = ${(marginBasedMax * 100).toFixed(0)}% max discount`;
-  } else if (minConstraint.name === 'max_discount_cap') {
-    details = 'Limited by absolute discount cap of 25%';
-  } else {
-    details =
-      order.quantity >= volumeThreshold
-        ? 'Volume tier (100+ units) allows up to 15% discount'
-        : 'Base tier (< 100 units) limited to 10% discount';
+  let details: string;
+  switch (limiting_factor) {
+    case 'margin_floor':
+      details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - ${((marginFloor ?? 0) * 100).toFixed(0)}% floor = ${(max_discount * 100).toFixed(0)}% max discount`;
+      break;
+    case 'max_discount':
+      details = `Limited by absolute discount cap of ${((maxDiscount ?? 0) * 100).toFixed(0)}%`;
+      break;
+    case 'volume_tier': {
+      const tier = [...volumeTiers]
+        .filter((t) => order.quantity >= t.minQuantity)
+        .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+      details = tier
+        ? `Volume tier (${tier.minQuantity}+ units) allows up to ${(tier.maxDiscount * 100).toFixed(0)}% discount`
+        : `Volume tier limits this order to ${(max_discount * 100).toFixed(0)}%`;
+      break;
+    }
+    default:
+      details =
+        'Policy "' +
+        policy.name +
+        '" states no recognizable discount limit, so no headroom can be confirmed.';
   }
 
   return {
-    max_discount: maxDiscount,
-    max_discount_pct: `${(maxDiscount * 100).toFixed(1)}%`,
-    limiting_factor: minConstraint.name,
+    max_discount,
+    max_discount_pct: `${(max_discount * 100).toFixed(1)}%`,
+    limiting_factor,
     details,
   };
 }
@@ -719,7 +235,9 @@ async function handleValidateDiscountCode(args: {
  */
 async function handleSimulateCheckoutDiscount(args: {
   codes: string[];
-  line_items: LineItem[];
+  // Both converters below accept the union, and the tool only ever required
+  // `item` + `quantity` — the narrower LineItem here was never enforced.
+  line_items: (LineItem | LineItemRequest)[];
   currency: string;
   discount_percentage: number;
   product_margin?: number;
@@ -737,8 +255,11 @@ async function handleSimulateCheckoutDiscount(args: {
   // Evaluate against policy
   const evaluation = await policyEngine.evaluate(order, args.discount_percentage);
 
-  // Calculate discount amount in minor units
-  const discountAmount = Math.round(order.order_value * args.discount_percentage * 100);
+  // `fromUCPLineItems` sums line-item subtotals, which UCP states in MINOR units, so
+  // order_value is already cents here. Multiplying by 100 again inflated every discount
+  // by 100x. Contrast handleValidateDiscountCode, whose `order` argument is documented in
+  // dollars and therefore does need the conversion.
+  const discountAmount = Math.round(order.order_value * args.discount_percentage);
 
   // Build UCP-compatible response
   const response = buildDiscountExtensionResponse(
@@ -751,11 +272,15 @@ async function handleSimulateCheckoutDiscount(args: {
   // Calculate allocations if approved
   let allocations: Array<{ target: string; amount: number }> | undefined;
   if (evaluation.approved && args.line_items.length > 0) {
+    // Top-level `allocations` is the aggregate breakdown across the whole discount.
     allocations = calculateAllocations(discountAmount, args.line_items, 'across');
 
-    // Update applied discounts with allocations
-    if (response.applied.length > 0) {
-      response.applied[0].allocations = allocations;
+    // Each applied entry's own `allocations` must sum to THAT entry's `amount`, not the
+    // aggregate. buildDiscountExtensionResponse splits discountAmount across codes, so
+    // attaching the full aggregate to applied[0] made its allocations overstate its
+    // amount whenever more than one code was supplied.
+    for (const applied of response.applied) {
+      applied.allocations = calculateAllocations(applied.amount, args.line_items, 'across');
     }
   }
 
@@ -895,521 +420,468 @@ function validateCheckoutInput(
   return null;
 }
 
+// ============================================================================
+// CHECKOUT TOOL HANDLERS
+// ============================================================================
+
+/** Raised by a handler to signal a tool-level failure with a stable code. */
+class ToolFailure extends Error {
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = 'ToolFailure';
+  }
+}
+
 /**
- * Return a tool error response
+ * The flat rate this MVP grants for any recognized code. Real implementations resolve a
+ * rate per code; this is deliberately a single rate for the whole basket, which is why the
+ * amount below is computed once and then split across the codes rather than per code.
  */
-function toolError(code: string, message: string) {
+const CHECKOUT_DISCOUNT_RATE = 0.1;
+
+/** Apply discount codes to a session, replacing any previously stored response. */
+async function applyDiscountCodes(
+  session: Awaited<ReturnType<typeof getCheckoutSession>> & object,
+  codes: string[]
+): Promise<void> {
+  const order = fromUCPLineItems(session.line_items);
+  const evaluation = await policyEngine.evaluate(order, CHECKOUT_DISCOUNT_RATE);
+  // order_value comes from line-item subtotals and is already in minor units.
+  session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
+    codes,
+    evaluation,
+    Math.round(order.order_value * CHECKOUT_DISCOUNT_RATE)
+  );
+  // A discount changes the receipt, so totals must follow. Under 2026-04-08 the
+  // discount lands in totals[] as a negative entry and reduces `total`.
+  recomputeSessionTotals(session);
+}
+
+async function handleCreateCheckout(args: {
+  checkout: {
+    currency: string;
+    line_items: LineItemRequest[];
+    buyer?: Buyer;
+    shipping_address?: PostalAddress;
+    'dev.ucp.shopping.discount'?: { codes: string[] };
+  };
+  idempotency_key?: string;
+}): Promise<{ checkout: unknown }> {
+  const validationError = validateCheckoutInput(
+    args.checkout as unknown as Record<string, unknown>,
+    true
+  );
+  if (validationError) throw new ToolFailure('VALIDATION_ERROR', validationError);
+
+  const { session, isNew } = createCheckoutSession({
+    currency: args.checkout.currency,
+    line_items: args.checkout.line_items,
+    buyer: args.checkout.buyer,
+    shipping_address: args.checkout.shipping_address,
+    idempotency_key: args.idempotency_key,
+  });
+
+  // Only evaluate discounts on new sessions (preserve idempotency)
+  if (isNew) {
+    const codes = args.checkout['dev.ucp.shopping.discount']?.codes;
+    if (codes?.length) await applyDiscountCodes(session, codes);
+  }
+
+  return { checkout: session };
+}
+
+function handleGetCheckout(args: { id: string }): { checkout: unknown } {
+  const session = getCheckoutSession(args.id);
+  if (!session) throw new ToolFailure('NOT_FOUND', `Checkout session not found: ${args.id}`);
+  return { checkout: session };
+}
+
+async function handleUpdateCheckout(args: {
+  id: string;
+  checkout: {
+    line_items?: LineItemRequest[];
+    buyer?: Buyer;
+    shipping_address?: PostalAddress;
+    'dev.ucp.shopping.discount'?: { codes: string[] };
+  };
+}): Promise<{ checkout: unknown }> {
+  const validationError = validateCheckoutInput(
+    args.checkout as unknown as Record<string, unknown>,
+    false
+  );
+  if (validationError) throw new ToolFailure('VALIDATION_ERROR', validationError);
+
+  const session = updateCheckoutSession(args.id, {
+    line_items: args.checkout.line_items,
+    buyer: args.checkout.buyer,
+    shipping_address: args.checkout.shipping_address,
+  });
+
+  // Re-evaluate discounts: caller-provided codes take priority, but also
+  // re-evaluate existing codes when line_items change.
+  const requested = args.checkout['dev.ucp.shopping.discount'];
+  const existing = session['dev.ucp.shopping.discount'];
+
+  if (requested?.codes !== undefined) {
+    if (requested.codes.length === 0) {
+      delete session['dev.ucp.shopping.discount'];
+      recomputeSessionTotals(session);
+    } else {
+      await applyDiscountCodes(session, requested.codes);
+    }
+  } else if (existing && args.checkout.line_items) {
+    await applyDiscountCodes(session, existing.codes);
+  }
+
+  return { checkout: session };
+}
+
+function handleCompleteCheckout(args: { id: string; idempotency_key?: string }): {
+  checkout: unknown;
+} {
+  return { checkout: completeCheckoutSession(args.id, args.idempotency_key) };
+}
+
+function handleCancelCheckout(args: { id: string; idempotency_key?: string }): {
+  checkout: unknown;
+} {
+  return { checkout: cancelCheckoutSession(args.id, args.idempotency_key) };
+}
+
+// ============================================================================
+// SERVER
+// ============================================================================
+
+/**
+ * Wrap a handler's plain result into a CallToolResult.
+ *
+ * Every tool returns both `structuredContent` (machine-readable, validated
+ * against the tool's `outputSchema`) and a text block carrying the same JSON,
+ * so 2025-era clients that only read `content` keep working.
+ */
+function ok(payload: unknown): {
+  content: { type: 'text'; text: string }[];
+  structuredContent: Record<string, unknown>;
+} {
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+    structuredContent: payload as Record<string, unknown>,
+  };
+}
+
+/** Wrap a thrown handler error into an isError CallToolResult. */
+function fail(error: unknown): {
+  content: { type: 'text'; text: string }[];
+  isError: true;
+} {
+  const code = error instanceof ToolFailure ? error.code : 'TOOL_ERROR';
+  const message = error instanceof Error ? error.message : 'Unknown error';
   return {
     content: [{ type: 'text' as const, text: JSON.stringify({ error: true, code, message }) }],
     isError: true,
   };
 }
 
+/** Run a handler, converting a thrown error into an isError result. */
+async function run<T>(fn: () => T | Promise<T>): Promise<ReturnType<typeof ok | typeof fail>> {
+  try {
+    return ok(await fn());
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 /**
- * Create and configure the MCP server
+ * Create and configure the MCP server.
+ *
+ * Tools are registered in a fixed order. The 2026-07-28 revision asks servers to
+ * return `tools/list` deterministically so clients can cache it and keep LLM
+ * prompt-cache hits, and registration order is what determines that order here.
  */
-export function createServer(): Server {
-  const server = new Server(
+export function createServer(): McpServer {
+  const server = new McpServer(
+    { name: 'guardrail-sim', version: VERSION },
     {
-      name: 'guardrail-sim',
-      version: VERSION,
-    },
-    {
-      capabilities: {
-        tools: {},
-        resources: {},
+      capabilities: { tools: {}, resources: {} },
+      // The tool and resource lists are static for the process lifetime, so they
+      // are safe for shared caches. Anything reading checkout-store state is not.
+      cacheHints: {
+        'tools/list': { ttlMs: 3_600_000, cacheScope: 'public' },
+        'resources/list': { ttlMs: 3_600_000, cacheScope: 'public' },
+        'resources/read': { ttlMs: 60_000, cacheScope: 'private' },
+        'server/discover': { ttlMs: 3_600_000, cacheScope: 'public' },
       },
     }
   );
 
-  // Handle list tools request
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: TOOLS,
-  }));
+  server.registerTool(
+    'evaluate_policy',
+    {
+      description: `Evaluate a proposed discount against the active pricing policy.
 
-  // Handle tool calls
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
+Use this tool when:
+- A B2B buyer requests a discount
+- You need to check if a discount is allowed before committing
+- You want to understand the policy constraints for negotiation
 
-    try {
-      switch (name) {
-        case 'evaluate_policy': {
-          const typedArgs = args as { order: Order; proposed_discount: number };
-          const result = await handleEvaluatePolicy(typedArgs);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
+Returns: approval status, violations, applied rules, and calculated margin.`,
+      inputSchema: schema.evaluatePolicyInput,
+      outputSchema: schema.evaluatePolicyOutput,
+    },
+    (args) => run(() => handleEvaluatePolicy(args as { order: Order; proposed_discount: number }))
+  );
 
-        case 'get_policy_summary': {
-          const result = handleGetPolicySummary();
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
+  server.registerTool(
+    'get_policy_summary',
+    {
+      description: `Get a human-readable summary of the active policy rules.
 
-        case 'get_max_discount': {
-          const typedArgs = args as { order: Order };
-          const result = await handleGetMaxDiscount(typedArgs);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
+Use this tool when:
+- You need to explain discount limits to a buyer
+- You want to understand what discounts are possible
+- Preparing for a negotiation`,
+      inputSchema: schema.getPolicySummaryInput,
+      outputSchema: schema.getPolicySummaryOutput,
+    },
+    () => run(() => handleGetPolicySummary())
+  );
 
-        // UCP-aligned tools
-        case 'validate_discount_code': {
-          const typedArgs = args as {
-            code: string;
-            discount_amount: number;
-            order: Order;
-          };
-          const result = await handleValidateDiscountCode(typedArgs);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
+  server.registerTool(
+    'get_max_discount',
+    {
+      description: `Calculate the maximum allowed discount for a given order.
 
-        case 'simulate_checkout_discount': {
-          const typedArgs = args as {
+Use this tool when:
+- You want to know the ceiling for negotiation
+- A buyer asks "what's the best you can do?"
+
+Thresholds are read from the active policy, so the ceiling always matches what
+evaluate_policy will actually approve.`,
+      inputSchema: schema.getMaxDiscountInput,
+      outputSchema: schema.getMaxDiscountOutput,
+    },
+    (args) => run(() => handleGetMaxDiscount(args as { order: Order }))
+  );
+
+  server.registerTool(
+    'validate_discount_code',
+    {
+      description: `Validate a discount code against the active policy before submitting to checkout.
+
+UCP-compatible tool that returns standard UCP error codes.
+
+Use this tool when:
+- An AI agent wants to pre-validate a discount before checkout
+- You need UCP-compliant error codes for discount rejection
+- Building UCP-compatible checkout flows`,
+      inputSchema: schema.validateDiscountCodeInput,
+      outputSchema: schema.validateDiscountCodeOutput,
+    },
+    (args) =>
+      run(() =>
+        handleValidateDiscountCode(args as { code: string; discount_amount: number; order: Order })
+      )
+  );
+
+  server.registerTool(
+    'simulate_checkout_discount',
+    {
+      description: `Simulate a UCP checkout with discount codes applied.
+
+Returns a UCP-compatible discount extension response with applied discounts,
+allocations, and any rejection messages.
+
+Use this tool when:
+- Testing how discounts would be applied in a UCP checkout
+- Simulating multi-code discount scenarios
+- Validating discount stacking behavior`,
+      inputSchema: schema.simulateCheckoutDiscountInput,
+      outputSchema: schema.simulateCheckoutDiscountOutput,
+    },
+    (args) =>
+      run(() =>
+        handleSimulateCheckoutDiscount(
+          args as {
             codes: string[];
-            line_items: LineItem[];
+            line_items: (LineItem | LineItemRequest)[];
             currency: string;
             discount_percentage: number;
             product_margin?: number;
-          };
-          const result = await handleSimulateCheckoutDiscount(typedArgs);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        // Simulation tools
-        case 'run_simulation': {
-          const typedArgs = args as {
-            orders_per_persona?: number;
-            personas?: string[];
-            seed?: number;
-          };
-          const result = await handleRunSimulation(typedArgs);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'analyze_simulation': {
-          const typedArgs = args as {
-            orders_per_persona?: number;
-            seed?: number;
-          };
-          const result = await handleAnalyzeSimulation(typedArgs);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        // Standard UCP Checkout Tools
-        case 'create_checkout': {
-          const typedArgs = args as {
-            checkout: {
-              currency: string;
-              line_items: LineItemRequest[];
-              buyer?: Buyer;
-              shipping_address?: PostalAddress;
-              'dev.ucp.shopping.discount'?: { codes: string[] };
-            };
-            idempotency_key?: string;
-            _meta?: { ucp?: { profile?: string } };
-          };
-
-          // Validate input
-          const createValidationError = validateCheckoutInput(
-            typedArgs.checkout as unknown as Record<string, unknown>,
-            true
-          );
-          if (createValidationError) {
-            return toolError('VALIDATION_ERROR', createValidationError);
           }
+        )
+      )
+  );
 
-          const { session, isNew } = createCheckoutSession({
-            currency: typedArgs.checkout.currency,
-            line_items: typedArgs.checkout.line_items,
-            buyer: typedArgs.checkout.buyer,
-            shipping_address: typedArgs.checkout.shipping_address,
-            idempotency_key: typedArgs.idempotency_key,
-          });
+  server.registerTool(
+    'run_simulation',
+    {
+      description: `Run adversarial buyer personas against the active policy.
 
-          // Only evaluate discounts on new sessions (preserve idempotency)
-          if (isNew) {
-            const discountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
-            if (discountExt?.codes?.length) {
-              const order = fromUCPLineItems(session.line_items);
-              const evaluation = await policyEngine.evaluate(order, 0.1);
-              const discountResponse = buildDiscountExtensionResponse(
-                discountExt.codes,
-                evaluation,
-                Math.round(order.order_value * 0.1 * 100)
-              );
-              session['dev.ucp.shopping.discount'] = discountResponse;
-            }
-          }
+Deterministic given a seed: the same seed always produces the same result.
 
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
-            ],
-          };
-        }
+Use this tool when:
+- Stress-testing a policy before deployment
+- Measuring approval rates and margin impact at scale
+- Finding the edge cases a policy handles badly`,
+      inputSchema: schema.runSimulationInput,
+      outputSchema: schema.runSimulationOutput,
+    },
+    (args) =>
+      run(() =>
+        handleRunSimulation(
+          args as { orders_per_persona?: number; personas?: string[]; seed?: number }
+        )
+      )
+  );
 
-        case 'get_checkout': {
-          const typedArgs = args as { id: string };
-          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
-            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
-          }
-          const session = getCheckoutSession(typedArgs.id);
-          if (!session) {
-            return toolError('NOT_FOUND', `Checkout session not found: ${typedArgs.id}`);
-          }
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
-            ],
-          };
-        }
+  server.registerTool(
+    'analyze_simulation',
+    {
+      description: `Run a simulation and analyze the results for policy health insights.
 
-        case 'update_checkout': {
-          const typedArgs = args as {
-            id: string;
-            checkout: {
-              line_items?: LineItemRequest[];
-              buyer?: Buyer;
-              shipping_address?: PostalAddress;
-              'dev.ucp.shopping.discount'?: { codes: string[] };
-            };
-            _meta?: { ucp?: { profile?: string } };
-          };
-          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
-            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
-          }
+Use this tool when:
+- You want recommendations, not just raw metrics
+- Reviewing a policy before deployment`,
+      inputSchema: schema.analyzeSimulationInput,
+      outputSchema: schema.analyzeSimulationOutput,
+    },
+    (args) =>
+      run(() => handleAnalyzeSimulation(args as { orders_per_persona?: number; seed?: number }))
+  );
 
-          // Validate line_items if provided
-          const updateValidationError = validateCheckoutInput(
-            typedArgs.checkout as unknown as Record<string, unknown>,
-            false
-          );
-          if (updateValidationError) {
-            return toolError('VALIDATION_ERROR', updateValidationError);
-          }
+  server.registerTool(
+    'create_checkout',
+    {
+      description: `Create a UCP checkout session, optionally applying discount codes.
 
-          const session = updateCheckoutSession(typedArgs.id, {
-            line_items: typedArgs.checkout.line_items,
-            buyer: typedArgs.checkout.buyer,
-            shipping_address: typedArgs.checkout.shipping_address,
-          });
+Idempotent when an idempotency_key is supplied.`,
+      inputSchema: schema.createCheckoutInput,
+      outputSchema: schema.checkoutOutput,
+    },
+    (args) => run(() => handleCreateCheckout(args as Parameters<typeof handleCreateCheckout>[0]))
+  );
 
-          // Re-evaluate discounts: caller-provided codes take priority,
-          // but also re-evaluate existing codes when line_items change
-          const updateDiscountExt = typedArgs.checkout['dev.ucp.shopping.discount'];
-          const existingDiscount = session['dev.ucp.shopping.discount'];
+  server.registerTool(
+    'get_checkout',
+    {
+      description: 'Retrieve a UCP checkout session by id.',
+      inputSchema: schema.getCheckoutInput,
+      outputSchema: schema.checkoutOutput,
+    },
+    (args) => run(() => handleGetCheckout(args as { id: string }))
+  );
 
-          if (updateDiscountExt?.codes !== undefined) {
-            // Explicit codes from caller: empty = delete, non-empty = re-evaluate
-            if (updateDiscountExt.codes.length === 0) {
-              delete session['dev.ucp.shopping.discount'];
-            } else {
-              const order = fromUCPLineItems(session.line_items);
-              const evaluation = await policyEngine.evaluate(order, 0.1);
-              session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
-                updateDiscountExt.codes,
-                evaluation,
-                Math.round(order.order_value * 0.1 * 100)
-              );
-            }
-          } else if (existingDiscount && typedArgs.checkout.line_items) {
-            // Line items changed but codes weren't resent — re-evaluate with existing codes
-            const order = fromUCPLineItems(session.line_items);
-            const evaluation = await policyEngine.evaluate(order, 0.1);
-            session['dev.ucp.shopping.discount'] = buildDiscountExtensionResponse(
-              existingDiscount.codes,
-              evaluation,
-              Math.round(order.order_value * 0.1 * 100)
-            );
-          }
+  server.registerTool(
+    'update_checkout',
+    {
+      description: `Update a UCP checkout session. Discounts are re-evaluated when codes or
+line items change.`,
+      inputSchema: schema.updateCheckoutInput,
+      outputSchema: schema.checkoutOutput,
+    },
+    (args) => run(() => handleUpdateCheckout(args as Parameters<typeof handleUpdateCheckout>[0]))
+  );
 
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
-            ],
-          };
-        }
+  server.registerTool(
+    'complete_checkout',
+    {
+      description: 'Complete a UCP checkout session, producing an order reference.',
+      inputSchema: schema.completeCheckoutInput,
+      outputSchema: schema.checkoutOutput,
+    },
+    (args) => run(() => handleCompleteCheckout(args as { id: string; idempotency_key?: string }))
+  );
 
-        case 'complete_checkout': {
-          const typedArgs = args as { id: string; idempotency_key?: string };
-          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
-            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
-          }
-          const session = completeCheckoutSession(typedArgs.id, typedArgs.idempotency_key);
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
-            ],
-          };
-        }
+  server.registerTool(
+    'cancel_checkout',
+    {
+      description: 'Cancel a UCP checkout session.',
+      inputSchema: schema.cancelCheckoutInput,
+      outputSchema: schema.checkoutOutput,
+    },
+    (args) => run(() => handleCancelCheckout(args as { id: string; idempotency_key?: string }))
+  );
 
-        case 'cancel_checkout': {
-          const typedArgs = args as { id: string; idempotency_key?: string };
-          if (!typedArgs.id || typeof typedArgs.id !== 'string') {
-            return toolError('VALIDATION_ERROR', 'id is required and must be a string');
-          }
-          const session = cancelCheckoutSession(typedArgs.id, typedArgs.idempotency_key);
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ checkout: session }, null, 2) },
-            ],
-          };
-        }
+  server.registerResource(
+    'active-policy',
+    'guardrail://policies/active',
+    {
+      title: 'Active Policy',
+      description: 'The currently active pricing policy configuration',
+      mimeType: 'application/json',
+      cacheHint: { ttlMs: 3_600_000, cacheScope: 'public' },
+    },
+    (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: 'application/json',
+          text: JSON.stringify(currentPolicy, null, 2),
+        },
+      ],
+    })
+  );
 
-        default:
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify({
-                  error: true,
-                  code: 'UNKNOWN_TOOL',
-                  message: `Unknown tool: ${name}`,
-                }),
-              },
-            ],
-            isError: true,
-          };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              error: true,
-              code: 'TOOL_ERROR',
-              message: errorMessage,
-            }),
-          },
-        ],
-        isError: true,
-      };
-    }
-  });
-
-  // Handle list resources request
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: [
-      {
-        uri: 'guardrail://policies/active',
-        name: 'Active Policy',
-        description: 'The currently active pricing policy configuration',
-        mimeType: 'application/json',
-      },
-      {
-        uri: 'guardrail://profile/well-known-ucp',
-        name: 'UCP Profile',
-        description: 'guardrail-sim UCP business profile (/.well-known/ucp)',
-        mimeType: 'application/json',
-      },
-      // MCP Apps UI resources
-      {
-        uri: 'ui://guardrail-sim/evaluation-result',
-        name: 'Evaluation Result Visualizer',
-        description:
-          'Interactive UI for displaying policy evaluation results with margin gauges and animations',
-        mimeType: 'text/html',
-      },
-      {
-        uri: 'ui://guardrail-sim/policy-dashboard',
-        name: 'Policy Dashboard',
-        description:
-          'Interactive dashboard showing policy rules with visual constraints and discount calculator',
-        mimeType: 'text/html',
-      },
-      {
-        uri: 'ui://guardrail-sim/simulation-results',
-        name: 'Simulation Results Visualizer',
-        description:
-          'Interactive dashboard showing simulation metrics, persona outcomes, and edge cases',
-        mimeType: 'text/html',
-      },
-    ],
-  }));
-
-  // Handle read resource request
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const { uri } = request.params;
-
-    if (uri === 'guardrail://policies/active') {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: 'application/json',
-            text: JSON.stringify(currentPolicy, null, 2),
-          },
-        ],
-      };
-    }
-
-    if (uri === 'guardrail://profile/well-known-ucp') {
-      try {
-        const profileJson = await readFile(
-          join(__dirname, '..', '..', 'ucp-types', 'src', 'fixtures', 'well-known-ucp.json'),
-          'utf-8'
-        );
-        return {
-          contents: [{ uri, mimeType: 'application/json', text: profileJson }],
-        };
-      } catch {
-        // Fallback to inline profile if fixture not found (e.g., in published package)
-        const fallbackProfile = {
-          name: 'guardrail-sim',
-          description: 'Policy simulation engine for AI agent pricing governance',
-          capabilities: [
-            { name: 'dev.ucp.shopping.checkout', version: '2026-01-11' },
-            {
-              name: 'dev.ucp.shopping.discount',
-              version: '2026-01-11',
-              extends: 'dev.ucp.shopping.checkout',
-            },
-          ],
-          services: [{ transport: 'mcp', endpoint: 'stdio://guardrail-sim/mcp-server' }],
-        };
-        return {
-          contents: [
-            { uri, mimeType: 'application/json', text: JSON.stringify(fallbackProfile, null, 2) },
-          ],
-        };
-      }
-    }
-
-    // MCP Apps UI resources
-    if (uri === 'ui://guardrail-sim/evaluation-result') {
-      try {
-        const html = await readFile(join(UI_DIR, 'evaluation-result.html'), 'utf-8');
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: 'text/html',
-              text: html,
-            },
-          ],
-        };
-      } catch {
-        throw new Error(`Failed to read UI resource: ${uri}`);
-      }
-    }
-
-    if (uri === 'ui://guardrail-sim/policy-dashboard') {
-      try {
-        const html = await readFile(join(UI_DIR, 'policy-dashboard.html'), 'utf-8');
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: 'text/html',
-              text: html,
-            },
-          ],
-        };
-      } catch {
-        throw new Error(`Failed to read UI resource: ${uri}`);
-      }
-    }
-
-    if (uri === 'ui://guardrail-sim/simulation-results') {
-      try {
-        const html = await readFile(join(UI_DIR, 'simulation-results.html'), 'utf-8');
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: 'text/html',
-              text: html,
-            },
-          ],
-        };
-      } catch {
-        throw new Error(`Failed to read UI resource: ${uri}`);
-      }
-    }
-
-    throw new Error(`Unknown resource: ${uri}`);
-  });
+  server.registerResource(
+    'ucp-profile',
+    'guardrail://profile/well-known-ucp',
+    {
+      title: 'UCP Profile',
+      description: 'The /.well-known/ucp profile this server advertises',
+      mimeType: 'application/json',
+      cacheHint: { ttlMs: 3_600_000, cacheScope: 'public' },
+    },
+    (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: 'application/json',
+          // Serialized from the ucp-types constants, so there is no on-disk
+          // fixture to miss in a published tarball and no fallback to drift.
+          text: serializeProfile(),
+        },
+      ],
+    })
+  );
 
   return server;
 }
 
-/**
- * Run the MCP server with stdio transport
- */
 async function main(): Promise<void> {
-  const server = createServer();
-  const transport = new StdioServerTransport();
-
-  await server.connect(transport);
-
-  // Keep the process alive
-  process.on('SIGINT', async () => {
-    await server.close();
-    process.exit(0);
+  // serveStdio owns era negotiation: it answers server/discover, stamps
+  // resultType and cache fields, and pins one instance per connection.
+  //
+  // legacy: 'serve' is set explicitly rather than left to the default. Every MCP
+  // client in the wild today opens with a 2025-era `initialize`, so rejecting
+  // those would break `npx @guardrail-sim/mcp-server` for existing users.
+  serveStdio(() => createServer(), {
+    legacy: 'serve',
+    onerror: (error) => {
+      process.stderr.write(`[guardrail-sim] ${error.message}\n`);
+    },
   });
+
+  process.stderr.write(`guardrail-sim MCP server ${VERSION} running on stdio\n`);
 }
 
-// Run only when executed directly (not when imported as a library)
-// Use realpathSync to resolve symlinks (needed for npx which uses symlinks)
-const scriptPath = fileURLToPath(import.meta.url);
-const invokedPath = process.argv[1];
-const isMainModule =
-  invokedPath !== undefined &&
-  (realpathSync(invokedPath) === scriptPath ||
-    realpathSync(invokedPath) === realpathSync(scriptPath));
+// Only run main when executed directly (not when imported).
+// realpathSync resolves the npx symlink so the check holds for `npx guardrail-mcp`.
+const isMain = ((): boolean => {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(__filename);
+  } catch {
+    return false;
+  }
+})();
 
-if (isMainModule) {
-  main().catch((error) => {
-    console.error('Fatal error:', error);
+if (isMain) {
+  main().catch((error: unknown) => {
+    process.stderr.write(`Fatal error: ${String(error)}\n`);
     process.exit(1);
   });
 }

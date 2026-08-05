@@ -3,10 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Play, RotateCcw } from 'lucide-react';
 import { CopyButton } from '@/components/copy-button';
+import { RuleFlow } from '@/components/playground/rule-flow';
 import {
   PolicyEngine,
   defaultPolicy,
   calculateMaxDiscount,
+  extractPolicyThresholds,
+  volumeTierLimit,
   type Order,
   type EvaluationResult,
 } from '@guardrail-sim/policy-engine';
@@ -25,13 +28,28 @@ const DEFAULT_ORDER: Order = {
   customer_segment: 'gold',
 };
 
+/** Describe the volume tier a quantity falls into, reading the policy rather than restating it. */
+function quantityTierHint(quantity: number): string {
+  const { volumeTiers } = extractPolicyThresholds(defaultPolicy);
+  const limit = volumeTierLimit(volumeTiers, quantity);
+  if (limit === undefined) return 'No volume tiers in this policy';
+
+  const tier = [...volumeTiers]
+    .filter((t) => quantity >= t.minQuantity)
+    .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+  const label =
+    tier && tier.minQuantity > 0 ? `Volume tier (${tier.minQuantity}+ units)` : 'Base tier';
+
+  return `${label} (up to ${(limit * 100).toFixed(0)}%)`;
+}
+
 export function PolicyPlayground() {
   const [order, setOrder] = useState<Order>(DEFAULT_ORDER);
   const [proposedDiscount, setProposedDiscount] = useState(12);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [maxDiscount, setMaxDiscount] = useState<MaxDiscountResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'evaluate' | 'max'>('evaluate');
+  const [activeTab, setActiveTab] = useState<'evaluate' | 'max' | 'flow'>('evaluate');
 
   // Create engine once and reuse
   const engineRef = useRef<PolicyEngine | null>(null);
@@ -62,18 +80,25 @@ export function PolicyPlayground() {
   const handleGetMaxDiscount = () => {
     setIsLoading(true);
     try {
-      const { max_discount, limiting_factor } = calculateMaxDiscount(order);
+      // Thresholds are read from the policy itself rather than restated here, so the
+      // explanation can never drift from what the engine actually enforces.
+      const { max_discount, limiting_factor } = calculateMaxDiscount(order, defaultPolicy);
+      const { marginFloor, maxDiscount: cap, volumeTiers } = extractPolicyThresholds(defaultPolicy);
 
-      let details = '';
+      let details: string;
       if (limiting_factor === 'margin_floor') {
-        details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - 15% floor = ${((order.product_margin - 0.15) * 100).toFixed(0)}% max`;
+        details = `Limited by margin floor: ${(order.product_margin * 100).toFixed(0)}% margin - ${((marginFloor ?? 0) * 100).toFixed(0)}% floor = ${(max_discount * 100).toFixed(0)}% max`;
       } else if (limiting_factor === 'max_discount') {
-        details = 'Limited by absolute discount cap of 25%';
+        details = `Limited by absolute discount cap of ${((cap ?? 0) * 100).toFixed(0)}%`;
+      } else if (limiting_factor === 'volume_tier') {
+        const tier = [...volumeTiers]
+          .filter((t) => order.quantity >= t.minQuantity)
+          .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+        details = tier
+          ? `Volume tier (${tier.minQuantity}+ units) allows up to ${(tier.maxDiscount * 100).toFixed(0)}%`
+          : `Volume tier limits this order to ${(max_discount * 100).toFixed(0)}%`;
       } else {
-        details =
-          order.quantity >= 100
-            ? 'Volume tier (100+ units) allows up to 15%'
-            : 'Base tier (< 100 units) limited to 10%';
+        details = 'This policy states no recognizable discount limit.';
       }
 
       setMaxDiscount({
@@ -120,9 +145,7 @@ export function PolicyPlayground() {
               onChange={(e) => setOrder({ ...order, quantity: Number(e.target.value) })}
               className="playground-input"
             />
-            <span className="playground-hint">
-              {order.quantity >= 100 ? 'Volume tier (up to 15%)' : 'Base tier (up to 10%)'}
-            </span>
+            <span className="playground-hint">{quantityTierHint(order.quantity)}</span>
           </div>
 
           <div className="playground-field">
@@ -216,6 +239,12 @@ export function PolicyPlayground() {
             className={`playground-tab ${activeTab === 'max' ? 'active' : ''}`}
           >
             Max Discount
+          </button>
+          <button
+            onClick={() => setActiveTab('flow')}
+            className={`playground-tab ${activeTab === 'flow' ? 'active' : ''}`}
+          >
+            Rule Flow
           </button>
         </div>
 
@@ -317,6 +346,12 @@ export function PolicyPlayground() {
               </div>
             )}
           </>
+        )}
+
+        {activeTab === 'flow' && (
+          <div style={{ height: '28rem' }}>
+            <RuleFlow {...(result ? { evaluationResult: result } : {})} />
+          </div>
         )}
       </div>
     </div>

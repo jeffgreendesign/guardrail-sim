@@ -49,7 +49,7 @@ console.log(result);
 // {
 //   approved: true,
 //   violations: [],
-//   triggeredRules: ['margin_floor', 'max_discount'],
+//   applied_rules: ['margin_floor', 'max_discount', 'volume_tier'],
 //   calculated_margin: 0.28
 // }
 ```
@@ -115,13 +115,31 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 }
 ```
 
-The MCP server exposes 5 tools:
+The MCP server exposes 12 tools:
+
+**Policy**
 
 - `evaluate_policy` - Evaluate discount against policy
 - `get_policy_summary` - Get human-readable policy rules
 - `get_max_discount` - Calculate maximum allowed discount
+
+**UCP discounts**
+
 - `validate_discount_code` - UCP-aligned pre-validation
 - `simulate_checkout_discount` - Full checkout simulation
+
+**Simulation**
+
+- `run_simulation` - Run adversarial buyer personas, deterministically
+- `analyze_simulation` - Run a simulation and surface policy health insights
+
+**UCP checkout**
+
+- `create_checkout` - Create a checkout session
+- `get_checkout` - Retrieve a session by id
+- `update_checkout` - Update a session and re-evaluate discounts
+- `complete_checkout` - Complete a session, producing an order reference
+- `cancel_checkout` - Cancel a session
 
 ## Next Steps
 

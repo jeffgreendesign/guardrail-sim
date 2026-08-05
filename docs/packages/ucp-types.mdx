@@ -15,10 +15,13 @@ npm install @guardrail-sim/ucp-types
 
 ## Overview
 
-This package provides TypeScript types that align with the UCP specification, enabling guardrail-sim to integrate with the agentic commerce ecosystem. It includes:
+This package provides TypeScript types aligned with UCP spec revision **2026-04-08**, enabling
+guardrail-sim to integrate with the agentic commerce ecosystem. It includes:
 
-- **Discount types** - Error codes, allocations, applied/rejected discounts
+- **Discount types** - Error codes, allocations, applied discounts and rejection messages
 - **Checkout types** - Checkout sessions, line items, buyers, totals
+- **Cart, Order, Catalog and Identity Linking** - the remaining UCP capabilities
+- **Profile / discovery** - the `/.well-known/ucp` document and capability negotiation
 - **Converters** - Functions to convert between policy engine results and UCP formats
 
 ## Discount Types
@@ -105,21 +108,24 @@ const result: DiscountValidationResult = {
 
 ### LineItem
 
-A product in the checkout.
+A priced line in a checkout response. Note `id` and the `totals[]` breakdown — a line item
+does **not** carry a `subtotal: Money` field.
 
 ```typescript
 import type { LineItem } from '@guardrail-sim/ucp-types';
 
 const item: LineItem = {
-  item: { id: 'SKU-001' },
+  id: 'li-8f2a1c04',
+  item: { id: 'SKU-001', title: 'Widget', price: 250000 },
   quantity: 2,
-  subtotal: { amount: 500000, currency: 'USD' },
+  totals: [{ type: 'subtotal', amount: 500000 }],
 };
 ```
 
-### Money
+`LineItemRequest` is the looser shape accepted on input: just `item` and `quantity`. The
+`item` must carry an inline `title` and `price` — bare references cannot be priced.
 
-Currency amounts in minor units.
+### Money and amounts
 
 ```typescript
 import type { Money } from '@guardrail-sim/ucp-types';
@@ -130,55 +136,140 @@ const price: Money = {
 };
 ```
 
-### CheckoutResponse
+<Callout title="Most amounts are plain integers, not Money">
+  UCP states amounts as raw integers in minor units. `Money` exists as a wrapper where currency
+  context is useful, but `Total.amount`, `AppliedDiscount.amount` and `DiscountAllocation.amount`
+  are all plain `number`.
+</Callout>
 
-A checkout session with discounts.
+### Total and the discount sign convention
+
+```typescript
+import type { Total } from '@guardrail-sim/ucp-types';
+
+const totals: Total[] = [
+  { type: 'subtotal', amount: 750000 },
+  { type: 'discount', amount: -75000 }, // negative
+  { type: 'total', amount: 675000 },
+];
+```
+
+<Callout type="warn" title="Discounts are negative in totals, positive in `applied`">
+  As of UCP 2026-04-08, a discount entry in `totals[]` (and `line_items[].totals[]`) is **negative**
+  — it states the effect on the receipt. The same discount in `discounts.applied[].amount` is
+  **positive** — it states the discount's value. The two are deliberately opposite signs, and
+  conflating them double-counts the discount.
+</Callout>
+
+### CheckoutWithDiscounts
+
+A checkout session carrying the discount extension under its namespaced key.
 
 ```typescript
 import type { CheckoutWithDiscounts } from '@guardrail-sim/ucp-types';
 
 const checkout: CheckoutWithDiscounts = {
-  status: 'open',
-  line_items: [...],
-  totals: {
-    subtotal: { amount: 750000, currency: 'USD' },
-    discount: { amount: 75000, currency: 'USD' },
-    total: { amount: 675000, currency: 'USD' }
+  id: 'c-1f8e...',
+  status: 'ready_for_complete',
+  currency: 'USD',
+  line_items: [
+    /* LineItem[] */
+  ],
+  totals: [
+    { type: 'subtotal', amount: 750000 },
+    { type: 'discount', amount: -75000 },
+    { type: 'total', amount: 675000 },
+  ],
+  links: [],
+  payment: { handlers: [] },
+  'dev.ucp.shopping.discount': {
+    codes: ['SUMMER20'],
+    applied: [
+      /* AppliedDiscount[] */
+    ],
+    messages: [
+      /* rejections, as warnings */
+    ],
   },
-  applied_discounts: [...],
-  rejected_discounts: [...]
 };
 ```
+
+`CheckoutStatus` is one of `incomplete`, `ready_for_complete`, `in_progress`, `completed`,
+`canceled` or `requires_escalation`. There is no `open` status, and there are no
+`applied_discounts` / `rejected_discounts` fields — rejections travel in `messages[]`.
+
+## Spec Version and Capabilities
+
+```typescript
+import {
+  UCP_SPEC_VERSION, // '2026-04-08'
+  SUPPORTED_UCP_VERSIONS, // ['2026-04-08', '2026-01-23', '2026-01-11']
+  CHECKOUT_CAPABILITY,
+  CART_CAPABILITY,
+  CATALOG_CAPABILITY,
+  ORDER_CAPABILITY,
+  DISCOUNT_EXTENSION,
+  FULFILLMENT_EXTENSION,
+  IDENTITY_LINKING_CAPABILITY,
+  GUARDRAIL_UCP_PROFILE,
+  serializeProfile,
+} from '@guardrail-sim/ucp-types';
+
+// The discount extension augments both checkout and cart as of 2026-04-08.
+DISCOUNT_EXTENSION.extends;
+// ['dev.ucp.shopping.checkout', 'dev.ucp.shopping.cart']
+```
+
+`GUARDRAIL_UCP_PROFILE` is the `/.well-known/ucp` document this project advertises, built from
+those constants so the spec version is stated exactly once. `serializeProfile()` returns it
+exactly as the MCP server serves it.
+
+## Other Modules
+
+| Module                | Contents                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `profile.ts`          | `UCPProfile`, `compareVersions`, `negotiateCapabilities`, `profileSupportsCapability` |
+| `cart.ts`             | `CartResponse`, `CartLineItem`, create/update request types                           |
+| `order.ts`            | `Order`, `OrderFulfillment`, `OrderWebhookEvent`, webhook signature headers           |
+| `identity-linking.ts` | OAuth 2.0 flows: server metadata (RFC 8414), token/refresh/revocation types           |
 
 ## Converter Functions
 
 ### toUCPErrorCode
 
-Convert a policy violation to UCP error code.
+Map a policy violation to a UCP error code. Takes the whole `Violation`, not a rule name —
+it delegates to `getUCPErrorCode` in `@guardrail-sim/policy-engine`, which owns the single
+mapping table.
 
 ```typescript
 import { toUCPErrorCode } from '@guardrail-sim/ucp-types';
 
-const code = toUCPErrorCode('margin_floor');
+const code = toUCPErrorCode({ rule: 'margin_floor', message: 'below floor' });
 // 'discount_code_invalid'
 ```
 
 ### toDiscountValidationResult
 
-Convert policy evaluation to validation result.
+Convert a policy evaluation into a validation result. The `code` argument is echoed back on
+the result.
 
 ```typescript
 import { toDiscountValidationResult } from '@guardrail-sim/ucp-types';
-import type { EvaluationResult } from '@guardrail-sim/policy-engine';
 
-const evaluation: EvaluationResult = await engine.evaluate(order, 0.3);
+const evaluation = await engine.evaluate(order, 0.3);
 const result = toDiscountValidationResult(evaluation, 'SUMMER30');
-// { valid: false, error_code: 'discount_code_invalid', message: '...' }
+// {
+//   code: 'SUMMER30',
+//   valid: false,
+//   error_code: 'discount_code_invalid',
+//   message: 'Calculated margin falls below 15% floor',
+//   limiting_factor: 'margin_floor'
+// }
 ```
 
 ### buildDiscountExtensionResponse
 
-Build a full UCP discount extension response.
+Build a UCP discount extension response. The amount is a plain integer in minor units.
 
 ```typescript
 import { buildDiscountExtensionResponse } from '@guardrail-sim/ucp-types';
@@ -186,71 +277,106 @@ import { buildDiscountExtensionResponse } from '@guardrail-sim/ucp-types';
 const response = buildDiscountExtensionResponse(
   ['SUMMER20'], // codes
   evaluationResult, // policy result
-  { amount: 75000, currency: 'USD' }, // discount amount
+  75000, // discount amount in cents
   'Summer Sale' // title
 );
 
+// Approved:
+// { codes: ['SUMMER20'], applied: [{ code: 'SUMMER20', amount: 75000, ... }] }
+//
+// Rejected — note there is no `rejected` array; rejections are warnings:
 // {
-//   applied: [{ code: 'SUMMER20', ... }],
-//   rejected: [],
-//   messages: []
+//   codes: ['SUMMER20'],
+//   applied: [],
+//   messages: [{
+//     type: 'warning',
+//     code: 'discount_code_invalid',
+//     message: '...',
+//     field: 'dev.ucp.shopping.discount.codes'
+//   }]
 // }
 ```
 
 ### calculateAllocations
 
-Calculate how a discount is distributed across line items.
+Distribute a discount across line items. `across` is proportional to each line's subtotal;
+`each` splits evenly. Amounts are plain integers.
 
 ```typescript
 import { calculateAllocations } from '@guardrail-sim/ucp-types';
 import type { LineItem } from '@guardrail-sim/ucp-types';
 
 const lineItems: LineItem[] = [
-  { item: { id: 'A' }, quantity: 2, subtotal: { amount: 300000, currency: 'USD' } },
-  { item: { id: 'B' }, quantity: 1, subtotal: { amount: 200000, currency: 'USD' } },
+  {
+    id: 'li-a',
+    item: { id: 'A', title: 'Widget', price: 150000 },
+    quantity: 2,
+    totals: [{ type: 'subtotal', amount: 300000 }],
+  },
+  {
+    id: 'li-b',
+    item: { id: 'B', title: 'Gadget', price: 200000 },
+    quantity: 1,
+    totals: [{ type: 'subtotal', amount: 200000 }],
+  },
 ];
 
-const allocations = calculateAllocations(
-  { amount: 50000, currency: 'USD' }, // $500 discount
-  lineItems,
-  'across' // proportional allocation
-);
+const allocations = calculateAllocations(50000, lineItems, 'across');
 // [
-//   { target: '$.line_items[0]', amount: { amount: 30000, currency: 'USD' } },
-//   { target: '$.line_items[1]', amount: { amount: 20000, currency: 'USD' } }
+//   { target: '$.line_items[0]', amount: 30000 },
+//   { target: '$.line_items[1]', amount: 20000 }
 // ]
 ```
 
 ### fromUCPLineItems
 
-Convert UCP line items to policy engine format.
+Convert UCP line items to the policy engine's `Order`. The option key is `productMargin`.
 
 ```typescript
-import { fromUCPLineItems } from '@guardrail-sim/ucp-types';
+import { fromUCPLineItems, DEFAULT_PRODUCT_MARGIN } from '@guardrail-sim/ucp-types';
 
 const order = fromUCPLineItems(lineItems, {
-  product_margin: 0.4, // 40% base margin
+  productMargin: 0.4, // 40% base margin
+  customerSegment: 'gold',
 });
-// { order_value: 5000, quantity: 3, product_margin: 0.4 }
+// { order_value: 500000, quantity: 3, product_margin: 0.4, customer_segment: 'gold' }
 ```
+
+<Callout title="Margin is an assumption, not a measurement">
+  UCP line items carry price but not cost, so margin cannot be derived from a cart. Omitting
+  `productMargin` falls back to `DEFAULT_PRODUCT_MARGIN` (0.3), which is exported so you can see the
+  number you are inheriting. Pass your real margin whenever you know it.
+</Callout>
 
 ## Usage with MCP Server
 
 The MCP server's UCP-aligned tools use these types internally:
 
-```typescript
+```jsonc
 // validate_discount_code returns DiscountValidationResult
 {
+  "code": "SUMMER30",
   "valid": false,
-  "error_code": "discount_code_user_ineligible",
-  "message": "..."
+  "error_code": "discount_code_invalid",
+  "message": "Calculated margin falls below 15% floor",
+  "limiting_factor": "margin_floor",
+  "max_allowed": 75000
 }
 
 // simulate_checkout_discount returns DiscountExtensionResponse
+// (plus `currency` and `allocations`). Rejections are messages, not a `rejected` array.
 {
-  "applied": [...],
-  "rejected": [...],
-  "messages": [...]
+  "codes": ["SUMMER20"],
+  "applied": [],
+  "messages": [
+    {
+      "type": "warning",
+      "code": "discount_code_invalid",
+      "message": "Calculated margin falls below 15% floor",
+      "field": "dev.ucp.shopping.discount.codes"
+    }
+  ],
+  "currency": "USD"
 }
 ```
 
@@ -259,3 +385,5 @@ The MCP server's UCP-aligned tools use these types internally:
 - [MCP Tools Reference](/docs/mcp-tools) - UCP-aligned MCP tools
 - [UCP Concepts](/docs/concepts/ucp) - UCP integration overview
 - [ADR-002: UCP Alignment](/docs/adr/002-ucp-alignment) - Design decision
+- [ADR-003: UCP Spec Review](/docs/adr/003-ucp-spec-review-jan-2026) - Superseded gap analysis
+- [ADR-004: MCP 2026-07-28](/docs/adr/004-mcp-2026-07-28-migration) - Protocol migration

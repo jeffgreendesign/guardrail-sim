@@ -126,6 +126,8 @@ export interface DiscountExtensionResponse extends DiscountResponse {
  * Guardrail-sim specific: Policy validation result for a discount
  */
 export interface DiscountValidationResult {
+  /** The discount code that was validated, when one was supplied */
+  code?: string;
   /** Whether the discount is allowed by policy */
   valid: boolean;
   /** UCP error code if rejected */

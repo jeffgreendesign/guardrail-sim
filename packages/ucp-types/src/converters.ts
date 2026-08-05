@@ -65,10 +65,14 @@ export function toUCPMessage(violation: Violation): DiscountMessage {
  */
 export function toDiscountValidationResult(
   evaluation: EvaluationResult,
-  _code?: string
+  code?: string
 ): DiscountValidationResult {
+  // The code is echoed back on the result so callers do not have to re-attach it.
+  const withCode = code !== undefined ? { code } : {};
+
   if (evaluation.approved) {
     return {
+      ...withCode,
       valid: true,
       message: 'Discount approved by policy',
     };
@@ -78,6 +82,7 @@ export function toDiscountValidationResult(
   const primaryViolation = evaluation.violations[0];
   if (!primaryViolation) {
     return {
+      ...withCode,
       valid: false,
       error_code: 'discount_code_invalid',
       message: 'Discount rejected by policy',
@@ -85,6 +90,7 @@ export function toDiscountValidationResult(
   }
 
   return {
+    ...withCode,
     valid: false,
     error_code: toUCPErrorCode(primaryViolation),
     message: primaryViolation.message,
@@ -136,10 +142,19 @@ export function createRejectedDiscount(code: string, violation: Violation): Reje
 }
 
 /**
- * Convert UCP line items to a guardrail-sim order
+ * The margin assumed when a caller supplies none.
  *
- * This is a simplified conversion - real implementations would
- * need more context about margins and customer segments.
+ * A UCP line item carries price but not cost, so margin cannot be derived from
+ * the cart alone. This is an assumption, not a measurement — exported so callers
+ * can see the number they are inheriting and override it deliberately.
+ */
+export const DEFAULT_PRODUCT_MARGIN = 0.3;
+
+/**
+ * Convert UCP line items to a guardrail-sim order.
+ *
+ * Margin is not present in UCP line items; pass `productMargin` whenever you know
+ * it, or the order is evaluated against {@link DEFAULT_PRODUCT_MARGIN}.
  */
 export function fromUCPLineItems(
   lineItems: (LineItem | LineItemRequest)[],
@@ -160,8 +175,19 @@ export function fromUCPLineItems(
     order_value: orderValue,
     quantity,
     customer_segment: options.customerSegment,
-    product_margin: options.productMargin ?? 0.3, // Default 30% margin
+    product_margin: options.productMargin ?? DEFAULT_PRODUCT_MARGIN,
   };
+}
+
+/**
+ * Split an integer amount into `count` parts that sum exactly to the original.
+ * The remainder goes to the first part, matching the `each` allocation convention.
+ */
+function splitEvenly(amount: number, count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(amount / count);
+  const remainder = amount - base * count;
+  return Array.from({ length: count }, (_, i) => (i === 0 ? base + remainder : base));
 }
 
 /**
@@ -175,11 +201,15 @@ export function buildDiscountExtensionResponse(
   discountTitle: string = 'Discount'
 ): DiscountExtensionResponse {
   if (evaluation.approved) {
-    // Discount was approved
+    // `proposedDiscount` is the total for the basket, so it is SPLIT across the codes
+    // rather than granted to each one. Giving every code the full amount meant N codes
+    // produced N times the discount; the sum is what lands in the checkout's totals[],
+    // so eleven codes could drive the order total below zero.
+    const perCode = splitEvenly(proposedDiscount, codes.length);
     return {
       codes,
       applied: codes.map((code, index) =>
-        createAppliedDiscount(code, proposedDiscount, discountTitle, {
+        createAppliedDiscount(code, perCode[index] ?? 0, discountTitle, {
           priority: index + 1,
         })
       ),

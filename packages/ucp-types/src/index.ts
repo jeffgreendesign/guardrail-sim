@@ -13,14 +13,17 @@
 // Version constants
 export {
   UCP_SPEC_VERSION,
+  SUPPORTED_UCP_VERSIONS,
   CHECKOUT_CAPABILITY,
   DISCOUNT_EXTENSION,
   ORDER_CAPABILITY,
   CART_CAPABILITY,
+  CATALOG_CAPABILITY,
   FULFILLMENT_EXTENSION,
   IDENTITY_LINKING_CAPABILITY,
 } from './versions.js';
 export type { UCPCapabilityDescriptor } from './versions.js';
+export { GUARDRAIL_UCP_PROFILE, serializeProfile } from './profile-fixture.js';
 
 // Profile / Discovery types
 export { compareVersions, negotiateCapabilities, profileSupportsCapability } from './profile.js';
@@ -147,6 +150,7 @@ export {
   createAppliedDiscount,
   createRejectedDiscount,
   fromUCPLineItems,
+  DEFAULT_PRODUCT_MARGIN,
   buildDiscountExtensionResponse,
   calculateAllocations,
   formatMoney,

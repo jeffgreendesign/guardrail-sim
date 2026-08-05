@@ -5,18 +5,18 @@
   "capabilities": [
     {
       "name": "dev.ucp.shopping.checkout",
-      "version": "2026-01-11",
+      "version": "2026-04-08",
       "schema": "https://ucp.dev/schemas/shopping/checkout.json"
     },
     {
       "name": "dev.ucp.shopping.discount",
-      "version": "2026-01-11",
-      "extends": "dev.ucp.shopping.checkout",
+      "version": "2026-04-08",
+      "extends": ["dev.ucp.shopping.checkout", "dev.ucp.shopping.cart"],
       "schema": "https://ucp.dev/schemas/shopping/discount.json"
     },
     {
       "name": "dev.ucp.shopping.fulfillment",
-      "version": "2026-01-11",
+      "version": "2026-04-08",
       "extends": "dev.ucp.shopping.checkout",
       "schema": "https://ucp.dev/schemas/shopping/fulfillment.json"
     }
@@ -25,7 +25,7 @@
     {
       "transport": "mcp",
       "endpoint": "stdio://guardrail-sim/mcp-server",
-      "version": "2026-01-11"
+      "version": "2026-04-08"
     }
   ],
   "payment_handlers": [],

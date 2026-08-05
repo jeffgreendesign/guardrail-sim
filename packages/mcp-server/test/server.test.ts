@@ -1,9 +1,11 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { readFileSync } from 'node:fs';
+import { Client } from '@modelcontextprotocol/client';
+import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createServer, VERSION } from '../dist/index.js';
 import { clearSessions } from '../dist/checkout-store.js';
+import { GUARDRAIL_UCP_PROFILE } from '@guardrail-sim/ucp-types';
 
 describe('MCP Server', () => {
   async function createTestClient() {
@@ -18,8 +20,13 @@ describe('MCP Server', () => {
   }
 
   describe('Server Info', () => {
-    it('should have correct version', () => {
-      assert.strictEqual(VERSION, '0.0.1');
+    it('advertises the version from package.json', () => {
+      // Asserting against the manifest rather than a literal keeps the advertised
+      // version from drifting away from the published one, as it previously had.
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+        version: string;
+      };
+      assert.strictEqual(VERSION, pkg.version);
     });
   });
 
@@ -157,8 +164,21 @@ describe('MCP Server', () => {
 
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
       assert.strictEqual(parsed.policy_id, 'default');
-      assert.ok(parsed.summary.includes('Margin Floor'));
       assert.ok(parsed.rules.length === 3);
+
+      // The summary is generated from the policy's own thresholds rather than
+      // hardcoded prose, so it must name the policy's rules and its real numbers.
+      assert.ok(parsed.summary.includes('margin_floor'));
+      assert.ok(parsed.summary.includes('15%'), 'should cite the policy margin floor');
+      assert.ok(parsed.summary.includes('25%'), 'should cite the policy discount cap');
+
+      const marginRule = (parsed.rules as { name: string; description: string }[]).find(
+        (r) => r.name === 'margin_floor'
+      );
+      // Without this, a missing rule fails with "cannot read properties of undefined"
+      // rather than naming the actual problem.
+      assert.notStrictEqual(marginRule, undefined, 'policy summary omitted margin_floor');
+      assert.strictEqual(marginRule?.description.includes('15%'), true);
     });
   });
 
@@ -227,15 +247,11 @@ describe('MCP Server', () => {
       const { client } = await createTestClient();
       const result = await client.listResources();
 
-      assert.strictEqual(result.resources.length, 5);
+      assert.strictEqual(result.resources.length, 2);
 
       const uris = result.resources.map((r) => r.uri);
       assert.ok(uris.includes('guardrail://policies/active'));
       assert.ok(uris.includes('guardrail://profile/well-known-ucp'));
-      // MCP Apps UI resources
-      assert.ok(uris.includes('ui://guardrail-sim/evaluation-result'));
-      assert.ok(uris.includes('ui://guardrail-sim/policy-dashboard'));
-      assert.ok(uris.includes('ui://guardrail-sim/simulation-results'));
     });
 
     it('should read active policy resource', async () => {
@@ -248,21 +264,18 @@ describe('MCP Server', () => {
       assert.strictEqual(policy.rules.length, 3);
     });
 
-    it('should read UI resources', async () => {
+    it('should serve the UCP profile from the ucp-types constants', async () => {
       const { client } = await createTestClient();
 
-      // Test evaluation result UI
-      const evalResult = await client.readResource({ uri: 'ui://guardrail-sim/evaluation-result' });
-      assert.strictEqual(evalResult.contents.length, 1);
-      assert.strictEqual(evalResult.contents[0].mimeType, 'text/html');
-      assert.ok((evalResult.contents[0].text as string).includes('<!doctype html>'));
-      assert.ok((evalResult.contents[0].text as string).includes('@modelcontextprotocol/ext-apps'));
+      const result = await client.readResource({ uri: 'guardrail://profile/well-known-ucp' });
+      assert.strictEqual(result.contents.length, 1);
+      assert.strictEqual(result.contents[0].mimeType, 'application/json');
 
-      // Test policy dashboard UI
-      const dashResult = await client.readResource({ uri: 'ui://guardrail-sim/policy-dashboard' });
-      assert.strictEqual(dashResult.contents.length, 1);
-      assert.strictEqual(dashResult.contents[0].mimeType, 'text/html');
-      assert.ok((dashResult.contents[0].text as string).includes('<!doctype html>'));
+      // Serialized from GUARDRAIL_UCP_PROFILE rather than read from disk, so a
+      // published tarball cannot lose the fixture and no inline fallback can drift.
+      const profile = JSON.parse(result.contents[0].text as string);
+      assert.deepStrictEqual(profile, GUARDRAIL_UCP_PROFILE);
+      assert.strictEqual(profile.capabilities.length, 3);
     });
   });
 
@@ -302,19 +315,31 @@ describe('MCP Server', () => {
       assert.strictEqual(parsed.seed, 123);
     });
 
-    it('should cap orders_per_persona at 50', async () => {
+    it('rejects orders_per_persona above the declared maximum', async () => {
+      const { client } = await createTestClient();
+
+      // The tool's inputSchema declares max 50 and the SDK enforces it, so an
+      // out-of-range request is refused rather than silently clamped. The bound
+      // is discoverable by the caller in tools/list.
+      const result = await client.callTool({
+        name: 'run_simulation',
+        arguments: { personas: ['budget-buyer'], orders_per_persona: 100 },
+      });
+
+      assert.ok(result.isError, 'out-of-range input should be an error result');
+      assert.match((result.content[0] as { type: 'text'; text: string }).text, /validation/i);
+    });
+
+    it('accepts orders_per_persona at the maximum', async () => {
       const { client } = await createTestClient();
 
       const result = await client.callTool({
         name: 'run_simulation',
-        arguments: {
-          personas: ['budget-buyer'],
-          orders_per_persona: 100,
-        },
+        arguments: { personas: ['budget-buyer'], orders_per_persona: 50 },
       });
 
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
-      assert.strictEqual(parsed.totalSessions, 50); // capped at 50
+      assert.strictEqual(parsed.totalSessions, 50);
     });
   });
 
@@ -681,17 +706,400 @@ describe('MCP Server', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle unknown tool gracefully', async () => {
+    it('rejects an unknown tool with a JSON-RPC error', async () => {
       const { client } = await createTestClient();
 
+      // Previously an isError result carrying a custom "UNKNOWN_TOOL" string.
+      // The SDK now answers with InvalidParams (-32602), which is what ADR 003
+      // asked for when it flagged the custom error codes as a gap.
+      await assert.rejects(
+        client.callTool({ name: 'unknown_tool', arguments: {} }),
+        (error: unknown) => {
+          assert.strictEqual((error as { code: number }).code, -32602);
+          return true;
+        }
+      );
+    });
+
+    it('reports a handler failure as an isError result', async () => {
+      const { client } = await createTestClient();
+
+      // Tool-level failures stay in-band so the model can read and react to them.
       const result = await client.callTool({
-        name: 'unknown_tool',
-        arguments: {},
+        name: 'get_checkout',
+        arguments: { id: 'does-not-exist' },
       });
 
       assert.ok(result.isError);
       const parsed = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
-      assert.strictEqual(parsed.code, 'UNKNOWN_TOOL');
+      assert.strictEqual(parsed.code, 'NOT_FOUND');
     });
+  });
+});
+
+describe('MCP 2026-07-28 conformance', () => {
+  async function connect() {
+    const server = createServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    return client;
+  }
+
+  it('declares an outputSchema on every tool', async () => {
+    const client = await connect();
+    const { tools } = await client.listTools();
+
+    assert.strictEqual(tools.length, 12);
+    for (const tool of tools) {
+      assert.ok(tool.outputSchema, `${tool.name} is missing an outputSchema`);
+      assert.ok(tool.inputSchema, `${tool.name} is missing an inputSchema`);
+    }
+  });
+
+  it('returns structuredContent alongside the text block', async () => {
+    const client = await connect();
+
+    const result = await client.callTool({
+      name: 'evaluate_policy',
+      arguments: {
+        order: { order_value: 50000, quantity: 120, product_margin: 0.4 },
+        proposed_discount: 0.12,
+      },
+    });
+
+    // The text block is kept for 2025-era clients that only read `content`.
+    const fromText = JSON.parse((result.content[0] as { type: 'text'; text: string }).text);
+    assert.ok(result.structuredContent, 'structuredContent must be present');
+    assert.deepStrictEqual(result.structuredContent, fromText);
+    assert.strictEqual((result.structuredContent as { approved: boolean }).approved, true);
+  });
+
+  it('lists tools in a stable order across connections', async () => {
+    // The revision asks for a deterministic tools/list so clients can cache it.
+    const first = (await (await connect()).listTools()).tools.map((t) => t.name);
+    const second = (await (await connect()).listTools()).tools.map((t) => t.name);
+
+    assert.deepStrictEqual(first, second);
+    assert.strictEqual(first[0], 'evaluate_policy');
+  });
+});
+
+describe('UCP 2026-04-08 totals sign convention', () => {
+  beforeEach(() => clearSessions());
+
+  async function connectClient() {
+    const server = createServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    return client;
+  }
+
+  function totalsOf(result: unknown): { type: string; amount: number }[] {
+    const parsed = JSON.parse(
+      ((result as { content: { text: string }[] }).content[0] as { text: string }).text
+    ) as { checkout: { totals: { type: string; amount: number }[] } };
+    return parsed.checkout.totals;
+  }
+
+  it('records a discount as a negative entry that reduces the total', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+          buyer: { email: 'buyer@example.com' },
+          'dev.ucp.shopping.discount': { codes: ['SAVE10'] },
+        },
+      },
+    });
+
+    const totals = totalsOf(result);
+    const subtotal = totals.find((t) => t.type === 'subtotal');
+    const discount = totals.find((t) => t.type === 'discount');
+    const total = totals.find((t) => t.type === 'total');
+
+    assert.ok(subtotal, 'subtotal entry missing');
+    assert.ok(discount, 'discount entry missing from totals[]');
+    assert.ok(total, 'total entry missing');
+
+    // 2026-04-08: the totals[] discount entry is negative, reflecting its
+    // effect on the receipt. Totals previously ignored discounts entirely,
+    // so total always equalled subtotal.
+    assert.ok(discount.amount < 0, `discount total should be negative, got ${discount.amount}`);
+    assert.equal(total.amount, subtotal.amount + discount.amount);
+    assert.ok(total.amount < subtotal.amount);
+  });
+
+  it('leaves totals unreduced when no discount applies', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+          buyer: { email: 'buyer@example.com' },
+        },
+      },
+    });
+
+    const totals = totalsOf(result);
+    assert.equal(
+      totals.find((t) => t.type === 'discount'),
+      undefined
+    );
+    assert.equal(
+      totals.find((t) => t.type === 'total')?.amount,
+      totals.find((t) => t.type === 'subtotal')?.amount
+    );
+  });
+
+  it('restores the total when discount codes are removed', async () => {
+    const client = await connectClient();
+
+    const created = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'item-1', title: 'Widget', price: 5000 }, quantity: 2 }],
+          buyer: { email: 'buyer@example.com' },
+          'dev.ucp.shopping.discount': { codes: ['SAVE10'] },
+        },
+      },
+    });
+    const id = (
+      JSON.parse((created.content[0] as { type: 'text'; text: string }).text) as {
+        checkout: { id: string };
+      }
+    ).checkout.id;
+
+    const updated = await client.callTool({
+      name: 'update_checkout',
+      arguments: { id, checkout: { 'dev.ucp.shopping.discount': { codes: [] } } },
+    });
+
+    const totals = totalsOf(updated);
+    assert.equal(
+      totals.find((t) => t.type === 'discount'),
+      undefined
+    );
+    assert.equal(
+      totals.find((t) => t.type === 'total')?.amount,
+      totals.find((t) => t.type === 'subtotal')?.amount
+    );
+  });
+});
+
+describe('regression: discount amounts and multi-code checkouts', () => {
+  beforeEach(() => clearSessions());
+
+  async function connectClient() {
+    const server = createServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    return client;
+  }
+
+  function parse<T>(result: unknown): T {
+    return JSON.parse(
+      ((result as { content: { text: string }[] }).content[0] as { text: string }).text
+    ) as T;
+  }
+
+  it('states the discount in the same minor units as the line items', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'simulate_checkout_discount',
+      arguments: {
+        codes: ['SUMMER20'],
+        line_items: [
+          {
+            item: { id: 'a', title: 'A', price: 500000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 500000 }],
+          },
+          {
+            item: { id: 'b', title: 'B', price: 250000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 250000 }],
+          },
+        ],
+        currency: 'USD',
+        discount_percentage: 0.1,
+        product_margin: 0.4,
+      },
+    });
+
+    // fromUCPLineItems sums line-item subtotals, which UCP states in minor units, so
+    // order_value is already cents. A second dollars->cents conversion inflated every
+    // discount by 100x: 10% of 750000 was reported as 7500000.
+    const parsed = parse<{
+      applied: { amount: number; allocations: { amount: number }[] }[];
+      allocations: { amount: number }[];
+    }>(result);
+    assert.strictEqual(parsed.applied[0].amount, 75000);
+    assert.deepStrictEqual(
+      parsed.allocations.map((a) => a.amount),
+      [50000, 25000]
+    );
+    // The single applied entry's own allocations must equal the top-level aggregate
+    // when there is exactly one code — the case that would hide a per-code drift.
+    assert.deepStrictEqual(
+      parsed.applied[0].allocations.map((a) => a.amount),
+      [50000, 25000]
+    );
+  });
+
+  it('gives each applied code its own allocations, not the aggregate', async () => {
+    const client = await connectClient();
+
+    const result = await client.callTool({
+      name: 'simulate_checkout_discount',
+      arguments: {
+        codes: ['A', 'B', 'C'],
+        line_items: [
+          {
+            item: { id: 'a', title: 'A', price: 500000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 500000 }],
+          },
+          {
+            item: { id: 'b', title: 'B', price: 250000 },
+            quantity: 1,
+            totals: [{ type: 'subtotal', amount: 250000 }],
+          },
+        ],
+        currency: 'USD',
+        discount_percentage: 0.1,
+        product_margin: 0.4,
+      },
+    });
+
+    const parsed = parse<{
+      applied: { amount: number; allocations: { amount: number }[] }[];
+    }>(result);
+
+    // Attaching the FULL aggregate to applied[0] made its allocations sum to more than
+    // its own amount whenever more than one code was supplied. Each entry's allocations
+    // must sum to exactly that entry's own amount.
+    for (const applied of parsed.applied) {
+      const allocationSum = applied.allocations.reduce((sum, a) => sum + a.amount, 0);
+      assert.strictEqual(
+        allocationSum,
+        applied.amount,
+        `code allocations (${allocationSum}) must equal its own amount (${applied.amount})`
+      );
+    }
+
+    const totalAcrossCodes = parsed.applied.reduce((sum, a) => sum + a.amount, 0);
+    assert.strictEqual(totalAcrossCodes, 75000);
+  });
+
+  it('splits one discount across codes instead of granting each the full amount', async () => {
+    for (const codeCount of [1, 3, 11]) {
+      clearSessions();
+      const client = await connectClient();
+      const codes = Array.from({ length: codeCount }, (_, i) => `CODE${i}`);
+
+      const created = await client.callTool({
+        name: 'create_checkout',
+        arguments: {
+          checkout: {
+            currency: 'USD',
+            line_items: [{ item: { id: 'a', title: 'A', price: 100000 }, quantity: 1 }],
+            buyer: { email: 'buyer@example.com' },
+            'dev.ucp.shopping.discount': { codes },
+          },
+        },
+      });
+
+      const checkout = parse<{
+        checkout: {
+          totals: { type: string; amount: number }[];
+          'dev.ucp.shopping.discount': { applied: { amount: number }[] };
+        };
+      }>(created).checkout;
+
+      const applied = checkout['dev.ucp.shopping.discount'].applied;
+      const sum = applied.reduce((acc, a) => acc + a.amount, 0);
+      const total = checkout.totals.find((t) => t.type === 'total')?.amount;
+
+      // Every code used to carry the FULL basket discount, so N codes granted N times
+      // the discount. Eleven codes drove the order total below zero.
+      assert.strictEqual(sum, 10000, `${codeCount} codes should still total one 10% discount`);
+      assert.strictEqual(total, 90000, `${codeCount} codes should leave the same total`);
+    }
+  });
+
+  it('never lets a discount drive the total below zero', async () => {
+    const client = await connectClient();
+    const codes = Array.from({ length: 50 }, (_, i) => `C${i}`);
+
+    const created = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'a', title: 'A', price: 1000 }, quantity: 1 }],
+          buyer: { email: 'buyer@example.com' },
+          'dev.ucp.shopping.discount': { codes },
+        },
+      },
+    });
+
+    const totals = parse<{ checkout: { totals: { type: string; amount: number }[] } }>(created)
+      .checkout.totals;
+    const total = totals.find((t) => t.type === 'total')?.amount;
+    // 10% of a 1000-unit item, split across 50 codes and summed back, is deterministic:
+    // 1000 - round(1000 * CHECKOUT_DISCOUNT_RATE) = 900. A boolean >= 0 check would still
+    // pass if the split silently dropped the discount to zero.
+    assert.strictEqual(total, 900, 'one 10% discount split across 50 codes should leave 900');
+  });
+
+  it('preserves spec-named UCP address fields instead of stripping them', async () => {
+    const client = await connectClient();
+
+    const created = await client.callTool({
+      name: 'create_checkout',
+      arguments: {
+        checkout: {
+          currency: 'USD',
+          line_items: [{ item: { id: 'a', title: 'A', price: 1000 }, quantity: 1 }],
+          buyer: { email: 'buyer@example.com', full_name: 'Ada Lovelace' },
+          shipping_address: {
+            street_address: '1 Main St',
+            address_locality: 'Springfield',
+            address_region: 'IL',
+            address_country: 'US',
+            postal_code: '62701',
+          },
+        },
+      },
+    });
+
+    // The schema used invented field names, and z.object strips unknown keys, so a
+    // client sending spec-correct UCP address fields lost every one of them.
+    const checkout = parse<{
+      checkout: {
+        shipping_address?: Record<string, string>;
+        buyer?: Record<string, string>;
+      };
+    }>(created).checkout;
+
+    assert.strictEqual(checkout.shipping_address?.street_address, '1 Main St');
+    assert.strictEqual(checkout.shipping_address?.address_locality, 'Springfield');
+    assert.strictEqual(checkout.shipping_address?.address_region, 'IL');
+    assert.strictEqual(checkout.shipping_address?.address_country, 'US');
+    assert.strictEqual(checkout.shipping_address?.postal_code, '62701');
+    assert.strictEqual(checkout.buyer?.full_name, 'Ada Lovelace');
   });
 });

@@ -5,7 +5,12 @@
  */
 
 import type { Policy } from '@guardrail-sim/policy-engine';
+import { extractPolicyThresholds, volumeTierLimit } from '@guardrail-sim/policy-engine';
 import type { NegotiationSession, SimulationMetrics, EdgeCase } from './types.js';
+
+/** How close to a threshold counts as "at the boundary". */
+const MARGIN_BUFFER_BAND = 0.02;
+const QUANTITY_BOUNDARY_BAND = 5;
 
 /**
  * Calculate aggregated metrics from simulation sessions.
@@ -48,7 +53,12 @@ export function calculateMetrics(
       ? approvedMargins.reduce((sum, m) => sum + m, 0) / approvedMargins.length
       : 0;
 
-  // Violation breakdown
+  // Violation breakdown. Counted per ROUND, not per session — a single session can
+  // produce several violations across its negotiation rounds. `totalEvaluations` is the
+  // matching denominator; dividing these counts by `totalSessions` yields rates above
+  // 100% and is always a bug.
+  const totalEvaluations = sessions.reduce((sum, s) => sum + s.rounds.length, 0);
+
   const violationsByRule: Record<string, number> = {};
   for (const session of sessions) {
     for (const round of session.rounds) {
@@ -88,6 +98,7 @@ export function calculateMetrics(
 
   return {
     totalSessions,
+    totalEvaluations,
     approvalRate,
     averageDiscountApproved,
     averageDiscountRequested,
@@ -100,39 +111,67 @@ export function calculateMetrics(
 }
 
 /**
- * Detect edge cases in simulation sessions
+ * Detect edge cases in simulation sessions.
+ *
+ * Thresholds come from the policy under test, so running a custom policy reports
+ * boundaries against *that* policy rather than the default policy's numbers.
  */
-function detectEdgeCases(sessions: NegotiationSession[], _policy: Policy): EdgeCase[] {
+function detectEdgeCases(sessions: NegotiationSession[], policy: Policy): EdgeCase[] {
   const edgeCases: EdgeCase[] = [];
+  const { marginFloor, maxDiscount, volumeTiers } = extractPolicyThresholds(policy);
+
+  // Quantities where the volume tier changes — the interesting places to probe.
+  const tierBoundaries = volumeTiers.map((t) => t.minQuantity).filter((q) => q > 0);
 
   for (const session of sessions) {
     for (const round of session.rounds) {
-      // Approved at boundary: margin within 2% of floor
-      if (round.accepted && round.evaluation.calculated_margin < 0.17) {
+      // Approved with the margin sitting just above the policy's floor.
+      if (
+        marginFloor !== undefined &&
+        round.accepted &&
+        round.evaluation.calculated_margin < marginFloor + MARGIN_BUFFER_BAND
+      ) {
         edgeCases.push({
-          description: `Discount approved with margin at ${(round.evaluation.calculated_margin * 100).toFixed(1)}%, close to 15% floor`,
+          description: `Discount approved with margin at ${(round.evaluation.calculated_margin * 100).toFixed(1)}%, close to ${(marginFloor * 100).toFixed(0)}% floor`,
           session,
           severity: 'warning',
         });
       }
 
-      // Volume tier boundary: quantity between 95 and 105
-      if (round.order.quantity >= 95 && round.order.quantity <= 105) {
-        const tierBoundary = round.order.quantity >= 100;
+      // Quantity sitting near a volume tier boundary, at a discount the tier gates.
+      for (const boundary of tierBoundaries) {
+        const nearBoundary =
+          round.order.quantity >= boundary - QUANTITY_BOUNDARY_BAND &&
+          round.order.quantity <= boundary + QUANTITY_BOUNDARY_BAND;
+        if (!nearBoundary) continue;
+
+        const aboveBoundary = round.order.quantity >= boundary;
+        const belowLimit = volumeTierLimit(volumeTiers, boundary - 1);
+        const aboveLimit = volumeTierLimit(volumeTiers, boundary);
         const discount = round.proposedDiscount;
-        if (discount > 0.1 && discount <= 0.15) {
+
+        if (
+          belowLimit !== undefined &&
+          aboveLimit !== undefined &&
+          discount > belowLimit &&
+          discount <= aboveLimit
+        ) {
           edgeCases.push({
-            description: `Volume tier boundary test: qty=${round.order.quantity} (${tierBoundary ? 'above' : 'below'} threshold), discount=${(discount * 100).toFixed(1)}%`,
+            description: `Volume tier boundary test: qty=${round.order.quantity} (${aboveBoundary ? 'above' : 'below'} ${boundary}-unit threshold), discount=${(discount * 100).toFixed(1)}%`,
             session,
-            severity: tierBoundary ? 'info' : 'warning',
+            severity: aboveBoundary ? 'info' : 'warning',
           });
         }
       }
 
-      // High discount approved: > 20% discount approved
-      if (round.accepted && round.proposedDiscount > 0.2) {
+      // Approved close to the policy's absolute cap.
+      if (
+        maxDiscount !== undefined &&
+        round.accepted &&
+        round.proposedDiscount > maxDiscount * 0.8
+      ) {
         edgeCases.push({
-          description: `High discount of ${(round.proposedDiscount * 100).toFixed(1)}% was approved`,
+          description: `High discount of ${(round.proposedDiscount * 100).toFixed(1)}% was approved against a ${(maxDiscount * 100).toFixed(0)}% cap`,
           session,
           severity: 'warning',
         });
@@ -146,6 +185,7 @@ function detectEdgeCases(sessions: NegotiationSession[], _policy: Policy): EdgeC
 function emptyMetrics(): SimulationMetrics {
   return {
     totalSessions: 0,
+    totalEvaluations: 0,
     approvalRate: 0,
     averageDiscountApproved: 0,
     averageDiscountRequested: 0,

@@ -13,6 +13,8 @@ const marginAlignmentItem: ChecklistItem = {
   description: 'Confirm your margin floor still reflects current cost structure.',
   category: 'margin-protection',
   required: true,
+  // Needs current cost data, which lives outside the policy.
+  manual: true,
   guidance: `
 ## Cost structure review
 
@@ -49,6 +51,8 @@ const competitiveAnalysisItem: ChecklistItem = {
   description: 'Review discount limits against market expectations.',
   category: 'margin-protection',
   required: false,
+  // Competitive positioning needs market data we do not hold.
+  manual: true,
   guidance: `
 ## Market alignment review
 
@@ -89,6 +93,7 @@ const volumeThresholdReviewItem: ChecklistItem = {
   description: 'Analyze order patterns to optimize quantity breakpoints.',
   category: 'volume-tiering',
   required: false,
+  isComplete: (ctx) => ctx.policy?.hasVolumeTiers === true,
   guidance: `
 ## Volume tier optimization
 
@@ -132,6 +137,7 @@ const segmentEffectivenessItem: ChecklistItem = {
   description: 'Assess whether customer segment differentiation adds value.',
   category: 'customer-segmentation',
   required: false,
+  isComplete: (ctx) => ctx.policy?.hasSegmentRules === true && ctx.simulationResults !== undefined,
   guidance: `
 ## Segment effectiveness review
 
@@ -174,6 +180,9 @@ const rulePerformanceItem: ChecklistItem = {
   description: 'Review which rules are actually affecting decisions.',
   category: 'simulation-analysis',
   required: true,
+  isComplete: (ctx) =>
+    // A key with a zero count is not a recorded trigger, so require a positive one.
+    Object.values(ctx.simulationResults?.violationsByRule ?? {}).some((count) => count > 0),
   guidance: `
 ## Rule effectiveness analysis
 
@@ -213,6 +222,7 @@ const simulationValidationItem: ChecklistItem = {
   description: 'Test current policy with updated simulation parameters.',
   category: 'simulation-analysis',
   required: true,
+  isComplete: (ctx) => (ctx.simulationResults?.totalOrders ?? 0) >= 100,
   guidance: `
 ## Validation simulation
 
@@ -253,6 +263,8 @@ const complianceAuditItem: ChecklistItem = {
   description: 'Ensure policy meets regulatory and internal audit requirements.',
   category: 'compliance',
   required: true,
+  // Audit sign-off happens outside the tool.
+  manual: true,
   guidance: `
 ## Compliance review
 
@@ -297,6 +309,8 @@ const documentationUpdateItem: ChecklistItem = {
   description: 'Refresh policy documentation to reflect current state.',
   category: 'compliance',
   required: false,
+  // Documentation state is not observable from a CheckContext.
+  manual: true,
   guidance: `
 ## Documentation refresh
 

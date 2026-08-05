@@ -78,7 +78,7 @@ console.log(result.violations); // []
 | Component     | Status       | Description                                          |
 | ------------- | ------------ | ---------------------------------------------------- |
 | Policy Engine | **Complete** | Deterministic rule evaluation with json-rules-engine |
-| MCP Server    | **Complete** | 7 MCP tools including simulation and UCP-aligned     |
+| MCP Server    | **Complete** | 12 MCP tools including simulation and UCP-aligned    |
 | UCP Types     | **Complete** | Universal Commerce Protocol type definitions         |
 | Insights      | **Complete** | Policy health checks and recommendations             |
 | Simulation    | **Complete** | Adversarial buyer personas and negotiation loops     |
@@ -102,7 +102,7 @@ console.log(result.violations); // []
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Policy Engine                            │
 │              json-rules-engine · Deterministic Evaluation       │
-│                    Exposed via MCP Server (7 tools)             │
+│                    Exposed via MCP Server (12 tools)            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -112,7 +112,7 @@ console.log(result.violations); // []
 packages/
 ├── policy-engine/     ✅ Deterministic rule evaluation (json-rules-engine)
 ├── simulation/        ✅ Adversarial buyer personas + negotiation loops
-├── mcp-server/        ✅ MCP server with 7 tools (policy + simulation + UCP)
+├── mcp-server/        ✅ MCP server with 12 tools (policy + simulation + UCP)
 ├── ucp-types/         ✅ UCP type definitions and converters
 ├── insights/          ✅ Policy health checks and recommendations
 apps/
@@ -127,7 +127,7 @@ examples/
 ```bash
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
-pnpm test             # Run tests (109 passing)
+pnpm test             # Run tests (177 passing)
 pnpm demo             # Run simulation demo
 pnpm lint             # Run ESLint
 pnpm format           # Format with Prettier

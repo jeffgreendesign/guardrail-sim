@@ -1,4 +1,8 @@
-@import 'fumadocs-ui/style.css';
+/* fumadocs-ui v16 dropped the bundled `fumadocs-ui/style.css` entry point in favour
+   of importing Tailwind directly plus a theme file and the preset. The preset carries
+   its own @source, so the explicit one for fumadocs-ui/dist is no longer needed. */
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
 
 /* ============================================
    FUMADOCS THEME - Must come before preset.css
@@ -26,7 +30,6 @@
 }
 
 @import 'fumadocs-ui/css/preset.css';
-@source '../node_modules/fumadocs-ui/dist/**/*.js';
 @import '../styles/shared.css';
 
 /* ============================================

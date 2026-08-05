@@ -31,7 +31,7 @@ npx @guardrail-sim/mcp-server  # Run MCP server
 
 ### Testing
 
-Uses Node's built-in test runner with native TypeScript support (type stripping is default in Node.js 22+):
+Uses Node's built-in test runner with native TypeScript support (type stripping is default in Node.js 22+). Tests import from `dist/`, so `pnpm build` must run first:
 
 ```bash
 node --test packages/policy-engine/test/*.test.ts
@@ -70,11 +70,12 @@ Key principle: LLMs simulate adversarial buyers only. Pricing math is always det
 
 ## Stack
 
-- pnpm monorepo, TypeScript (ES2022, NodeNext)
+- pnpm monorepo, TypeScript 6 (ES2022, NodeNext), Node 24 LTS
 - json-rules-engine for policy evaluation
-- @modelcontextprotocol/sdk for MCP server
+- @modelcontextprotocol/server (SDK v2) for the MCP server, targeting protocol 2026-07-28
+- UCP spec revision 2026-04-08 in @guardrail-sim/ucp-types
 - Supabase (PostgreSQL) for persistence [PLANNED]
-- Next.js 15 + Fumadocs for documentation site
+- Next.js 16 + Fumadocs 16 for documentation site
 
 ## Constraints
 

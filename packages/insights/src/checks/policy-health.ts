@@ -360,31 +360,36 @@ export const checkNoPrioritySet: InsightCheck = (context: CheckContext): Insight
   };
 };
 
-export const checkMarginFloorThreshold: InsightCheck = (context: CheckContext): InsightResult[] => {
-  if (!context.policy || !context.policy.hasMarginFloor) return [];
+export const checkHighMarginFloor: InsightCheck = (context: CheckContext): InsightResult | null => {
+  if (!context.policy || !context.policy.hasMarginFloor) return null;
 
-  const results: InsightResult[] = [];
   const marginFloor = context.policy.marginFloorValue ?? 0;
-
-  if (marginFloor > 0.25) {
-    results.push({
-      insight: highMarginFloorInsight,
-      triggered: true,
-      data: { currentValue: marginFloor },
-      message: `Your margin floor is set to ${(marginFloor * 100).toFixed(0)}%, which may reject many legitimate discounts.`,
-    });
+  if (marginFloor <= 0.25) {
+    return { insight: highMarginFloorInsight, triggered: false };
   }
 
-  if (marginFloor < 0.05 && marginFloor > 0) {
-    results.push({
-      insight: lowMarginFloorInsight,
-      triggered: true,
-      data: { currentValue: marginFloor },
-      message: `Your margin floor is set to ${(marginFloor * 100).toFixed(0)}%, providing minimal margin protection.`,
-    });
+  return {
+    insight: highMarginFloorInsight,
+    triggered: true,
+    data: { currentValue: marginFloor },
+    message: `Your margin floor is set to ${(marginFloor * 100).toFixed(0)}%, which may reject many legitimate discounts.`,
+  };
+};
+
+export const checkLowMarginFloor: InsightCheck = (context: CheckContext): InsightResult | null => {
+  if (!context.policy || !context.policy.hasMarginFloor) return null;
+
+  const marginFloor = context.policy.marginFloorValue ?? 0;
+  if (marginFloor >= 0.05 || marginFloor <= 0) {
+    return { insight: lowMarginFloorInsight, triggered: false };
   }
 
-  return results;
+  return {
+    insight: lowMarginFloorInsight,
+    triggered: true,
+    data: { currentValue: marginFloor },
+    message: `Your margin floor is set to ${(marginFloor * 100).toFixed(0)}%, providing minimal margin protection.`,
+  };
 };
 
 export const checkNoVolumeConsideration: InsightCheck = (
@@ -420,8 +425,7 @@ export const policyHealthChecks: Map<string, InsightCheck> = new Map([
   // Note: policy-health-004 (conflictingRulesInsight) requires rule conflict detection
   // TODO: Implement when rule condition analysis is available
   ['policy-health-005', checkNoPrioritySet],
-  // checkMarginFloorThreshold returns results for both 006 (high) and 007 (low)
-  ['policy-health-006', checkMarginFloorThreshold],
-  ['policy-health-007', checkMarginFloorThreshold],
+  ['policy-health-006', checkHighMarginFloor],
+  ['policy-health-007', checkLowMarginFloor],
   ['policy-health-008', checkNoVolumeConsideration],
 ]);

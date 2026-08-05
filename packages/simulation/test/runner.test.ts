@@ -386,3 +386,137 @@ describe('Simulation', () => {
     });
   });
 });
+
+describe('regression: metrics denominators and policy awareness', () => {
+  it('reports totalEvaluations >= totalSessions and counts every round', async () => {
+    const results = await runSimulation({
+      policy: defaultPolicy,
+      personas: defaultPersonas,
+      ordersPerPersona: 10,
+      seed: 42,
+    });
+
+    const roundCount = results.sessions.reduce((sum, s) => sum + s.rounds.length, 0);
+
+    assert.strictEqual(results.metrics.totalEvaluations, roundCount);
+    assert.ok(results.metrics.totalEvaluations >= results.metrics.totalSessions);
+  });
+
+  it('keeps every violation rate at or below 100% of evaluations', async () => {
+    const results = await runSimulation({
+      policy: defaultPolicy,
+      personas: defaultPersonas,
+      ordersPerPersona: 10,
+      seed: 7,
+    });
+
+    const summary = toSimulationSummary(results);
+    const denominator = summary.totalEvaluations ?? summary.totalOrders;
+
+    // "Margin floor triggered in 138.0% of evaluations (69 of 50)" was the symptom
+    // of dividing per-round violation counts by the per-session order count.
+    for (const [rule, count] of Object.entries(summary.violationsByRule)) {
+      assert.ok(count <= denominator, `${rule}: ${count} > ${denominator} evaluations`);
+    }
+  });
+
+  it('detects edge cases against the policy under test, not the default policy', async () => {
+    // A 30% floor with a 5% cap: nothing the default-policy thresholds would flag.
+    const strictPolicy = {
+      id: 'strict',
+      name: 'Strict Policy',
+      rules: [
+        {
+          name: 'margin_floor',
+          conditions: { all: [{ fact: 'calculated_margin', operator: 'lessThan', value: 0.3 }] },
+          event: { type: 'violation', params: { rule: 'margin_floor', message: 'below floor' } },
+          priority: 10,
+        },
+        {
+          name: 'max_discount',
+          conditions: {
+            all: [{ fact: 'proposed_discount', operator: 'greaterThan', value: 0.05 }],
+          },
+          event: { type: 'violation', params: { rule: 'max_discount', message: 'over cap' } },
+          priority: 10,
+        },
+      ],
+    };
+
+    const results = await runSimulation({
+      policy: strictPolicy,
+      personas: defaultPersonas,
+      ordersPerPersona: 10,
+      seed: 42,
+    });
+
+    // Any margin-boundary edge case must cite this policy's 30% floor, never 15%.
+    const marginCases = results.metrics.edgeCasesFound.filter((e) =>
+      e.description.includes('floor')
+    );
+    // Without this the loop below passes vacuously and proves nothing.
+    assert.notStrictEqual(marginCases.length, 0, 'expected at least one margin-floor edge case');
+    for (const edgeCase of marginCases) {
+      assert.strictEqual(
+        edgeCase.description.includes('30% floor'),
+        true,
+        `edge case cites the wrong policy: ${edgeCase.description}`
+      );
+    }
+  });
+});
+
+describe('regression: session outcomes', () => {
+  it('produces abandoned sessions when a buyer stops conceding', async () => {
+    const results = await runSimulation({
+      policy: defaultPolicy,
+      personas: defaultPersonas,
+      ordersPerPersona: 40,
+      seed: 42,
+    });
+
+    const outcomes = new Set(results.sessions.map((s) => s.outcome));
+    // 'abandoned' was in the SessionOutcome union but no code path produced it.
+    assert.ok(outcomes.has('abandoned'), `only saw outcomes: ${[...outcomes].join(', ')}`);
+
+    for (const session of results.sessions.filter((s) => s.outcome === 'abandoned')) {
+      assert.strictEqual(session.finalDiscount, null);
+      assert.strictEqual(session.marginImpact, 0);
+    }
+  });
+
+  it('reports marginImpact as revenue conceded, not the discount rate', async () => {
+    const results = await runSimulation({
+      policy: defaultPolicy,
+      personas: defaultPersonas,
+      ordersPerPersona: 10,
+      seed: 42,
+    });
+
+    const accepted = results.sessions.filter((s) => s.outcome === 'accepted');
+    assert.ok(accepted.length > 0);
+
+    for (const session of accepted) {
+      const order = session.rounds[0].order;
+      const expected = order.order_value * (session.finalDiscount ?? 0);
+      assert.ok(Math.abs(session.marginImpact - expected) < 1e-9);
+      // A rate would be < 1; revenue conceded on these orders is far larger.
+      assert.ok(session.marginImpact > 1);
+    }
+  });
+
+  it('accounts for every session in outcomesByPersona', async () => {
+    const results = await runSimulation({
+      policy: defaultPolicy,
+      personas: defaultPersonas,
+      ordersPerPersona: 10,
+      seed: 42,
+    });
+
+    const tallied = Object.values(results.metrics.outcomesByPersona).reduce(
+      (sum, o) => sum + o.accepted + o.rejected + o.abandoned,
+      0
+    );
+    assert.strictEqual(tallied, results.metrics.totalSessions);
+  });
+});

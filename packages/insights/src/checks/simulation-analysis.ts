@@ -433,6 +433,148 @@ export const checkLimitingFactorVariety: InsightCheck = (
   return { insight: noLimitingFactorVarietyInsight, triggered: false };
 };
 
+/** Order value above which a deal counts as "high value" for sim-007. */
+const HIGH_VALUE_ORDER_THRESHOLD = 10_000;
+
+export const checkVolumeTierUtilization: InsightCheck = (
+  context: CheckContext
+): InsightResult | null => {
+  if (!context.simulationResults || !context.policy) return null;
+  if (!context.policy.hasVolumeTiers) return null;
+
+  const { violationsByRule } = context.simulationResults;
+
+  // A volume tier that never gates anything across a whole run is either set beyond
+  // the order sizes buyers actually bring, or is redundant with another rule.
+  const volumeRules = context.policy.rules
+    .map((r) => r.name)
+    .filter((name) => name.toLowerCase().includes('volume') || name.toLowerCase().includes('tier'));
+
+  if (volumeRules.length === 0) return null;
+
+  const untriggered = volumeRules.filter((rule) => (violationsByRule[rule] ?? 0) === 0);
+  if (untriggered.length === 0) {
+    return { insight: volumeTierUnderutilizedInsight, triggered: false };
+  }
+
+  return {
+    insight: volumeTierUnderutilizedInsight,
+    triggered: true,
+    data: {
+      untriggeredRules: untriggered,
+      thresholds: context.policy.volumeTierThresholds,
+    },
+    message: `Volume tier rules never affected an outcome: ${untriggered.join(', ')}. Thresholds may be set beyond the order sizes buyers actually request.`,
+  };
+};
+
+export const checkSegmentRuleEffectiveness: InsightCheck = (
+  context: CheckContext
+): InsightResult | null => {
+  if (!context.simulationResults || !context.policy) return null;
+  if (!context.policy.hasSegmentRules) return null;
+
+  const { violationsByRule } = context.simulationResults;
+
+  const segmentRules = context.policy.rules
+    .map((r) => r.name)
+    .filter((name) => name.toLowerCase().includes('segment'));
+
+  if (segmentRules.length === 0) return null;
+
+  const untriggered = segmentRules.filter((rule) => (violationsByRule[rule] ?? 0) === 0);
+  if (untriggered.length === 0) {
+    return { insight: segmentRulesNotTriggeringInsight, triggered: false };
+  }
+
+  return {
+    insight: segmentRulesNotTriggeringInsight,
+    triggered: true,
+    data: {
+      untriggeredRules: untriggered,
+      segments: context.policy.segments,
+    },
+    message: `Segment rules never affected an outcome: ${untriggered.join(', ')}. Segment limits may be more permissive than the base rules.`,
+  };
+};
+
+export const checkRejectionClustering: InsightCheck = (
+  context: CheckContext
+): InsightResult | null => {
+  if (!context.simulationResults) return null;
+
+  const { limitingFactors } = context.simulationResults;
+  const entries = Object.entries(limitingFactors);
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+  // Needs enough rejections to distinguish a pattern from noise, and at least two
+  // distinct factors — a single factor is sim-008's territory, not clustering.
+  if (total < 10 || entries.length < 2) {
+    return { insight: consistentRejectionPatternInsight, triggered: false };
+  }
+
+  const dominant = entries.reduce((max, entry) => (entry[1] > max[1] ? entry : max));
+  const dominanceRatio = dominant[1] / total;
+
+  // Clustered but not monolithic: one factor dominates without owning everything.
+  if (dominanceRatio > 0.6 && dominanceRatio <= 0.9) {
+    return {
+      insight: consistentRejectionPatternInsight,
+      triggered: true,
+      data: {
+        dominantFactor: dominant[0],
+        ratio: dominanceRatio,
+        allFactors: limitingFactors,
+      },
+      message: `Rejections cluster on "${dominant[0]}" (${(dominanceRatio * 100).toFixed(0)}% of ${total} rejections), suggesting buyers are probing a known threshold.`,
+    };
+  }
+
+  return { insight: consistentRejectionPatternInsight, triggered: false };
+};
+
+export const checkHighValueOrderRejection: InsightCheck = (
+  context: CheckContext
+): InsightResult | null => {
+  const summary = context.simulationResults;
+  if (!summary?.approvedOrderValues || !summary.rejectedOrderValues) return null;
+
+  const approved = summary.approvedOrderValues;
+  const rejected = summary.rejectedOrderValues;
+  const totalOrders = approved.length + rejected.length;
+  if (totalOrders === 0) return null;
+
+  const isHighValue = (v: number): boolean => v > HIGH_VALUE_ORDER_THRESHOLD;
+  const highValueApproved = approved.filter(isHighValue).length;
+  const highValueRejected = rejected.filter(isHighValue).length;
+  const highValueTotal = highValueApproved + highValueRejected;
+
+  // Need a meaningful sample of large deals before drawing a conclusion.
+  if (highValueTotal < 5) {
+    return { insight: highValueOrderRejectionInsight, triggered: false };
+  }
+
+  const highValueRejectionRate = highValueRejected / highValueTotal;
+  const overallRejectionRate = rejected.length / totalOrders;
+
+  // Flag only a materially worse rate, so ordinary variance stays quiet.
+  if (highValueRejectionRate > overallRejectionRate + 0.1) {
+    return {
+      insight: highValueOrderRejectionInsight,
+      triggered: true,
+      data: {
+        threshold: HIGH_VALUE_ORDER_THRESHOLD,
+        highValueRejectionRate,
+        overallRejectionRate,
+        highValueOrders: highValueTotal,
+      },
+      message: `Orders above $${HIGH_VALUE_ORDER_THRESHOLD.toLocaleString('en-US')} are rejected ${(highValueRejectionRate * 100).toFixed(0)}% of the time versus ${(overallRejectionRate * 100).toFixed(0)}% overall.`,
+    };
+  }
+
+  return { insight: highValueOrderRejectionInsight, triggered: false };
+};
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -452,5 +594,9 @@ export const simulationAnalysisChecks: Map<string, InsightCheck> = new Map([
   ['sim-001', checkSimulationCoverage],
   ['sim-002', checkSegmentDistribution],
   ['sim-003', checkUnusedRules],
+  ['sim-004', checkVolumeTierUtilization],
+  ['sim-005', checkSegmentRuleEffectiveness],
+  ['sim-006', checkRejectionClustering],
+  ['sim-007', checkHighValueOrderRejection],
   ['sim-008', checkLimitingFactorVariety],
 ]);

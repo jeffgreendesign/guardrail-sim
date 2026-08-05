@@ -33,6 +33,10 @@
     "./cart": {
       "types": "./dist/cart.d.ts",
       "import": "./dist/cart.js"
+    },
+    "./profile-fixture": {
+      "types": "./dist/profile-fixture.d.ts",
+      "import": "./dist/profile-fixture.js"
     }
   },
   "files": [
@@ -67,13 +71,15 @@
     "build": "tsc -b",
     "dev": "tsc -b --watch",
     "test": "node --test test/*.test.ts",
+    "test:coverage": "c8 --reporter=text --reporter=lcov node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@guardrail-sim/policy-engine": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
-    "@types/node": "^22.10.5"
+    "@types/node": "^24.10.1",
+    "c8": "^12.0.0",
+    "typescript": "^6.0.3"
   }
 }
